@@ -368,6 +368,22 @@ bool connected;
 bool connected_to_base;
 bool connected_to_ship;
 
+// thrust block definitions
+Dictionary < string, Decimal > thrust_power = new Dictionary < string, Decimal > () {
+	{"MyObjectBuilder_Thrust/SmallBlockSmallThrust", 33.6M },
+	{"MyObjectBuilder_Thrust/SmallBlockLargeThrust", 400M },
+	{"MyObjectBuilder_Thrust/LargeBlockSmallThrust", 560M },
+	{"MyObjectBuilder_Thrust/LargeBlockLargeThrust", 6720M },
+	{"MyObjectBuilder_Thrust/SmallBlockSmallHydrogenThrust", 0M },
+	{"MyObjectBuilder_Thrust/SmallBlockLargeHydrogenThrust", 0M },
+	{"MyObjectBuilder_Thrust/LargeBlockSmallHydrogenThrust", 0M },
+	{"MyObjectBuilder_Thrust/LargeBlockLargeHydrogenThrust", 0M },
+	{"MyObjectBuilder_Thrust/SmallBlockSmallAtmosphericThrust", 700M },
+	{"MyObjectBuilder_Thrust/SmallBlockLargeAtmosphericThrust", 2400M },
+	{"MyObjectBuilder_Thrust/LargeBlockSmallAtmosphericThrust", 2360M },
+	{"MyObjectBuilder_Thrust/LargeBlockLargeAtmosphericThrust", 16360M },
+};
+
 // power constants - in kWatts
 const Decimal URANIUM_INGOT_POWER = 68760M;
 
@@ -1999,7 +2015,26 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 		var block = blocks[i];
 		if (block is IMyBatteryBlock)
 			continue;
-		power_draw += getBlockPowerUse(block);
+		// if this is a thruster
+		if (block is IMyThrust) {
+			var typename = block.BlockDefinition.ToString();
+			Decimal thrust_draw;
+			bool found = thrust_power.TryGetValue(typename, out thrust_draw);
+			if (found) {
+				power_draw += thrust_draw;
+			} else {
+				thrust_draw = getBlockPowerUse(block);
+				if (thrust_draw == 0) {
+					throw new BarabasException("Unknown thrust type");
+				} else {
+					power_draw += thrust_draw;
+				}
+			}
+		}
+		// it's a regular block
+		else {
+			power_draw += getBlockPowerUse(block);
+		}
 	}
 	// add 5% to account for various misc stuff like conveyors etc
 	power_draw *= 1.05M;
