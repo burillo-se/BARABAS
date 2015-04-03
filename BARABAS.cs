@@ -338,12 +338,12 @@ bool connected_to_ship;
 int[] skip_steps;
 
 // thrust block definitions
-var thrust_power = new Dictionary < string, Decimal > () {
+Dictionary < string, Decimal > thrust_power = new Dictionary < string, Decimal > () {
 	{"MyObjectBuilder_Thrust/SmallBlockSmallThrust", 33.6M },
 	{"MyObjectBuilder_Thrust/SmallBlockLargeThrust", 400M },
 	{"MyObjectBuilder_Thrust/LargeBlockSmallThrust", 560M },
 	{"MyObjectBuilder_Thrust/LargeBlockLargeThrust", 6720M },
-}
+};
 
 // power constants - in kWatts
 const Decimal URANIUM_INGOT_POWER = 68760M;
