@@ -1,5 +1,5 @@
 /*
- * BARABAS v1.3
+ * BARABAS v1.31pre1
  *
  * (Burillo's Automatic Resource Administration for BAses and Ships)
  *
@@ -338,17 +338,15 @@ bool connected_to_ship;
 int[] skip_steps;
 
 // thrust block definitions
-const string SSST_NAME = "SmallBlockSmallThrust";
-const string SSLT_NAME = "SmallBlockLargeThrust";
-const string LSST_NAME = "LargeBlockSmallThrust";
-const string LSLT_NAME = "LargeBlockLargeThrust";
+var thrust_power = new Dictionary < string, Decimal > () {
+	{"MyObjectBuilder_Thrust/SmallBlockSmallThrust", 33.6M },
+	{"MyObjectBuilder_Thrust/SmallBlockLargeThrust", 400M },
+	{"MyObjectBuilder_Thrust/LargeBlockSmallThrust", 560M },
+	{"MyObjectBuilder_Thrust/LargeBlockLargeThrust", 6720M },
+}
 
 // power constants - in kWatts
 const Decimal URANIUM_INGOT_POWER = 68760M;
-const Decimal SSST_POWER_DRAW = 33.6M;
-const Decimal SSLT_POWER_DRAW = 400M;
-const Decimal LSST_POWER_DRAW = 560M;
-const Decimal LSLT_POWER_DRAW = 6720M;
 
 public struct ItemHelper {
 	public IMyInventory Inventory;
@@ -1759,16 +1757,13 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 
 	for (int i = 0; i < blocks.Count; i++) {
 		var block = blocks[i];
-		string typename = (block as IMyCubeBlock).BlockDefinition.ToString();
-		if (typename.Contains("Thrust")) {
-			if (typename.Contains(SSST_NAME)) {
-				power_draw += SSST_POWER_DRAW;
-			} else if (typename.Contains(SSLT_NAME)) {
-				power_draw += SSLT_POWER_DRAW;
-			} else if (typename.Contains(LSST_NAME)) {
-				power_draw += LSST_POWER_DRAW;
-			} else if (typename.Contains(LSLT_NAME)) {
-				power_draw += LSLT_POWER_DRAW;
+		// if this is a thruster
+		if (block is IMyThrust) {
+			var typename = block.BlockDefinition.ToString();
+			Decimal thrust_draw;
+			bool found = thrust_power.TryGetValue(typename, out thrust_draw);
+			if (found) {
+				power_draw += thrust_draw;
 			} else {
 				throw new BarabasException("Unknown thrust type");
 			}
