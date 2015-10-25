@@ -1690,7 +1690,11 @@ void fillWelders() {
 
 				// send one and check load
 				Decimal old_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-				src_inv.TransferItemTo(dst_inv, j, null, true, (VRage.MyFixedPoint) 1);
+				if (!Transfer(src_inv, dst_inv, j, null, true, (VRage.MyFixedPoint) 1)) {
+					Echo("Error transfering from: " + container[maxIndex].CustomName);
+					Echo("Check conveyors for missing/damage and\nblock ownership");
+					continue;
+				}
 				Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
 				Decimal item_vol = new_vol - old_vol;
 				int target_amount = (int) Math.Floor(target_volume / item_vol);
@@ -1899,8 +1903,9 @@ bool refillReactors(bool force = false) {
 				rinv.TransferItemFrom(ingot.Value.Inventory, ingot.Value.Index, null, true, null);
 				ingot = null;
 			} else {
-				cur_amount -= amount;
-				rinv.TransferItemFrom(ingot.Value.Inventory, ingot.Value.Index, null, true, (VRage.MyFixedPoint) amount);
+				if (Transfer(rinv, ingot.Value.Inventory, ingot.Value.Index, null, true, (VRage.MyFixedPoint) amount)) {
+					cur_amount -= amount;
+				}
 			}
 			if (ingots_in_reactor + amount < ingots_per_reactor) {
 				refilled = false;
@@ -2500,7 +2505,11 @@ void spreadLoad(List < IMyTerminalBlock > blocks) {
 
 			// send one and check load
 			Decimal cur_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-			src_inv.TransferItemTo(dst_inv, i, null, true, (VRage.MyFixedPoint) 1);
+			if (!Transfer(src_inv, dst_inv, i, true, (VRage.MyFixedPoint) 1)) {
+				Echo("Error transfering from: " + blocks[maxIndex].CustomName);
+				Echo("Check conveyors for missing/damage and\nblock ownership");
+				continue;
+			}
 			Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
 			Decimal item_vol = new_vol - cur_vol;
 			int target_amount = (int) Math.Floor(target_volume / item_vol);
