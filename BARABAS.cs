@@ -372,13 +372,6 @@ bool excludeBlock(IMyTerminalBlock block) {
 	return false;
 }
 
-// get current programmable block
-bool runningPBFilter(IMyTerminalBlock block) {
-	if (excludeBlock(block)) {
-		return false;
-	}
-	return (block as IMyProgrammableBlock).IsRunning;
-}
 // this includes ALL local blocks, used for purposes of calculating max power consumption
 bool localGridDumbFilter(IMyTerminalBlock block) {
 	if (!(block as IMyCubeBlock).IsFunctional) {
@@ -423,21 +416,6 @@ bool shipFilter(IMyTerminalBlock block) {
 /**
  * Grid and block functions
  */
-IMyProgrammableBlock getPB(bool force_update = false) {
-	if (local_pb != null && !force_update) {
-		return local_pb;
-	}
-	var blocks = new List < IMyTerminalBlock > ();
-	GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (blocks, runningPBFilter);
-	if (blocks.Count > 1) {
-		throw new BarabasException("More than one PB is running");
-	} else if (blocks.Count == 0) {
-		throw new BarabasException("Programmable block not found!");
-	}
-	local_pb = blocks[0] as IMyProgrammableBlock;
-	return local_pb;
-}
-
 // template functions for filtering blocks
 public void filterBlocks < T > (List < IMyTerminalBlock > list, string name_filter = null, string definition_filter = null) {
 	for (int i = list.Count - 1; i >= 0; i--) {
@@ -704,7 +682,7 @@ string getGridId(string val) {
 }
 
 void loadLocalGrids(List < IMyCubeGrid > grids) {
-	grids.Add(getPB().CubeGrid);
+	grids.Add(Me.CubeGrid);
 	if (Storage.Length > 0) {
 		var tentative_grids = new List < IMyCubeGrid > ();
 		var blocks = new List < IMyTerminalBlock > ();
@@ -740,7 +718,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 		return new List < IMyCubeGrid > (local_grids);
 	}
 	var tentative_grids = new List < IMyCubeGrid > ();
-	tentative_grids.Add(getPB().CubeGrid);
+	tentative_grids.Add(Me.CubeGrid);
 
 	// get all connectors
 	List < IMyTerminalBlock > list = new List < IMyTerminalBlock > ();
@@ -3094,9 +3072,9 @@ bool s_refreshState() {
 		autoConfigure();
 	}
 	if ((op_mode & OP_MODE_SHIP) > 0) {
-		getPB().SetCustomName("BARABAS Ship CPU");
+		Me.SetCustomName("BARABAS Ship CPU");
 	} else {
-		getPB().SetCustomName("BARABAS Base CPU");
+		Me.SetCustomName("BARABAS Base CPU");
 	}
 	configureWatermarks();
 	rebuildConfiguration();
@@ -3423,9 +3401,6 @@ bool s_updateMaterialStats() {
 
 void Main() {
 	if (!init) {
-		// get our programming block
-		getPB();
-
 		// kick off state machine
 		states = new Func < bool > [] {
 			s_refreshState,
