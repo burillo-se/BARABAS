@@ -958,7 +958,7 @@ List < ItemHelper > getAllInventories() {
 	for (int i = 0; i < blocks.Count; i++) {
 		var block = blocks[i];
 		// skip blocks that don't have inventory
-		if (!block.HasInventory()) {
+		if ((block as IMyInventoryOwner) != null && !block.HasInventory()) {
 			continue;
 		}
 		int invCount = block.GetInventoryCount();
