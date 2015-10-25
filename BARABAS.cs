@@ -1756,6 +1756,11 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 }
 
 Decimal getBlockPowerUse(IMyTerminalBlock block) {
+	// Hydrogen thrusters don't use power but still report it
+	string typename = (block as IMyCubeBlock).BlockDefinition.ToString();
+	if (typename.Contains("HydrogenThrust")) {
+		return 0;
+	}
 	var power_regex = new System.Text.RegularExpressions.Regex("Max Required Input: ([\\d\\.]+) (\\w?)W");
 	var cur_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+) (\\w?)W");
 	var power_match = power_regex.Match(block.DetailedInfo);
