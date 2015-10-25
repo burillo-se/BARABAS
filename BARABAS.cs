@@ -1779,14 +1779,14 @@ Decimal getBlockPowerUse(IMyTerminalBlock block) {
 		if (!result) {
 			throw new BarabasException("Invalid detailed info format!");
 		}
-		max *= (Decimal) Math.Pow(1000.0, "kMGTPEZY".IndexOf(power_match.Groups[2].Value));
+		max *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(power_match.Groups[2].Value) - 1);
 	}
 	if (cur_match.Groups[1].Success && cur_match.Groups[2].Success) {
 		bool result = Decimal.TryParse(cur_match.Groups[1].Value, out cur);
 		if (!result) {
 			throw new BarabasException("Invalid detailed info format!");
 		}
-		cur *= (Decimal) Math.Pow(1000.0, "kMGTPEZY".IndexOf(cur_match.Groups[2].Value));
+		cur *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
 	}
 	return Math.Max(cur, max);
 }
