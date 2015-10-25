@@ -3148,8 +3148,9 @@ bool s_uranium() {
 				prioritize_uranium = false;
 			}
 
-			status_report[STATUS_POWER_LOAD] = Convert.ToString(Math.Round(getMaxPowerDraw() / getMaxPowerOutput() * 100, 0)) + "%";
-			Decimal minutes_per_ingot = URANIUM_INGOT_POWER / getMaxPowerDraw();
+			var max_pwr_draw = getMaxPowerDraw();
+			status_report[STATUS_POWER_LOAD] = Convert.ToString(Math.Round(max_pwr_draw / getMaxPowerOutput() * 100, 0)) + "% (" + getPowerLoadStr(max_pwr_draw) + "W)";
+			Decimal minutes_per_ingot = URANIUM_INGOT_POWER / max_pwr_draw;
 			Decimal time = Math.Round(minutes_per_ingot * ingot_status[URANIUM], 0);
 			if (time > 300) {
 				time = Math.Floor(time / 60M);
