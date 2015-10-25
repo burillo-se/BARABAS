@@ -3086,17 +3086,6 @@ bool s_refreshState() {
 	configureWatermarks();
 	rebuildConfiguration();
 
-	// local refresh finished, now see if we have any remote grids
-	findRemoteGrids();
-	// signal that we have something connected to us
-	if (connected) {
-		getRemoteStorage(true);
-		getRemoteShipStorage(true);
-		addAlert(GREEN_ALERT);
-	} else {
-		removeAlert(GREEN_ALERT);
-	}
-
 	if (has_damaged_blocks) {
 		addAlert(PINK_ALERT);
 	} else {
@@ -3114,6 +3103,20 @@ bool s_refreshState() {
 	if (pull_components_from_base && push_components_to_base) {
 		throw new BarabasException("Invalid configuration - " +
 			"pull_components_from_base and push_components_to_base both set to \"true\"");
+	}
+	return true;
+}
+
+bool s_refreshRemote() {
+	// local refresh finished, now see if we have any remote grids
+	findRemoteGrids();
+	// signal that we have something connected to us
+	if (connected) {
+		getRemoteStorage(true);
+		getRemoteShipStorage(true);
+		addAlert(GREEN_ALERT);
+	} else {
+		removeAlert(GREEN_ALERT);
 	}
 	return true;
 }
@@ -3411,6 +3414,7 @@ void Main() {
 		// kick off state machine
 		states = new Func < bool > [] {
 			s_refreshState,
+			s_refreshRemote,
 			s_updateMaterialStats,
 			s_uranium,
 			s_refineries,
