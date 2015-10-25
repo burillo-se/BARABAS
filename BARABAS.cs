@@ -1691,7 +1691,7 @@ void fillWelders() {
 				// send one and check load
 				Decimal old_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
 				if (!Transfer(src_inv, dst_inv, j, null, true, (VRage.MyFixedPoint) 1)) {
-					Echo("Error transfering from: " + container[maxIndex].CustomName);
+					Echo("Error transfering from: " + container.CustomName);
 					Echo("Check conveyors for missing/damage and\nblock ownership");
 					continue;
 				}
@@ -2505,7 +2505,7 @@ void spreadLoad(List < IMyTerminalBlock > blocks) {
 
 			// send one and check load
 			Decimal cur_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-			if (!Transfer(src_inv, dst_inv, i, true, (VRage.MyFixedPoint) 1)) {
+			if (!Transfer(src_inv, dst_inv, maxIndex, i, true, (VRage.MyFixedPoint) 1)) {
 				Echo("Error transfering from: " + blocks[maxIndex].CustomName);
 				Echo("Check conveyors for missing/damage and\nblock ownership");
 				continue;
