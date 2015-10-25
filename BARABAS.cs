@@ -337,14 +337,6 @@ bool connected_to_base;
 bool connected_to_ship;
 int[] skip_steps;
 
-// thrust block definitions
-Dictionary < string, Decimal > thrust_power = new Dictionary < string, Decimal > () {
-	{"MyObjectBuilder_Thrust/SmallBlockSmallThrust", 33.6M },
-	{"MyObjectBuilder_Thrust/SmallBlockLargeThrust", 400M },
-	{"MyObjectBuilder_Thrust/LargeBlockSmallThrust", 560M },
-	{"MyObjectBuilder_Thrust/LargeBlockLargeThrust", 6720M },
-};
-
 // power constants - in kWatts
 const Decimal URANIUM_INGOT_POWER = 68760M;
 
@@ -1344,6 +1336,21 @@ void checkStorageLoad() {
 	status_report[STATUS_STORAGE_LOAD] = String.Format("{0}%", Math.Round(storageLoad * 100M, 0));
 }
 
+string getPowerLoadStr(Decimal value) {
+	var pwrs = "kMGTPEZY";
+	int pwr_idx = 0;
+	while (value >= 1000M) {
+		value /= 1000M;
+		pwr_idx++;
+	}
+	if (value >= 100)
+		return String.Format("{0:0}", value) + pwrs[pwr_idx];
+	else if (value >= 10)
+		return String.Format("{0:0.0}", value) + pwrs[pwr_idx];
+	else
+		return String.Format("{0:0.00}", value) + pwrs[pwr_idx];
+}
+
 /**
  * Push and pull from storage
  */
@@ -1737,21 +1744,7 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 
 	for (int i = 0; i < blocks.Count; i++) {
 		var block = blocks[i];
-		// if this is a thruster
-		if (block is IMyThrust) {
-			var typename = block.BlockDefinition.ToString();
-			Decimal thrust_draw;
-			bool found = thrust_power.TryGetValue(typename, out thrust_draw);
-			if (found) {
-				power_draw += thrust_draw;
-			} else {
-				throw new BarabasException("Unknown thrust type");
-			}
-		}
-		// it's a regular block
-		else {
-			power_draw += getBlockPowerUse(block);
-		}
+		power_draw += getBlockPowerUse(block);
 	}
 	// add 5% to account for various misc stuff like conveyors etc
 	power_draw *= 1.05M;
