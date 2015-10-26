@@ -196,27 +196,27 @@ readonly Dictionary < string, Decimal > material_thresholds = new Dictionary < s
 
 readonly Dictionary < string, Decimal > ore_to_ingot_ratios = new Dictionary < string, Decimal > {
 	{
-		COBALT, 0.3M
+		COBALT, 0.24M
 	}, {
-		GOLD, 0.01M
+		GOLD, 0.008M
 	}, {
-		ICE, 0.006M
+		ICE, 0.0066M
 	}, {
-		IRON, 0.7M
+		IRON, 0.56M
 	}, {
-		MAGNESIUM, 0.007M
+		MAGNESIUM, 0.0056M
 	}, {
-		NICKEL, 0.4M
+		NICKEL, 0.32M
 	}, {
-		PLATINUM, 0.005M
+		PLATINUM, 0.004M
 	}, {
-		SILICON, 0.7M
+		SILICON, 0.56M
 	}, {
-		SILVER, 0.1M
+		SILVER, 0.08M
 	}, {
-		URANIUM, 0.007M
+		URANIUM, 0.0056M
 	}, {
-		STONE, 0.9M
+		STONE, 0.72M
 	},
 };
 
