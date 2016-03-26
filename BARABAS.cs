@@ -1055,18 +1055,18 @@ bool isOre(IMyInventoryItem item) {
 	if (item.Content.SubtypeName == "Scrap") {
 		return true;
 	}
-	return item.Content is Sandbox.Common.ObjectBuilders.MyObjectBuilder_Ore;
+	return item.Content is VRage.Game.MyObjectBuilder_Ore;
 }
 
 bool isIngot(IMyInventoryItem item) {
 	if (item.Content.SubtypeName == "Scrap") {
 		return false;
 	}
-	return item.Content is Sandbox.Common.ObjectBuilders.MyObjectBuilder_Ingot;
+	return item.Content is VRage.Game.MyObjectBuilder_Ingot;
 }
 
 bool isComponent(IMyInventoryItem item) {
-	return item.Content is Sandbox.Common.ObjectBuilders.MyObjectBuilder_Component;
+	return item.Content is VRage.Game.MyObjectBuilder_Component;
 }
 
 // get total amount of all ingots (of a particular type) stored in a particular inventory
