@@ -648,11 +648,13 @@ List < IMyTerminalBlock > getAntennas(bool force_update = false) {
 		}
 		var tmp_antennas = group.Blocks;
 		var tmp_beacons = group.Blocks;
+		var tmp_laser = group.Blocks;
 
 		// we may find multiple Status groups, as we may have a BARABAS-driven
 		// ships connected, so let's filter text panels
 		filterLocalGrid < IMyBeacon > (tmp_beacons);
 		filterLocalGrid < IMyRadioAntenna > (tmp_antennas);
+		filterLocalGrid < IMyLaserAntenna > (tmp_laser);
 
 		// populate the list
 		for (int j = 0; j < tmp_beacons.Count; j++) {
@@ -660,6 +662,9 @@ List < IMyTerminalBlock > getAntennas(bool force_update = false) {
 		}
 		for (int j = 0; j < tmp_antennas.Count; j++) {
 			local_antennas.Add(tmp_antennas[j]);
+		}
+		for (int j = 0; j < tmp_laser.Count; j++) {
+			local_antennas.Add(tmp_laser[j]);
 		}
 		break;
 	}
@@ -3152,6 +3157,23 @@ void parseConfiguration() {
 	}
 }
 
+string getAntennaName(string name) {
+	var regex = new System.Text.RegularExpressions.Regex("\\[BARABAS");
+	var match = regex.Match(name);
+	if (!match.Success) {
+		return name;
+	}
+	return name.Substring(0, match.Index - 1);
+}
+
+void setAntennaName(IMyTerminalBlock antenna, string name, string alert) {
+	if (alert == "") {
+		antenna.SetCustomName(name);
+		return;
+	}
+	antenna.SetCustomName(name + " [BARABAS: " + alert + "]");
+}
+
 void showOnHud(IMyTerminalBlock block) {
  if (block.GetProperty("ShowOnHUD") != null) {
 	 block.SetValue("ShowOnHUD", true);
@@ -3168,12 +3190,18 @@ void showAntennaAlert(string text) {
 	var antennas = getAntennas();
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
+		var name = getAntennaName(antenna.CustomName);
 		antenna.ApplyAction(text != "" ? "OnOff_On" : "OnOff_Off");
-		antenna.SetCustomName("[" + text + "]");
-		if (antenna is IMyRadioAntenna) {
+		if (antenna.GetProperty("EnableBroadCast") != null) {
 			antenna.SetValue("EnableBroadCast", text != "");
+		}
+		if (antenna.GetProperty("ShowShipName") != null) {
 			antenna.SetValue("ShowShipName", true);
 		}
+		if (antenna.GetProperty("ShowOnHUD") != null) {
+			antenna.SetValue("ShowOnHUD", text != "");
+		}
+		setAntennaName(antenna, name, text);
 	}
 }
 
