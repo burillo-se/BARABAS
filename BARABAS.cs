@@ -415,6 +415,18 @@ bool shipFilter(IMyTerminalBlock block) {
 /**
  * Grid and block functions
  */
+void showOnHud(IMyTerminalBlock block) {
+	if (block.GetProperty("ShowOnHUD") != null) {
+		block.SetValue("ShowOnHUD", true);
+	}
+}
+
+void hideFromHud(IMyTerminalBlock block) {
+ if (block.GetProperty("ShowOnHUD") != null) {
+	 block.SetValue("ShowOnHUD", false);
+ }
+}
+
 // template functions for filtering blocks
 public void filterBlocks < T > (List < IMyTerminalBlock > list, string name_filter = null, string definition_filter = null) {
 	for (int i = list.Count - 1; i >= 0; i--) {
@@ -463,8 +475,11 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	for (int i = local_blocks.Count - 1; i >= 0; i--) {
 		var block = local_blocks[i];
 		if (!block.IsFunctional) {
+			showOnHud(block);
 			local_blocks.RemoveAt(i);
 			has_damaged_blocks = true;
+		} else {
+			hideFromHud(block);
 		}
 	}
 	return new List < IMyTerminalBlock > (local_blocks);
@@ -2225,6 +2240,7 @@ void refineOre() {
 					amount = 0;
 				}
 				var refinery = refineries[r];
+				hideFromHud(refinery);
 				var input_inv = refinery.GetInventory(0);
 				var output_inv = refinery.GetInventory(1);
 				Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
@@ -2248,6 +2264,7 @@ void refineOre() {
 				}
 				Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
 				if (input_load == 1M || output_load == 1M || (!(refinery as IMyRefinery).IsQueueEmpty && !(refinery as IMyRefinery).IsProducing)) {
+					showOnHud(refinery);
 					addAlert(MAGENTA_ALERT);
 					alert = true;
 				}
@@ -2542,10 +2559,12 @@ void declogAssemblers() {
 	for (int i = 0; i < assemblers.Count; i++) {
 		var assembler = assemblers[i] as IMyAssembler;
 		var inv = assembler.GetInventory(0);
+		hideFromHud(assembler);
 
 		// input is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M && !assembler.IsProducing) {
 			alert = true;
+			showOnHud(assembler);
 		}
 		// empty assembler input if it's not doing anything
 		var items = inv.GetItems();
@@ -2560,6 +2579,7 @@ void declogAssemblers() {
 		// output is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M) {
 			alert = true;
+			showOnHud(assembler);
 		}
 		// empty output but only if it's not disassembling
 		if (!assembler.DisassembleEnabled) {
@@ -2571,6 +2591,7 @@ void declogAssemblers() {
 		// maybe we're missing some kind of ore?
 		if (!assembler.IsProducing && !assembler.IsQueueEmpty) {
 			alert = true;
+			showOnHud(assembler);
 		}
 	}
 	if (alert) {
@@ -2590,13 +2611,16 @@ void declogRefineries() {
 		for (int j = items.Count - 1; j >= 0; j--) {
 			pushToStorage(inv, j, null);
 		}
+		hideFromHud(refinery);
 		// output is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M) {
+			showOnHud(refinery);
 			alert = true;
 		}
 		inv = refinery.GetInventory(0);
 		// input is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M && !refinery.IsProducing) {
+			showOnHud(refinery);
 			alert = true;
 		}
 	}
