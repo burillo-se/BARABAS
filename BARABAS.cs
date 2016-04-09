@@ -267,6 +267,7 @@ List < IMyTerminalBlock > local_air_vents = null;
 List < IMyTerminalBlock > local_oxygen_tanks = null;
 List < IMyTerminalBlock > local_hydrogen_tanks = null;
 List < IMyTerminalBlock > local_oxygen_generators = null;
+List < IMyTerminalBlock > local_antennas = null;
 List < IMyTerminalBlock > remote_storage = null;
 List < IMyTerminalBlock > remote_ship_storage = null;
 List < IMyTerminalBlock > remote_reactors = null;
@@ -415,18 +416,6 @@ bool shipFilter(IMyTerminalBlock block) {
 /**
  * Grid and block functions
  */
-void showOnHud(IMyTerminalBlock block) {
-	if (block.GetProperty("ShowOnHUD") != null) {
-		block.SetValue("ShowOnHUD", true);
-	}
-}
-
-void hideFromHud(IMyTerminalBlock block) {
- if (block.GetProperty("ShowOnHUD") != null) {
-	 block.SetValue("ShowOnHUD", false);
- }
-}
-
 // template functions for filtering blocks
 public void filterBlocks < T > (List < IMyTerminalBlock > list, string name_filter = null, string definition_filter = null) {
 	for (int i = list.Count - 1; i >= 0; i--) {
@@ -640,6 +629,41 @@ List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
 		break;
 	}
 	return new List < IMyTerminalBlock > (local_text_panels);
+}
+
+// get status report text panels
+List < IMyTerminalBlock > getAntennas(bool force_update = false) {
+	if (local_text_panels != null && !force_update) {
+		return new List < IMyTerminalBlock > (removeNulls(local_antennas));
+	}
+	// find our group
+	local_antennas = new List < IMyTerminalBlock > ();
+	var groups = new List<IMyBlockGroup>();
+	GridTerminalSystem.GetBlockGroups(groups);
+	for (int i = 0; i < groups.Count; i++) {
+		var group = groups[i];
+		// skip groups we don't want
+		if (group.Name != "BARABAS Notify") {
+			continue;
+		}
+		var tmp_antennas = group.Blocks;
+		var tmp_beacons = group.Blocks;
+
+		// we may find multiple Status groups, as we may have a BARABAS-driven
+		// ships connected, so let's filter text panels
+		filterLocalGrid < IMyBeacon > (tmp_beacons);
+		filterLocalGrid < IMyRadioAntenna > (tmp_antennas);
+
+		// populate the list
+		for (int j = 0; j < tmp_beacons.Count; j++) {
+			local_antennas.Add(tmp_beacons[j]);
+		}
+		for (int j = 0; j < tmp_antennas.Count; j++) {
+			local_antennas.Add(tmp_antennas[j]);
+		}
+		break;
+	}
+	return new List < IMyTerminalBlock > (local_antennas);
 }
 
 List < IMyTerminalBlock > getDrills(bool force_update = false) {
@@ -2807,6 +2831,7 @@ void addAlert(int level) {
 		}
 	}
 	showAlertColor(cur_alert.Value.color);
+	showAntennaAlert(text);
 	status_report[STATUS_ALERT] = text;
 }
 
@@ -2830,6 +2855,7 @@ void removeAlert(int level) {
 		}
 	}
 	status_report[STATUS_ALERT] = text;
+	showAntennaAlert(text);
 	if (!alert.HasValue) {
 		hideAlertColor();
 	} else {
@@ -3126,6 +3152,31 @@ void parseConfiguration() {
 	}
 }
 
+void showOnHud(IMyTerminalBlock block) {
+ if (block.GetProperty("ShowOnHUD") != null) {
+	 block.SetValue("ShowOnHUD", true);
+ }
+}
+
+void hideFromHud(IMyTerminalBlock block) {
+	if (block.GetProperty("ShowOnHUD") != null) {
+		block.SetValue("ShowOnHUD", false);
+	}
+}
+
+void showAntennaAlert(string text) {
+	var antennas = getAntennas();
+	for (int i = 0; i < antennas.Count; i++) {
+		var antenna = antennas[i];
+		antenna.ApplyAction(text != "" ? "OnOff_On" : "OnOff_Off");
+		antenna.SetCustomName("[" + text + "]");
+		if (antenna is IMyRadioAntenna) {
+			antenna.SetValue("EnableBroadCast", text != "");
+			antenna.SetValue("ShowShipName", true);
+		}
+	}
+}
+
 void showAlertColor(Color c) {
 	var lights = getLights();
 	for (int i = 0; i < lights.Count; i++) {
@@ -3228,6 +3279,7 @@ bool s_refreshState() {
 	getTrashConnector(true);
 	getStorage(true);
 	getLights(true);
+	getAntennas(true);
 	if (has_reactors) {
 		getMaxReactorPowerOutput(true);
 	}
