@@ -3624,7 +3624,7 @@ bool s_updateMaterialStats() {
 			if (ore == URANIUM) {
 				total_ingots -= uranium_in_reactors;
 			}
-			total_ingots += (total_ore * ore_to_ingot_ratios[ore]);
+			total = (total_ore * ore_to_ingot_ratios[ore]);
 		}
 
 		if (has_status_panels) {
