@@ -1901,8 +1901,12 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 	// add 5% to account for various misc stuff like conveyors etc
 	power_draw *= 1.05M;
 
-	// now, check if we're not overflowing the reactors and batteries
-	max_power_draw = Math.Min(power_draw, getMaxBatteryPowerOutput() + getMaxReactorPowerOutput());
+	if (getMaxBatteryPowerOutput() + getMaxReactorPowerOutput() == 0) {
+		max_power_draw = power_draw;
+	} else {
+		// now, check if we're not overflowing the reactors and batteries
+		max_power_draw = Math.Min(power_draw, getMaxBatteryPowerOutput() + getMaxReactorPowerOutput());
+	}
 
 	return max_power_draw;
 }
@@ -3071,10 +3075,6 @@ void parseLine(string line) {
 		}
 	} else if (str == POWER_HIGH_WATERMARK) {
 		if (fparse && fval >= 0) {
-			if (fval != power_high_watermark) {
-				int index = Array.IndexOf(states, s_power);
-				skip_steps[index] = 0;
-			}
 			power_high_watermark = fval;
 			return;
 		} else {
@@ -3082,10 +3082,6 @@ void parseLine(string line) {
 		}
 	} else if (str == POWER_LOW_WATERMARK) {
 		if (fparse && fval >= 0) {
-			if (fval != power_low_watermark) {
-				int index = Array.IndexOf(states, s_power);
-				skip_steps[index] = 0;
-			}
 			power_low_watermark = fval;
 			return;
 		} else {
@@ -3370,79 +3366,80 @@ bool s_refreshRemote() {
 }
 
 bool s_power() {
-	// don't check power every time
-	if (skip_steps[current_state] == 0) {
+	// determine if we need more uranium
+	bool above_high_watermark = aboveHighWatermark();
 
-		// determine if we need more uranium
-		bool above_high_watermark = aboveHighWatermark();
+	// if we have enough uranium ingots, business as usual
+	if (!above_high_watermark) {
+		// check if we're below low watermark
+		bool above_low_watermark = aboveLowWatermark();
 
-		// if we have enough uranium ingots, business as usual
-		if (!above_high_watermark) {
-			// check if we're below low watermark
-			bool above_low_watermark = aboveLowWatermark();
-
-			if (has_reactors && has_refineries && ore_status[URANIUM] > 0) {
-				prioritize_uranium = true;
-			}
-
-			if (!above_low_watermark) {
-				addAlert(BLUE_ALERT);
-			} else {
-				removeAlert(BLUE_ALERT);
-			}
-		} else {
-			skip_steps[current_state] = 5;
-			removeAlert(BLUE_ALERT);
-			prioritize_uranium = false;
+		if (has_reactors && has_refineries && ore_status[URANIUM] > 0) {
+			prioritize_uranium = true;
 		}
 
-		// figure out how much time we have on batteries and reactors
-		Decimal stored_power = getBatteryStoredPower() + getReactorStoredPower();
+		if (!above_low_watermark) {
+			addAlert(BLUE_ALERT);
+		} else {
+			removeAlert(BLUE_ALERT);
+		}
+	} else {
+		removeAlert(BLUE_ALERT);
+		prioritize_uranium = false;
+	}
 
-		var max_pwr_draw = getMaxPowerDraw();
-		var cur_pwr_draw = getCurPowerDraw();
+	// figure out how much time we have on batteries and reactors
+	Decimal stored_power = getBatteryStoredPower() + getReactorStoredPower();
 
-		Decimal time;
-		if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
+	var max_pwr_draw = getMaxPowerDraw();
+	var cur_pwr_draw = getCurPowerDraw();
+
+	Decimal time;
+	if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
+		if (max_pwr_draw == 0) {
+			time = 0;
+		} else {
 			time = Math.Round(stored_power / max_pwr_draw, 0);
+		}
+	} else {
+		if (cur_pwr_draw == 0) {
+			time = 0;
 		} else {
 			time = Math.Round(stored_power / cur_pwr_draw, 0);
 		}
+	}
 
-		var max_pwr_output = getMaxReactorPowerOutput() + getMaxBatteryPowerOutput();
-		string max_str = String.Format("{0:0.0}%", max_pwr_draw / max_pwr_output * 100);
-		string cur_str = String.Format("{0:0.0}%", cur_pwr_draw / max_pwr_output * 100);
-		string time_str;
-		if (time > 300) {
-			time = Math.Floor(time / 60M);
-			if (time > 48) {
-				time = Math.Floor(time / 24M);
-				time_str = Convert.ToString(time) + " d";
-			} else {
-				time_str = Convert.ToString(time) + " h";
-			}
+	var max_pwr_output = getMaxReactorPowerOutput() + getMaxBatteryPowerOutput();
+	if (max_pwr_output == 0) {
+		max_pwr_output = max_pwr_draw;
+	}
+	string time_str;
+	string max_str = String.Format("{0:0.0}%", max_pwr_draw / max_pwr_output * 100);
+	string cur_str = String.Format("{0:0.0}%", cur_pwr_draw / max_pwr_output * 100);
+	if (time > 300) {
+		time = Math.Floor(time / 60M);
+		if (time > 48) {
+			time = Math.Floor(time / 24M);
+			time_str = Convert.ToString(time) + " d";
 		} else {
-			time_str = Convert.ToString(time) + " m";
-		}
-		status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
-
-		if (crisis_mode == CRISIS_MODE_NONE) {
-			bool can_refuel = (op_mode & OP_MODE_SHIP) > 0 && connected_to_base;
-			if (refillReactors()) {
-				pushSpareUraniumToStorage();
-				skip_steps[current_state] = 5;
-			} else if (!can_refuel && !has_refineries) {
-				skip_steps[current_state] = 5;
-				return false;
-			}
-		}
-		// if we're in a crisis, push all available uranium ingots to reactors.
-		else {
-			refillReactors(true);
+			time_str = Convert.ToString(time) + " h";
 		}
 	} else {
-		skip_steps[current_state]--;
-		return false;
+		time_str = Convert.ToString(time) + " m";
+	}
+	status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
+
+	if (crisis_mode == CRISIS_MODE_NONE) {
+		bool can_refuel = (op_mode & OP_MODE_SHIP) > 0 && connected_to_base;
+		if (refillReactors()) {
+			pushSpareUraniumToStorage();
+		} else if (!can_refuel && !has_refineries) {
+			return false;
+		}
+	}
+	// if we're in a crisis, push all available uranium ingots to reactors.
+	else {
+		refillReactors(true);
 	}
 	return true;
 }
