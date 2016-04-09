@@ -3,12 +3,12 @@
  *
  * (Burillo's Automatic Resource Administration for BAses and Ships)
  *
- * Published under "do whatever you want with it" license (aka public domain).
+ * Published under "do whatever you want with it" license (aka public domain)
  *
  * Color coding for light group "BARABAS Notify":
  * - Red: storage 98% full
  * - Yellow: storage 75% full
- * - Blue: running out of uranium
+ * - Blue: running out of power
  * - Magenta: refinery clogged
  * - Cyan: assembler clogged
  * - White: running out of materials
@@ -27,8 +27,8 @@
  *   it is not recommended and may produce weird results.
  *
  * Optional requirements:
- * - Group of text/LCD panels or lights named "BARABAS Notify", used for
- *   notification and status reports.
+ * - Group of text/LCD panels/beacons/antennas or lights named "BARABAS Notify",
+ *   used for notification and status reports.
  * - Text block named "BARABAS Config", used for storing configuration (if not
  *   present, automatic configuration will be used)
  * - If multiple connectors present, there has to be a connector named "BARABAS
@@ -37,6 +37,9 @@
  * - A sensor named "BARABAS Trash Sensor", to stop throwing out. Set it up
  *   yourself just as you normally would, but don't assign any actions to it -
  *   BARABAS will handle everything.
+ *
+ * NOTE: if you are using BARABAS from source, you will have to minify the
+ *       code before pasting it into the programmable block!
  *
  */
 
@@ -50,8 +53,8 @@ const int OP_MODE_TUG = 0x10 | OP_MODE_SHIP;
 const int OP_MODE_BASE = 0x100;
 
 int op_mode = OP_MODE_AUTO;
-Decimal reactor_high_watermark = 0M;
-Decimal reactor_low_watermark = 0M;
+Decimal power_high_watermark = 0M;
+Decimal power_low_watermark = 0M;
 bool throw_out_stone = false;
 bool sort_storage = true;
 
@@ -75,8 +78,8 @@ Func < bool > [] states = null;
 
 // config options
 const string OP_MODE = "mode";
-const string REACTOR_LOW_WATERMARK = "reactor low watermark";
-const string REACTOR_HIGH_WATERMARK = "reactor high watermark";
+const string POWER_LOW_WATERMARK = "power low watermark";
+const string POWER_HIGH_WATERMARK = "power high watermark";
 const string PUSH_ORE = "push ore to base";
 const string PUSH_INGOTS = "push ingots to base";
 const string PUSH_COMPONENTS = "push components to base";
@@ -107,10 +110,10 @@ const string SCRAP = "Scrap";
 // status items
 const string STATUS_MATERIAL = "Materials";
 const string STATUS_STORAGE_LOAD = "Total storage load";
-const string STATUS_POWER_LOAD = "Max power load";
-const string STATUS_REACTOR_TIME = "Time at max load";
+const string STATUS_POWER_STATS = "Power (max/cur/left)";
 const string STATUS_ALERT = "Alerts";
 const string STATUS_CRISIS_MODE = "Crisis mode";
+const string STATUS_OXYHYDRO_LEVEL = "O2/H2";
 
 const Decimal CHUNK_SIZE = 1000M;
 
@@ -119,9 +122,9 @@ readonly Dictionary < string, string > config_options = new Dictionary < string,
 	{
 		OP_MODE, ""
 	}, {
-		REACTOR_LOW_WATERMARK, ""
+		POWER_LOW_WATERMARK, ""
 	}, {
-		REACTOR_HIGH_WATERMARK, ""
+		POWER_HIGH_WATERMARK, ""
 	}, {
 		PUSH_ORE, ""
 	}, {
@@ -146,9 +149,9 @@ readonly Dictionary < string, string > status_report = new Dictionary < string, 
 	{
 		STATUS_STORAGE_LOAD, ""
 	}, {
-		STATUS_POWER_LOAD, ""
+		STATUS_POWER_STATS, ""
 	}, {
-		STATUS_REACTOR_TIME, ""
+		STATUS_OXYHYDRO_LEVEL, ""
 	}, {
 		STATUS_MATERIAL, ""
 	}, {
@@ -174,8 +177,6 @@ readonly Dictionary < string, Decimal > material_thresholds = new Dictionary < s
 	}, {
 		GOLD, 100M
 	}, {
-		ICE, 25M
-	}, {
 		IRON, 5000M
 	}, {
 		MAGNESIUM, 100M
@@ -199,8 +200,6 @@ readonly Dictionary < string, Decimal > ore_to_ingot_ratios = new Dictionary < s
 		COBALT, 0.24M
 	}, {
 		GOLD, 0.008M
-	}, {
-		ICE, 0.0066M
 	}, {
 		IRON, 0.56M
 	}, {
@@ -253,6 +252,7 @@ readonly Dictionary < string, Decimal > storage_ingot_status = new Dictionary < 
 /* local data storage, updated once every few cycles */
 List < IMyTerminalBlock > local_blocks = null;
 List < IMyTerminalBlock > local_reactors = null;
+List < IMyTerminalBlock > local_batteries = null;
 List < IMyTerminalBlock > local_refineries = null;
 List < IMyTerminalBlock > local_arc_furnaces = null;
 List < IMyTerminalBlock > local_assemblers = null;
@@ -263,8 +263,9 @@ List < IMyTerminalBlock > local_drills = null;
 List < IMyTerminalBlock > local_grinders = null;
 List < IMyTerminalBlock > local_welders = null;
 List < IMyTerminalBlock > local_text_panels = null;
-List < IMyTerminalBlock > local_oxygen_tanks = null;
 List < IMyTerminalBlock > local_air_vents = null;
+List < IMyTerminalBlock > local_oxygen_tanks = null;
+List < IMyTerminalBlock > local_hydrogen_tanks = null;
 List < IMyTerminalBlock > local_oxygen_generators = null;
 List < IMyTerminalBlock > remote_storage = null;
 List < IMyTerminalBlock > remote_ship_storage = null;
@@ -298,10 +299,11 @@ public struct Alert {
 	public bool enabled;
 	public string text;
 }
+
 readonly List < Alert > alerts = new List < Alert > {
 	new Alert(Color.Red, "Very low storage"),
 	new Alert(Color.Yellow, "Low storage"),
-	new Alert(Color.Blue, "Low uranium"),
+	new Alert(Color.Blue, "Low power"),
 	new Alert(Color.DarkMagenta, "Refinery clogged"),
 	new Alert(Color.Cyan, "Assembler clogged"),
 	new Alert(Color.White, "Material shortage"),
@@ -312,21 +314,26 @@ readonly List < Alert > alerts = new List < Alert > {
 
 /* misc local data */
 bool init = false;
-bool uranium_above_threshold = false;
+bool power_above_threshold = false;
+Decimal cur_power_draw;
 Decimal max_power_draw;
-Decimal max_power_output;
+Decimal max_battery_output;
+Decimal max_reactor_output;
 bool tried_throwing = false;
 bool auto_refuel_ship;
 bool prioritize_uranium = false;
 bool can_use_ingots;
-bool can_refine;
 bool can_use_oxygen;
+bool can_refine;
+bool has_air_vents;
 bool has_status_panels;
 bool has_reactors;
 bool has_welders;
 bool has_drills;
 bool has_grinders;
 bool has_connectors;
+bool has_oxygen_tanks;
+bool has_hydrogen_tanks;
 bool has_single_connector;
 bool has_trash_sensor;
 bool has_refineries;
@@ -465,6 +472,20 @@ List < IMyTerminalBlock > getReactors(bool force_update = false) {
 		}
 	}
 	return new List < IMyTerminalBlock > (local_reactors);
+}
+
+List < IMyTerminalBlock > getBatteries(bool force_update = false) {
+	if (local_batteries != null && !force_update) {
+		return new List < IMyTerminalBlock > (local_batteries);
+	}
+	local_batteries = getBlocks();
+	filterBlocks < IMyBatteryBlock > (local_batteries);
+	for (int i = local_batteries.Count - 1; i >= 0; i--) {
+		if ((local_batteries[i] as IMyBatteryBlock).OnlyRecharge) {
+			local_batteries.RemoveAt(i);
+		}
+	}
+	return new List < IMyTerminalBlock > (local_batteries);
 }
 
 List < IMyTerminalBlock > getStorage(bool force_update = false) {
@@ -629,21 +650,10 @@ List < IMyTerminalBlock > getWelders(bool force_update = false) {
 	return new List < IMyTerminalBlock > (local_welders);
 }
 
-List < IMyTerminalBlock > getOxygenTanks(bool force_update = false) {
-	if (local_oxygen_tanks != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_oxygen_tanks);
-	}
-	local_oxygen_tanks = getBlocks();
-	filterBlocks < IMyOxygenTank > (local_oxygen_tanks);
-	for (int i = local_oxygen_tanks.Count - 1; i >= 0; i--) {
-		var block = local_oxygen_tanks[i];
-		StringBuilder builder = new StringBuilder();
-		block.GetActionWithName("Stockpile").WriteValue(block, builder);
-		if (builder.ToString() == "On") {
-			local_oxygen_tanks.RemoveAt(i);
-		}
-	}
-	return new List < IMyTerminalBlock > (local_oxygen_tanks);
+List<IMyTerminalBlock> getTanks(string type) {
+	var list = getBlocks();
+	filterBlocks < IMyOxygenTank > (list, null, type);
+	return new List < IMyTerminalBlock > (list);
 }
 
 List < IMyTerminalBlock > getAirVents(bool force_update = false) {
@@ -653,6 +663,29 @@ List < IMyTerminalBlock > getAirVents(bool force_update = false) {
 	local_air_vents = getBlocks();
 	filterBlocks < IMyAirVent > (local_air_vents);
 	return new List < IMyTerminalBlock > (local_air_vents);
+}
+
+List < IMyTerminalBlock > getOxygenTanks(bool force_update = false) {
+	if (local_oxygen_tanks != null && !force_update) {
+		return new List < IMyTerminalBlock > (local_oxygen_tanks);
+	}
+	local_oxygen_tanks = getTanks("Oxygen");
+	// hydrogen tanks are counted as oxygen tanks here, so filter them out
+	for (int i = local_oxygen_tanks.Count - 1; i >= 0; i--) {
+		var block = local_oxygen_tanks[i];
+		if (block.BlockDefinition.ToString().Contains("Hydrogen")) {
+			local_oxygen_tanks.RemoveAt(i);
+		}
+	}
+	return new List < IMyTerminalBlock > (local_oxygen_tanks);
+}
+
+List < IMyTerminalBlock > getHydrogenTanks(bool force_update = false) {
+	if (local_hydrogen_tanks != null && !force_update) {
+		return new List < IMyTerminalBlock > (local_hydrogen_tanks);
+	}
+	local_hydrogen_tanks = getTanks("Hydrogen");
+	return new List < IMyTerminalBlock > (local_hydrogen_tanks);
 }
 
 List < IMyTerminalBlock > getOxygenGenerators(bool force_update = false) {
@@ -1719,20 +1752,76 @@ void pushOreToStorage() {
 }
 
 /**
- * Uranium & reactors
+ * Uranium, reactors & batteries
  */
-Decimal getMaxPowerOutput(bool force_update = false) {
+Decimal getMaxReactorPowerOutput(bool force_update = false) {
 	if (!force_update) {
-		return max_power_output;
+		return max_reactor_output;
 	}
 
-	max_power_output = 0;
+	max_reactor_output = 0;
 	var reactors = getReactors();
 	for (int i = 0; i < reactors.Count; i++) {
-		max_power_output += getReactorMaxOutput(reactors[i] as IMyReactor);
+		max_reactor_output += (Decimal) (reactors[i] as IMyReactor).MaxOutput * 1000M;
 	}
 
-	return max_power_output;
+	return max_reactor_output;
+}
+
+Decimal getMaxBatteryPowerOutput(bool force_update = false) {
+ if (!force_update) {
+	 return max_battery_output;
+ }
+
+ max_battery_output = 0;
+ var batteries = getBatteries();
+ for (int i = 0; i < batteries.Count; i++) {
+	 if ((batteries[i] as IMyBatteryBlock).HasCapacityRemaining)
+		 max_battery_output += getMaxOutput(batteries[i]);
+ }
+
+ return max_battery_output;
+}
+
+Decimal getBatteryStoredPower() {
+	var batteries = getBatteries();
+	Decimal stored_power = 0;
+	for (int i = 0; i < batteries.Count; i++) {
+		var battery = batteries[i] as IMyBatteryBlock;
+		// unlike reactors, batteries' kWh are _actual_ kWh, not kWm
+		stored_power += (Decimal) battery.CurrentStoredPower * 1000M * 60M;
+	}
+	return stored_power;
+}
+
+Decimal getReactorStoredPower() {
+	if (has_reactors) {
+		return URANIUM_INGOT_POWER * ingot_status[URANIUM];
+	}
+	return 0;
+}
+
+Decimal getCurPowerDraw(bool force_update = false) {
+	if (!force_update) {
+		return cur_power_draw;
+	}
+
+	Decimal power_draw = 0;
+
+	// go through all the blocks
+	List < IMyTerminalBlock > blocks = new List < IMyTerminalBlock > ();
+	GridTerminalSystem.GetBlocksOfType < IMyTerminalBlock > (blocks, localGridDumbFilter);
+
+	for (int i = 0; i < blocks.Count; i++) {
+		var block = blocks[i];
+		if (!(block is IMyBatteryBlock) && !(block is IMyReactor))
+			continue;
+		power_draw += getBlockPowerOutput(block);
+	}
+
+	cur_power_draw = power_draw;
+
+	return cur_power_draw;
 }
 
 Decimal getMaxPowerDraw(bool force_update = false) {
@@ -1748,15 +1837,35 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 
 	for (int i = 0; i < blocks.Count; i++) {
 		var block = blocks[i];
+		if (block is IMyBatteryBlock)
+			continue;
 		power_draw += getBlockPowerUse(block);
 	}
 	// add 5% to account for various misc stuff like conveyors etc
 	power_draw *= 1.05M;
 
-	// now, check if we're not overflowing the reactors
-	max_power_draw = Math.Min(power_draw, getMaxPowerOutput());
+	// now, check if we're not overflowing the reactors and batteries
+	max_power_draw = Math.Min(power_draw, getMaxBatteryPowerOutput() + getMaxReactorPowerOutput());
 
 	return max_power_draw;
+}
+
+Decimal getBlockPowerOutput(IMyTerminalBlock block) {
+	var cur_regex = new System.Text.RegularExpressions.Regex("Current Output: ([\\d\\.]+) (\\w?)W");
+	var cur_match = cur_regex.Match(block.DetailedInfo);
+	if (!cur_match.Success) {
+		return 0;
+	}
+
+	Decimal cur = 0;
+	if (cur_match.Groups[1].Success && cur_match.Groups[2].Success) {
+		bool result = Decimal.TryParse(cur_match.Groups[1].Value, out cur);
+		if (!result) {
+			throw new BarabasException("Invalid detailed info format!");
+		}
+		cur *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
+	}
+	return cur;
 }
 
 Decimal getBlockPowerUse(IMyTerminalBlock block) {
@@ -1791,7 +1900,7 @@ Decimal getBlockPowerUse(IMyTerminalBlock block) {
 	return Math.Max(cur, max);
 }
 
-Decimal getReactorMaxOutput(IMyReactor reactor) {
+Decimal getMaxOutput(IMyTerminalBlock reactor) {
 	System.Text.RegularExpressions.Regex power_regex = new System.Text.RegularExpressions.Regex("Max Output: ([\\d\\.]+) (\\w?)W");
 	System.Text.RegularExpressions.Match match = power_regex.Match(reactor.DetailedInfo);
 	if (!match.Success) {
@@ -1803,47 +1912,59 @@ Decimal getReactorMaxOutput(IMyReactor reactor) {
 		throw new BarabasException("Unknown reactor info format");
 	}
 	if (match.Groups[1].Success) {
-		power *= (Decimal) Math.Pow(1000.0, "kMGTPEZY".IndexOf(match.Groups[2].Value));
+		power *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(match.Groups[2].Value) - 1);
 	}
 	return power;
 }
 
 Decimal getHighWatermark(Decimal power_use) {
-	Decimal time = reactor_high_watermark / 60M;
-	return Math.Round(time * power_use / 1000M, 4);
+	return Math.Round(power_use * power_high_watermark, 0);
 }
 
 Decimal getLowWatermark(Decimal power_use) {
-	Decimal time = reactor_low_watermark / 60M;
-	return Math.Round(time * power_use / 1000M, 4);
+	return Math.Round(power_use * power_low_watermark, 0);
 }
 
 bool aboveHighWatermark() {
-	Decimal totalIngots = ingot_status[URANIUM];
+	var stored_power = getBatteryStoredPower() + getReactorStoredPower();
+
 	// check if we have enough uranium ingots to fill all local reactors and
 	// have a few spare ones
-	Decimal ingots_needed = getHighWatermark(getMaxPowerDraw());
-	Decimal totalIngotsNeeded = ingots_needed * 1.3M;
-	if (totalIngots > totalIngotsNeeded) {
-		uranium_above_threshold = true;
+	Decimal power_draw;
+	if ((op_mode & OP_MODE_SHIP) != 0 && connected_to_base) {
+		power_draw = getMaxPowerDraw();
+	} else {
+		power_draw = getCurPowerDraw();
+	}
+	Decimal power_needed = getHighWatermark(power_draw);
+	Decimal totalPowerNeeded = power_needed * 1.3M;
+
+	if (stored_power > totalPowerNeeded) {
+		power_above_threshold = true;
 		return true;
 	}
 	// if we always go by fixed limit, we will constantly have to refine uranium
 	// therefore, rather than constantly refining uranium, let's watch a certain
 	// threshold and for other ore to be refined while we still have lots of
 	// spare uranium
-	if (totalIngots > ingots_needed && uranium_above_threshold) {
+	if (stored_power > power_needed && power_above_threshold) {
 		return true;
 	}
 	// we flip the switch, so next time we decide it's time to leave uranium alone
 	// will be when we have uranium above threshold
-	uranium_above_threshold = false;
+	power_above_threshold = false;
 
 	return false;
 }
 
 bool aboveLowWatermark() {
-	return ingot_status[URANIUM] > getLowWatermark(getMaxPowerDraw());
+	Decimal power_draw;
+	if ((op_mode & OP_MODE_SHIP) != 0 && connected_to_base) {
+		power_draw = getMaxPowerDraw();
+	} else {
+		power_draw = getCurPowerDraw();
+	}
+	return getBatteryStoredPower() + getReactorStoredPower() > getLowWatermark(power_draw);
 }
 
 bool refillReactors(bool force = false) {
@@ -1856,7 +1977,7 @@ bool refillReactors(bool force = false) {
 	for (int i = 0; i < reactors.Count; i++) {
 		var reactor = reactors[i] as IMyReactor;
 		var rinv = reactor.GetInventory(0);
-		Decimal reactor_proportion = getReactorMaxOutput(reactor) / getMaxPowerOutput();
+		Decimal reactor_proportion = (Decimal) reactor.MaxOutput * 1000M / getMaxReactorPowerOutput();
 		Decimal reactor_power_draw = getMaxPowerDraw() * (reactor_proportion);
 		Decimal ingots_per_reactor = getHighWatermark(reactor_power_draw);
 		Decimal ingots_in_reactor = getTotalIngots(rinv, URANIUM);
@@ -1898,7 +2019,7 @@ bool refillReactors(bool force = false) {
 			}
 
 			// don't leave change, we've expended this ingot
-			if (cur_amount - amount <= 0.01M) {
+			if (cur_amount - amount <= 0.05M) {
 				cur_amount = 0;
 				rinv.TransferItemFrom(ingot.Value.Inventory, ingot.Value.Index, null, true, null);
 				ingot = null;
@@ -1924,7 +2045,8 @@ void pushSpareUraniumToStorage() {
 			consolidate(inv);
 		}
 		Decimal ingots = getTotalIngots(reactor.GetInventory(0), URANIUM);
-		Decimal reactor_power_draw = getMaxPowerDraw() * (getReactorMaxOutput(reactor) / getMaxPowerOutput());
+		Decimal reactor_power_draw = getMaxPowerDraw() *
+						(((Decimal) reactor.MaxOutput * 1000M) / (getMaxReactorPowerOutput() + getMaxBatteryPowerOutput()));
 		Decimal ingots_per_reactor = getHighWatermark(reactor_power_draw);
 		if (ingots > ingots_per_reactor) {
 			Decimal amount = ingots - ingots_per_reactor;
@@ -2069,6 +2191,9 @@ void refineOre() {
 			}
 			if (ore == ICE) {
 				refineries = getOxygenGenerators();
+				if (refineries.Empty) {
+					refineries = getRefineries();
+				}
 			} else if (arc_furnace_ores.Contains(ore)) {
 				refineries = getAllRefineries();
 			} else {
@@ -2554,8 +2679,8 @@ void resetConfig() {
 	push_components_to_base = false;
 	throw_out_stone = true;
 	material_thresholds[STONE] = 5000M;
-	reactor_low_watermark = 0;
-	reactor_high_watermark = 0;
+	power_low_watermark = 0;
+	power_high_watermark = 0;
 }
 // update defaults based on auto configured values
 void autoConfigure() {
@@ -2575,21 +2700,21 @@ void autoConfigure() {
 void configureWatermarks() {
 	if (!has_reactors) {
 		auto_refuel_ship = false;
-		return;
+	} else {
+		auto_refuel_ship = true;
 	}
-	auto_refuel_ship = true;
-	if (reactor_low_watermark == 0) {
+	if (power_low_watermark == 0) {
 		if (op_mode == OP_MODE_BASE) {
-			reactor_low_watermark = 60;
+			power_low_watermark = 60;
 		} else {
-			reactor_low_watermark = 15;
+			power_low_watermark = 15;
 		}
 	}
-	if (reactor_high_watermark == 0) {
+	if (power_high_watermark == 0) {
 		if (op_mode == OP_MODE_BASE) {
-			reactor_high_watermark = 480;
+			power_high_watermark = 480;
 		} else {
-			reactor_high_watermark = 120;
+			power_high_watermark = 120;
 		}
 	}
 }
@@ -2691,8 +2816,8 @@ string generateConfiguration() {
 	} else if (op_mode == OP_MODE_TUG) {
 		config_options[OP_MODE] = "tug";
 	}
-	config_options[REACTOR_HIGH_WATERMARK] = Convert.ToString(reactor_high_watermark);
-	config_options[REACTOR_LOW_WATERMARK] = Convert.ToString(reactor_low_watermark);
+	config_options[POWER_HIGH_WATERMARK] = Convert.ToString(power_high_watermark);
+	config_options[POWER_LOW_WATERMARK] = Convert.ToString(power_low_watermark);
 	config_options[PUSH_ORE] = Convert.ToString(push_ore_to_base);
 	config_options[PUSH_INGOTS] = Convert.ToString(push_ingots_to_base);
 	config_options[PUSH_COMPONENTS] = Convert.ToString(push_components_to_base);
@@ -2716,13 +2841,13 @@ string generateConfiguration() {
 	var key = OP_MODE;
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = REACTOR_HIGH_WATERMARK;
-	sb.AppendLine("# Amount of uranium in \"full\" reactor, in minutes.");
+	key = POWER_HIGH_WATERMARK;
+	sb.AppendLine("# Amount of power on \"full\" batteries/reactors, in minutes.");
 	sb.AppendLine("# Can be a positive number, zero for automatic.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = REACTOR_LOW_WATERMARK;
-	sb.AppendLine("# Amount of uranium in \"empty\" reactor, in minutes.");
+	key = POWER_LOW_WATERMARK;
+	sb.AppendLine("# Amount of power on \"empty\" batteries/reactors, in minutes.");
 	sb.AppendLine("# Can be a positive number, zero for automatic.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
@@ -2816,6 +2941,12 @@ void parseLine(string line) {
 		}
 		return;
 	}
+	if (str == "reactor low watermark") {
+		str = POWER_LOW_WATERMARK;
+	}
+	if (str == "reactor high watermark") {
+		str = POWER_HIGH_WATERMARK;
+	}
 	if (!config_options.ContainsKey(str)) {
 		throw new BarabasException("Invalid config option: " + str);
 	}
@@ -2870,24 +3001,24 @@ void parseLine(string line) {
 		} else {
 			fail = true;
 		}
-	} else if (str == REACTOR_HIGH_WATERMARK) {
+	} else if (str == POWER_HIGH_WATERMARK) {
 		if (fparse && fval >= 0) {
-			if (fval != reactor_high_watermark) {
-				int index = Array.IndexOf(states, s_uranium);
+			if (fval != power_high_watermark) {
+				int index = Array.IndexOf(states, s_power);
 				skip_steps[index] = 0;
 			}
-			reactor_high_watermark = fval;
+			power_high_watermark = fval;
 			return;
 		} else {
 			fail = true;
 		}
-	} else if (str == REACTOR_LOW_WATERMARK) {
+	} else if (str == POWER_LOW_WATERMARK) {
 		if (fparse && fval >= 0) {
-			if (fval != reactor_low_watermark) {
-				int index = Array.IndexOf(states, s_uranium);
+			if (fval != power_low_watermark) {
+				int index = Array.IndexOf(states, s_power);
 				skip_steps[index] = 0;
 			}
-			reactor_low_watermark = fval;
+			power_low_watermark = fval;
 			return;
 		} else {
 			fail = true;
@@ -3042,9 +3173,12 @@ bool s_refreshState() {
 	getConfigBlock(true);
 	has_refineries = getRefineries(true).Count > 0;
 	has_arc_furnaces = getArcFurnaces(true).Count > 0;
-	can_refine = has_refineries || has_arc_furnaces;
-	has_reactors = getReactors(true).Count > 0;
+	can_refine = has_refineries || has_arc_furnaces || (getOxygenGenerators(true).Count > 0);
 	can_use_ingots = getAssemblers(true).Count > 0;
+	has_reactors = getReactors(true).Count > 0;
+	has_air_vents = getAirVents(true).Count > 0;
+	has_oxygen_tanks = getOxygenTanks(true).Count > 0;
+	has_hydrogen_tanks = getHydrogenTanks(true).Count > 0;
 	has_connectors = getConnectors(true).Count > 0;
 	has_single_connector = getConnectors().Count == 1;
 	has_trash_sensor = getTrashSensor(true) != null;
@@ -3052,21 +3186,17 @@ bool s_refreshState() {
 	has_grinders = getGrinders(true).Count > 0;
 	has_welders = getWelders(true).Count > 0;
 	has_status_panels = getTextPanels(true).Count > 0;
-	var tank_count = getOxygenTanks(true).Count;
-	var vent_count = getAirVents(true).Count;
-	can_use_oxygen = tank_count > 0 && vent_count > 0;
-	if (can_use_oxygen) {
-		material_thresholds[ICE] = 25M;
-	} else {
-		material_thresholds[ICE] = 0;
-	}
+	can_use_oxygen = has_oxygen_tanks && has_air_vents;
+	getBatteries(true);
 	getTrashConnector(true);
 	getStorage(true);
 	getLights(true);
 	if (has_reactors) {
-		getMaxPowerOutput(true);
-		getMaxPowerDraw(true);
+		getMaxReactorPowerOutput(true);
 	}
+	getMaxBatteryPowerOutput(true);
+	getCurPowerDraw(true);
+	getMaxPowerDraw(true);
 	if (!has_single_connector) {
 		startThrowing();
 	}
@@ -3091,6 +3221,7 @@ bool s_refreshState() {
 	} else {
 		removeAlert(PINK_ALERT);
 	}
+
 
 	if (pull_ingots_from_base && push_ingots_to_base) {
 		throw new BarabasException("Invalid configuration - " +
@@ -3121,70 +3252,79 @@ bool s_refreshRemote() {
 	return true;
 }
 
-bool s_uranium() {
-	if (has_reactors) {
-		// don't check uranium every time
-		if (skip_steps[current_state] == 0) {
+bool s_power() {
+	// don't check power every time
+	if (skip_steps[current_state] == 0) {
 
-			// determine if we need more uranium
-			bool above_high_watermark = aboveHighWatermark();
-			// if we have enough uranium ingots, business as usual
-			if (!above_high_watermark) {
-				// check if we're below low watermark
-				bool above_low_watermark = aboveLowWatermark();
+		// determine if we need more uranium
+		bool above_high_watermark = aboveHighWatermark();
 
-				if (has_refineries && ore_status[URANIUM] > 0) {
-					prioritize_uranium = true;
-				}
+		// if we have enough uranium ingots, business as usual
+		if (!above_high_watermark) {
+			// check if we're below low watermark
+			bool above_low_watermark = aboveLowWatermark();
 
-				if (!above_low_watermark) {
-					addAlert(BLUE_ALERT);
-				} else {
-					removeAlert(BLUE_ALERT);
-				}
+			if (has_reactors && has_refineries && ore_status[URANIUM] > 0) {
+				prioritize_uranium = true;
+			}
+
+			if (!above_low_watermark) {
+				addAlert(BLUE_ALERT);
 			} else {
-				skip_steps[current_state] = 5;
 				removeAlert(BLUE_ALERT);
-				prioritize_uranium = false;
-			}
-
-			var max_pwr_draw = getMaxPowerDraw();
-			status_report[STATUS_POWER_LOAD] = Convert.ToString(Math.Round(max_pwr_draw / getMaxPowerOutput() * 100, 0)) + "% (" + getPowerLoadStr(max_pwr_draw) + "W)";
-			Decimal minutes_per_ingot = URANIUM_INGOT_POWER / max_pwr_draw;
-			Decimal time = Math.Round(minutes_per_ingot * ingot_status[URANIUM], 0);
-			if (time > 300) {
-				time = Math.Floor(time / 60M);
-				if (time > 48) {
-					time = Math.Floor(time / 24M);
-					status_report[STATUS_REACTOR_TIME] = Convert.ToString(time) + " days";
-				} else {
-					status_report[STATUS_REACTOR_TIME] = Convert.ToString(time) + " hours";
-				}
-			} else {
-				status_report[STATUS_REACTOR_TIME] = Convert.ToString(time) + " minutes";
-			}
-
-			if (crisis_mode == CRISIS_MODE_NONE) {
-				bool can_refuel = (op_mode & OP_MODE_SHIP) > 0 && connected_to_base;
-				if (refillReactors()) {
-					pushSpareUraniumToStorage();
-					skip_steps[current_state] = 5;
-				} else if (!can_refuel && !has_refineries) {
-					skip_steps[current_state] = 5;
-					return false;
-				}
-			}
-			// if we're in a crisis, push all available uranium ingots to reactors.
-			else {
-				refillReactors(true);
 			}
 		} else {
-			skip_steps[current_state]--;
-			return false;
+			skip_steps[current_state] = 5;
+			removeAlert(BLUE_ALERT);
+			prioritize_uranium = false;
+		}
+
+		// figure out how much time we have on batteries and reactors
+		Decimal stored_power = getBatteryStoredPower() + getReactorStoredPower();
+
+		var max_pwr_draw = getMaxPowerDraw();
+		var cur_pwr_draw = getCurPowerDraw();
+
+		Decimal time;
+		if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
+			time = Math.Round(stored_power / max_pwr_draw, 0);
+		} else {
+			time = Math.Round(stored_power / cur_pwr_draw, 0);
+		}
+
+		var max_pwr_output = getMaxReactorPowerOutput() + getMaxBatteryPowerOutput();
+		string max_str = String.Format("{0:0.0}%", max_pwr_draw / max_pwr_output * 100);
+		string cur_str = String.Format("{0:0.0}%", cur_pwr_draw / max_pwr_output * 100);
+		string time_str;
+		if (time > 300) {
+			time = Math.Floor(time / 60M);
+			if (time > 48) {
+				time = Math.Floor(time / 24M);
+				time_str = Convert.ToString(time) + " d";
+			} else {
+				time_str = Convert.ToString(time) + " h";
+			}
+		} else {
+			time_str = Convert.ToString(time) + " m";
+		}
+		status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
+
+		if (crisis_mode == CRISIS_MODE_NONE) {
+			bool can_refuel = (op_mode & OP_MODE_SHIP) > 0 && connected_to_base;
+			if (refillReactors()) {
+				pushSpareUraniumToStorage();
+				skip_steps[current_state] = 5;
+			} else if (!can_refuel && !has_refineries) {
+				skip_steps[current_state] = 5;
+				return false;
+			}
+		}
+		// if we're in a crisis, push all available uranium ingots to reactors.
+		else {
+			refillReactors(true);
 		}
 	} else {
-		status_report[STATUS_POWER_LOAD] = "";
-		status_report[STATUS_REACTOR_TIME] = "";
+		skip_steps[current_state]--;
 		return false;
 	}
 	return true;
@@ -3355,46 +3495,40 @@ bool s_updateMaterialStats() {
 			}
 		}
 	}
-	// calculate oxygen
-	if (can_use_oxygen) {
-		blocks = getOxygenTanks();
-		Decimal total_oxygen = 0;
-		for (int i = 0; i < blocks.Count; i++) {
-			var block = blocks[i] as IMyOxygenTank;
-			total_oxygen += (Decimal) block.GetOxygenLevel() * 100M;
-		}
-		ingot_status[ICE] = total_oxygen;
-	}
 	bool alert = false;
 	StringBuilder sb = new StringBuilder();
 	for (int i = 0; i < ore_types.Count; i++) {
 		string ore = ore_types[i];
-		Decimal total_ingots = ingot_status[ore];
+		Decimal total_ingots = 0;
 		Decimal total_ore = ore_status[ore];
-		if (ore == URANIUM) {
-			total_ingots -= uranium_in_reactors;
+		Decimal total = 0;
+		if (ore != ICE) {
+			total_ingots = ingot_status[ore];
+			if (ore == URANIUM) {
+				total_ingots -= uranium_in_reactors;
+			}
+			total_ingots += (total_ore * ore_to_ingot_ratios[ore]);
 		}
-		var total = total_ingots + (total_ore * ore_to_ingot_ratios[ore]);
 
 		if (has_status_panels) {
-			if (op_mode != OP_MODE_BASE && total == 0) {
+			if (op_mode != OP_MODE_BASE && total == 0 && ore != ICE) {
 				continue;
 			}
 			sb.Append("\n  ");
 			sb.Append(ore);
 			sb.Append(": ");
 			sb.Append(roundStr(total_ore));
-			sb.Append(" / ");
-			sb.Append(roundStr(total_ingots));
-			if (total_ore > 0) {
-				sb.Append(String.Format(" ({0})", roundStr(total)));
+
+			if (ore != ICE) {
+				sb.Append(" / ");
+				sb.Append(roundStr(total_ingots));
+				if (total_ore > 0) {
+					sb.Append(String.Format(" ({0})", roundStr(total)));
+				}
 			}
 		}
 
-		if (can_use_ingots && total < material_thresholds[ore]) {
-			if (ore == ICE && !can_use_oxygen) {
-				continue;
-			}
+		if (ore != ICE && can_use_ingots && total < material_thresholds[ore]) {
 			alert = true;
 			if (has_status_panels) {
 				sb.Append(" WARNING!");
@@ -3407,6 +3541,30 @@ bool s_updateMaterialStats() {
 		removeAlert(WHITE_ALERT);
 	}
 	status_report[STATUS_MATERIAL] = sb.ToString();
+
+	// display oxygen and hydrogen stats
+	if (has_oxygen_tanks || has_hydrogen_tanks) {
+		Decimal oxy_cur = 0, oxy_total = 0;
+		Decimal hydro_cur = 0, hydro_total = 0;
+		var tanks = getOxygenTanks();
+		for (int i = 0; i < tanks.Count; i++) {
+			var tank = tanks[i] as IMyOxygenTank;
+			oxy_cur += (Decimal) tank.GetOxygenLevel();
+			oxy_total += 1M;
+		}
+		tanks = getHydrogenTanks();
+		for (int i = 0; i < tanks.Count; i++) {
+			var tank = tanks[i] as IMyOxygenTank;
+			hydro_cur += (Decimal) tank.GetOxygenLevel();
+			hydro_total += 1M;
+		}
+		string oxy_str = oxy_total == 0 ? "0" : String.Format("{0:0.0}",
+					(oxy_cur / oxy_total) * 100M);
+		string hydro_str = hydro_total == 0 ? "0" : String.Format("{0:0.0}",
+					(hydro_cur / hydro_total) * 100M);
+		status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0}% / {1}%",
+					oxy_str, hydro_str);
+	}
 	return true;
 }
 
@@ -3417,7 +3575,7 @@ void Main() {
 			s_refreshState,
 			s_refreshRemote,
 			s_updateMaterialStats,
-			s_uranium,
+			s_power,
 			s_refineries,
 			s_materials,
 			s_tools,
@@ -3447,6 +3605,7 @@ void Main() {
 	if (can_use_oxygen) {
 		checkOxygenLeaks();
 	}
+
 	// display status updates
 	if (has_status_panels) {
 		displayStatusReport();
