@@ -343,7 +343,6 @@ bool has_damaged_blocks;
 bool connected;
 bool connected_to_base;
 bool connected_to_ship;
-int[] skip_steps;
 
 // power constants - in kWatts
 const Decimal URANIUM_INGOT_POWER = 68760M;
@@ -554,32 +553,6 @@ List < IMyTerminalBlock > getAllRefineries(bool force_update = false) {
 
 List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 	if (local_assemblers != null && !force_update) {
-		for (int i = 0; i < local_assemblers.Count; i++) {
-			var block = local_assemblers[i];
-			var assembler = local_assemblers[i] as IMyAssembler;
-			Echo(String.Format("Block, inv count: {0}", block.GetInventoryCount()));
-			Echo(String.Format("Assembler, inv count: {0}", assembler.GetInventoryCount()));
-			if (block == null) {
-				Echo(String.Format("Null block @ {0}", i));
-			} else {
-				Echo(String.Format("Valid block @ {0}", i));
-			}
-			if (assembler == null) {
-				Echo(String.Format("Null assembler @ {0}", i));
-			} else {
-				Echo(String.Format("Valid assembler @ {0}", i));
-			}
-			if (block.GetInventory(0) == null) {
-				Echo(String.Format("Null block inventory @ {0}", i));
-			} else {
-				Echo(String.Format("Valid block inventory @ {0}", i));
-			}
-			if (assembler.GetInventory(0) == null) {
-				Echo(String.Format("Null assembler inventory @ {0}", i));
-			} else {
-				Echo(String.Format("Valid assembler inventory @ {0}", i));
-			}
-		}
 		return new List < IMyTerminalBlock > (removeNulls(local_assemblers, 2));
 	}
 	local_assemblers = getBlocks();
@@ -3732,10 +3705,8 @@ void Main() {
 			s_tools,
 			s_storage
 		};
-		skip_steps = new int[states.Length];
 		current_state = 0;
 		crisis_mode = CRISIS_MODE_NONE;
-		Array.Clear(skip_steps, 0, skip_steps.Length);
 		init = true;
 	}
 	bool result;
