@@ -463,6 +463,20 @@ public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks) {
 	}
 }
 
+// remove null blocks from list
+List<IMyTerminalBlock> removeNulls(List<IMyTerminalBlock> list, int invCount) {
+	if (invCount == 0) {
+		return list;
+	}
+	for (int i = list.Count - 1; i >= 0; i--) {
+	 var block = list[i];
+	 if (block.GetInventoryCount() != invCount) {
+		 list.RemoveAt(i);
+	 }
+	}
+	return list;
+}
+
 // get local blocks
 List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	if (local_blocks != null && !force_update) {
@@ -484,7 +498,7 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 
 List < IMyTerminalBlock > getReactors(bool force_update = false) {
 	if (local_reactors != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_reactors);
+		return new List < IMyTerminalBlock > (removeNulls(local_reactors, 1));
 	}
 	local_reactors = getBlocks();
 	filterBlocks < IMyReactor > (local_reactors);
@@ -499,7 +513,7 @@ List < IMyTerminalBlock > getReactors(bool force_update = false) {
 
 List < IMyTerminalBlock > getStorage(bool force_update = false) {
 	if (local_storage != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_storage);
+		return new List < IMyTerminalBlock > (removeNulls(local_storage, 1));
 	}
 	local_storage = getBlocks();
 	filterBlocks < IMyCargoContainer > (local_storage);
@@ -512,7 +526,7 @@ List < IMyTerminalBlock > getStorage(bool force_update = false) {
 
 List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 	if (local_refineries != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_refineries);
+		return new List < IMyTerminalBlock > (removeNulls(local_refineries, 2));
 	}
 	local_refineries = getBlocks();
 	filterBlocks < IMyRefinery > (local_refineries, null, "LargeRefinery");
@@ -521,7 +535,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 
 List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 	if (local_arc_furnaces != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_arc_furnaces);
+		return new List < IMyTerminalBlock > (removeNulls(local_arc_furnaces, 2));
 	}
 	local_arc_furnaces = getBlocks();
 	filterBlocks < IMyRefinery > (local_arc_furnaces, null, "Blast Furnace");
@@ -536,7 +550,7 @@ List < IMyTerminalBlock > getAllRefineries(bool force_update = false) {
 
 List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 	if (local_assemblers != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_assemblers);
+		return new List < IMyTerminalBlock > (removeNulls(local_assemblers, 2));
 	}
 	local_assemblers = getBlocks();
 	filterBlocks < IMyAssembler > (local_assemblers);
@@ -554,7 +568,7 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 
 List < IMyTerminalBlock > getConnectors(bool force_update = false) {
 	if (local_connectors != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_connectors);
+		return new List < IMyTerminalBlock > (removeNulls(local_connectors, 1));
 	}
 	local_connectors = getBlocks();
 	filterBlocks < IMyShipConnector > (local_connectors);
@@ -592,7 +606,9 @@ List < IMyTerminalBlock > getLights(bool force_update = false) {
 
 // get status report text panels
 List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
-	if (local_text_panels != null && !force_update) return new List < IMyTerminalBlock > (local_text_panels);
+	if (local_text_panels != null && !force_update) {
+		return new List < IMyTerminalBlock > (local_text_panels);
+	}
 	// find our group
 	local_text_panels = new List < IMyTerminalBlock > ();
 	var groups = GridTerminalSystem.BlockGroups;
@@ -623,7 +639,7 @@ List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
 
 List < IMyTerminalBlock > getDrills(bool force_update = false) {
 	if (local_drills != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_drills);
+		return new List < IMyTerminalBlock > (removeNulls(local_drills, 1));
 	}
 	local_drills = getBlocks();
 	filterBlocks < IMyShipDrill > (local_drills);
@@ -635,7 +651,7 @@ List < IMyTerminalBlock > getDrills(bool force_update = false) {
 
 List < IMyTerminalBlock > getGrinders(bool force_update = false) {
 	if (local_grinders != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_grinders);
+		return new List < IMyTerminalBlock > (removeNulls(local_grinders, 1));
 	}
 	local_grinders = getBlocks();
 	filterBlocks < IMyShipGrinder > (local_grinders);
@@ -647,7 +663,7 @@ List < IMyTerminalBlock > getGrinders(bool force_update = false) {
 
 List < IMyTerminalBlock > getWelders(bool force_update = false) {
 	if (local_welders != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_welders);
+		return new List < IMyTerminalBlock > (removeNulls(local_welders, 1));
 	}
 	local_welders = getBlocks();
 	filterBlocks < IMyShipWelder > (local_welders);
@@ -685,7 +701,7 @@ List < IMyTerminalBlock > getAirVents(bool force_update = false) {
 
 List < IMyTerminalBlock > getOxygenGenerators(bool force_update = false) {
 	if (local_oxygen_generators != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_oxygen_generators);
+		return new List < IMyTerminalBlock > (removeNulls(local_oxygen_generators, 1));
 	}
 	local_oxygen_generators = getBlocks();
 	filterBlocks < IMyOxygenGenerator > (local_oxygen_generators);
@@ -900,7 +916,7 @@ List < IMyCubeGrid > getRemoteGrids() {
 
 List < IMyTerminalBlock > getRemoteStorage(bool force_update = false) {
 	if (remote_storage != null && !force_update) {
-		return new List < IMyTerminalBlock > (remote_storage);
+		return new List < IMyTerminalBlock > (removeNulls(remote_storage, 1));
 	}
 	remote_storage = new List < IMyTerminalBlock > ();
 	GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (remote_storage, remoteGridFilter);
@@ -912,7 +928,7 @@ List < IMyTerminalBlock > getRemoteStorage(bool force_update = false) {
 
 List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
 	if (remote_ship_storage != null && !force_update) {
-		return new List < IMyTerminalBlock > (remote_ship_storage);
+		return new List < IMyTerminalBlock > (removeNulls(remote_ship_storage, 1));
 	}
 	remote_ship_storage = new List < IMyTerminalBlock > ();
 	GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (remote_ship_storage, shipFilter);
