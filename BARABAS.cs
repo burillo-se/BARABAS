@@ -1319,7 +1319,7 @@ bool canAcceptOre(IMyInventory inv, string name) {
 	if (volumeLeft > 1500M) {
 		return true;
 	}
-	if (volumeLeft < 100M) {
+	if (volumeLeft < 100M || name == ICE) {
 		return false;
 	}
 
