@@ -469,17 +469,14 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	has_damaged_blocks = false;
 	for (int i = local_blocks.Count - 1; i >= 0; i--) {
 		var block = local_blocks[i];
-		var name = getBlockName(block);
 		if (!slimBlock(block).IsFullIntegrity) {
-			setBlockName(block, name, "Damaged");
-			showOnHud(block);
+			addBlockAlert(block, "Damaged");
 			has_damaged_blocks = true;
 			if (!block.IsFunctional) {
 				local_blocks.RemoveAt(i);
 			}
 		} else {
-			setBlockName(block, name, "");
-			hideFromHud(block);
+			removeBlockAlert(block, "Damaged");
 		}
 	}
 	return new List < IMyTerminalBlock > (local_blocks);
@@ -2284,9 +2281,7 @@ void refineOre() {
 					amount = 0;
 				}
 				var refinery = refineries[r];
-				var name = getBlockName(refinery);
-				setBlockName(refinery, name, "");
-				hideFromHud(refinery);
+				removeBlockAlert(refinery, "Clogged");
 				var input_inv = refinery.GetInventory(0);
 				var output_inv = refinery.GetInventory(1);
 				Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
@@ -2310,7 +2305,7 @@ void refineOre() {
 				}
 				Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
 				if (input_load == 1M || output_load == 1M || (!(refinery as IMyRefinery).IsQueueEmpty && !(refinery as IMyRefinery).IsProducing)) {
-					showOnHud(refinery);
+					addBlockAlert(refinery, "Clogged");
 					addAlert(MAGENTA_ALERT);
 					alert = true;
 				}
@@ -2605,15 +2600,13 @@ void declogAssemblers() {
 	for (int i = 0; i < assemblers.Count; i++) {
 		var assembler = assemblers[i] as IMyAssembler;
 		var inv = assembler.GetInventory(0);
-		var name = getBlockName(assembler);
-		setBlockName(assembler, name, "");
-		hideFromHud(assembler);
 
 		// input is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M && !assembler.IsProducing) {
 			alert = true;
-			setBlockName(assembler, name, "Input clogged");
-			showOnHud(assembler);
+			addBlockAlert(assembler, "Input clogged");
+		} else {
+			removeBlockAlert(assembler, "Input clogged");
 		}
 		// empty assembler input if it's not doing anything
 		var items = inv.GetItems();
@@ -2627,9 +2620,10 @@ void declogAssemblers() {
 		inv = assembler.GetInventory(1);
 		// output is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M) {
-			setBlockName(assembler, name, "Output clogged");
+			addBlockAlert(assembler, "Output clogged");
 			alert = true;
-			showOnHud(assembler);
+		} else {
+			removeBlockAlert(assembler, "Output clogged");
 		}
 		// empty output but only if it's not disassembling
 		if (!assembler.DisassembleEnabled) {
@@ -2640,9 +2634,10 @@ void declogAssemblers() {
 		}
 		// maybe we're missing some kind of ore?
 		if (!assembler.IsProducing && !assembler.IsQueueEmpty) {
-			setBlockName(assembler, name, "Missing materials");
+			addBlockAlert(assembler, "Materials missing");
 			alert = true;
-			showOnHud(assembler);
+		} else {
+			removeBlockAlert(assembler, "Materials missing");
 		}
 	}
 	if (alert) {
@@ -2657,26 +2652,25 @@ void declogRefineries() {
 	bool alert = false;
 	for (int i = 0; i < refineries.Count; i++) {
 		var refinery = refineries[i] as IMyRefinery;
-		var name = getBlockName(refinery);
 		var inv = refinery.GetInventory(1);
 		var items = inv.GetItems();
 		for (int j = items.Count - 1; j >= 0; j--) {
 			pushToStorage(inv, j, null);
 		}
-		setBlockName(refinery, name, "");
-		hideFromHud(refinery);
 		// output is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M) {
-			setBlockName(refinery, name, "Output clogged");
-			showOnHud(refinery);
+			addBlockAlert(refinery, "Output clogged");
 			alert = true;
+		} else {
+			removeBlockAlert(refinery, "Output clogged");
 		}
 		inv = refinery.GetInventory(0);
 		// input is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M && !refinery.IsProducing) {
-			setBlockName(refinery, name, "Input clogged");
-			showOnHud(refinery);
+			addBlockAlert(refinery, "Input clogged");
 			alert = true;
+		} else {
+			removeBlockAlert(refinery, "Input clogged");
 		}
 	}
 	if (alert) {
@@ -2853,16 +2847,18 @@ void addAlert(int level) {
 	for (int i = 0; i < alerts.Count; i++) {
 		alert = alerts[i];
 		if (alerts[i].enabled) {
+			addAntennaAlert(alert.text);
 			if (cur_alert == null) {
 				cur_alert = alert;
 				text += alert.text;
 			} else {
 				text += ", " + alert.text;
 			}
+		} else {
+			removeAntennaAlert(alert.text);
 		}
 	}
 	showAlertColor(cur_alert.Value.color);
-	showAntennaAlert(text);
 	status_report[STATUS_ALERT] = text;
 }
 
@@ -2877,16 +2873,18 @@ void removeAlert(int level) {
 	// now, find enabled alerts
 	for (int i = 0; i < alerts.Count; i++) {
 		if (alerts[i].enabled) {
+			addAntennaAlert(alerts[i].text);
 			if (alert == null) {
 				alert = alerts[i];
 				text += alert.Value.text;
 			} else {
 				text += ", " + alerts[i].text;
 			}
+		} else {
+			removeAntennaAlert(alerts[i].text);
 		}
 	}
 	status_report[STATUS_ALERT] = text;
-	showAntennaAlert(text);
 	if (!alert.HasValue) {
 		hideAlertColor();
 	} else {
@@ -3175,6 +3173,50 @@ void parseConfiguration() {
 	}
 }
 
+List<string> getBlockAlerts(IMyTerminalBlock block) {
+	var name = block.CustomName;
+	var regex = new System.Text.RegularExpressions.Regex("\\[BARABAS");
+	var match = regex.Match(name);
+	if (!match.Success) {
+		return new List<string>();
+	}
+	var alerts = name.Substring(match.Index + 10, name.Length - 11 - match.Index);
+	var spl_regex = new System.Text.RegularExpressions.Regex(", ");
+	var strs = spl_regex.Split(alerts);
+	List<string> list = new List<string>();
+	for (int i = 0; i < strs.Length; i++) {
+		list.Add(strs[i]);
+	}
+	return list;
+}
+
+void addBlockAlert(IMyTerminalBlock block, string alert) {
+	var alerts = getBlockAlerts(block);
+	if (alerts.Contains(alert)) {
+		return;
+	}
+	var name = getBlockName(block);
+	alerts.Add(alert);
+	setBlockName(block, name, string.Join(", ", alerts.ToArray()));
+	showOnHud(block);
+}
+
+void removeBlockAlert(IMyTerminalBlock block, string alert) {
+	var alerts = getBlockAlerts(block);
+	if (!alerts.Contains(alert)) {
+		return;
+	}
+	var name = getBlockName(block);
+	alerts.Remove(alert);
+	if (alerts.Count == 0) {
+		block.SetCustomName(name);
+		hideFromHud(block);
+	} else {
+		setBlockName(block, name, string.Join(", ", alerts.ToArray()));
+		showOnHud(block);
+	}
+}
+
 string getBlockName(IMyTerminalBlock block) {
 	var name = block.CustomName;
 	var regex = new System.Text.RegularExpressions.Regex("\\[BARABAS");
@@ -3186,10 +3228,6 @@ string getBlockName(IMyTerminalBlock block) {
 }
 
 void setBlockName(IMyTerminalBlock antenna, string name, string alert) {
-	if (alert == "") {
-		antenna.SetCustomName(name);
-		return;
-	}
 	antenna.SetCustomName(name + " [BARABAS: " + alert + "]");
 }
 
@@ -3205,17 +3243,19 @@ void hideFromHud(IMyTerminalBlock block) {
 	}
 }
 
-void showAntennaAlert(string text) {
+void addAntennaAlert(string text) {
 	var antennas = getAntennas();
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
-		var name = getBlockName(antenna);
-		if (text != "") {
-			showOnHud(antenna);
-		} else {
-			hideFromHud(antenna);
-		}
-		setBlockName(antenna, name, text);
+		addBlockAlert(antenna, text);
+	}
+}
+
+void removeAntennaAlert(string text) {
+	var antennas = getAntennas();
+	for (int i = 0; i < antennas.Count; i++) {
+		var antenna = antennas[i];
+		removeBlockAlert(antenna, text);
 	}
 }
 
