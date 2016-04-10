@@ -3384,6 +3384,7 @@ bool s_refreshRemote() {
 bool s_power() {
 	// determine if we need more uranium
 	bool above_high_watermark = aboveHighWatermark();
+	var max_pwr_output = getMaxReactorPowerOutput() + getMaxBatteryPowerOutput();
 
 	// if we have enough uranium ingots, business as usual
 	if (!above_high_watermark) {
@@ -3394,7 +3395,7 @@ bool s_power() {
 			prioritize_uranium = true;
 		}
 
-		if (!above_low_watermark) {
+		if (!above_low_watermark && max_pwr_output != 0) {
 			addAlert(BLUE_ALERT);
 		} else {
 			removeAlert(BLUE_ALERT);
@@ -3403,47 +3404,36 @@ bool s_power() {
 		removeAlert(BLUE_ALERT);
 		prioritize_uranium = false;
 	}
+	status_report[STATUS_POWER_STATS] = "";
 
-	// figure out how much time we have on batteries and reactors
-	Decimal stored_power = getBatteryStoredPower() + getReactorStoredPower();
-
-	var max_pwr_draw = getMaxPowerDraw();
-	var cur_pwr_draw = getCurPowerDraw();
-
-	Decimal time;
-	if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
-		if (max_pwr_draw == 0) {
-			time = 0;
-		} else {
+	if (max_pwr_output != 0) {
+		// figure out how much time we have on batteries and reactors
+		Decimal stored_power = getBatteryStoredPower() + getReactorStoredPower();
+		// prevent division by zero
+		var max_pwr_draw = Math.Max(getMaxPowerDraw(), 0.001M);
+		var cur_pwr_draw = Math.Max(getCurPowerDraw(), 0.001M);
+		Decimal time;
+		string time_str;
+		if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
 			time = Math.Round(stored_power / max_pwr_draw, 0);
-		}
-	} else {
-		if (cur_pwr_draw == 0) {
-			time = 0;
 		} else {
 			time = Math.Round(stored_power / cur_pwr_draw, 0);
 		}
-	}
-
-	var max_pwr_output = getMaxReactorPowerOutput() + getMaxBatteryPowerOutput();
-	if (max_pwr_output == 0) {
-		max_pwr_output = max_pwr_draw;
-	}
-	string time_str;
-	string max_str = String.Format("{0:0.0}%", max_pwr_draw / max_pwr_output * 100);
-	string cur_str = String.Format("{0:0.0}%", cur_pwr_draw / max_pwr_output * 100);
-	if (time > 300) {
-		time = Math.Floor(time / 60M);
-		if (time > 48) {
-			time = Math.Floor(time / 24M);
-			time_str = Convert.ToString(time) + " d";
+		if (time > 300) {
+			time = Math.Floor(time / 60M);
+			if (time > 48) {
+				time = Math.Floor(time / 24M);
+				time_str = Convert.ToString(time) + " d";
+			} else {
+				time_str = Convert.ToString(time) + " h";
+			}
 		} else {
-			time_str = Convert.ToString(time) + " h";
+			time_str = Convert.ToString(time) + " m";
 		}
-	} else {
-		time_str = Convert.ToString(time) + " m";
+		string max_str = String.Format("{0:0.0}%", max_pwr_draw / max_pwr_output * 100);
+		string cur_str = String.Format("{0:0.0}%", cur_pwr_draw / max_pwr_output * 100);
+		status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
 	}
-	status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
 
 	if (crisis_mode == CRISIS_MODE_NONE) {
 		bool can_refuel = (op_mode & OP_MODE_SHIP) > 0 && connected_to_base;
