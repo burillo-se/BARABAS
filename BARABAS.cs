@@ -3187,15 +3187,10 @@ void showAntennaAlert(string text) {
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
 		var name = getAntennaName(antenna.CustomName);
-		antenna.ApplyAction(text != "" ? "OnOff_On" : "OnOff_Off");
-		if (antenna.GetProperty("EnableBroadCast") != null) {
-			antenna.SetValue("EnableBroadCast", text != "");
-		}
-		if (antenna.GetProperty("ShowShipName") != null) {
-			antenna.SetValue("ShowShipName", true);
-		}
-		if (antenna.GetProperty("ShowOnHUD") != null) {
-			antenna.SetValue("ShowOnHUD", text != "");
+		if (text != "") {
+			showOnHud(antenna);
+		} else {
+			hideFromHud(antenna);
 		}
 		setAntennaName(antenna, name, text);
 	}
