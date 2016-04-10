@@ -2741,8 +2741,11 @@ void checkOxygenLeaks() {
 		StringBuilder builder = new StringBuilder();
 		block.GetActionWithName("Depressurize").WriteValue(block, builder);
 		if (builder.ToString() == "Off" && !block.IsPressurized()) {
+			addBlockAlert(block, "Oxygen leak");
 			alert = true;
 			break;
+		} else {
+			removeBlockAlert(block, "Oxygen leak");
 		}
 	}
 	if (alert) {
