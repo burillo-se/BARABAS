@@ -3153,7 +3153,8 @@ void parseConfiguration() {
 	}
 }
 
-string getAntennaName(string name) {
+string getBlockName(IMyTerminalBlock block) {
+	var name = block.CustomName;
 	var regex = new System.Text.RegularExpressions.Regex("\\[BARABAS");
 	var match = regex.Match(name);
 	if (!match.Success) {
@@ -3162,7 +3163,7 @@ string getAntennaName(string name) {
 	return name.Substring(0, match.Index - 1);
 }
 
-void setAntennaName(IMyTerminalBlock antenna, string name, string alert) {
+void setBlockName(IMyTerminalBlock antenna, string name, string alert) {
 	if (alert == "") {
 		antenna.SetCustomName(name);
 		return;
@@ -3186,13 +3187,13 @@ void showAntennaAlert(string text) {
 	var antennas = getAntennas();
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
-		var name = getAntennaName(antenna.CustomName);
+		var name = getBlockName(antenna);
 		if (text != "") {
 			showOnHud(antenna);
 		} else {
 			hideFromHud(antenna);
 		}
-		setAntennaName(antenna, name, text);
+		setBlockName(antenna, name, text);
 	}
 }
 
