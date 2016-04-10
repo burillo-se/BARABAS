@@ -452,6 +452,10 @@ List<IMyTerminalBlock> removeNulls(List<IMyTerminalBlock> list) {
  return list;
 }
 
+IMySlimBlock slimBlock(IMyTerminalBlock block) {
+	return block.CubeGrid.GetCubeBlock(block.Position);
+}
+
 // get local blocks
 List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	if (local_blocks != null && !force_update) {
@@ -463,11 +467,16 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	has_damaged_blocks = false;
 	for (int i = local_blocks.Count - 1; i >= 0; i--) {
 		var block = local_blocks[i];
-		if (!block.IsFunctional) {
+		var name = getBlockName(block);
+		if (!slimBlock(block).IsFullIntegrity) {
+			setBlockName(block, name, "Damaged");
 			showOnHud(block);
-			local_blocks.RemoveAt(i);
 			has_damaged_blocks = true;
+			if (!block.IsFunctional) {
+				local_blocks.RemoveAt(i);
+			}
 		} else {
+			setBlockName(block, name, "");
 			hideFromHud(block);
 		}
 	}
