@@ -3631,7 +3631,7 @@ bool s_updateMaterialStats() {
 		}
 
 		if (has_status_panels) {
-			if (op_mode != OP_MODE_BASE && total == 0 && ore != ICE) {
+			if (op_mode != OP_MODE_BASE && total == 0) {
 				continue;
 			}
 			sb.Append("\n  ");
@@ -3678,11 +3678,11 @@ bool s_updateMaterialStats() {
 			hydro_cur += (Decimal) tank.GetOxygenLevel();
 			hydro_total += 1M;
 		}
-		string oxy_str = oxy_total == 0 ? "0" : String.Format("{0:0.0}",
+		string oxy_str = !has_oxygen_tanks ? "N/A" : String.Format("{0:0.0}%",
 					(oxy_cur / oxy_total) * 100M);
-		string hydro_str = hydro_total == 0 ? "0" : String.Format("{0:0.0}",
+		string hydro_str = !has_hydrogen_tanks ? "N/A" : String.Format("{0:0.0}%",
 					(hydro_cur / hydro_total) * 100M);
-		status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0}% / {1}%",
+		status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1}",
 					oxy_str, hydro_str);
 	}
 	return true;
