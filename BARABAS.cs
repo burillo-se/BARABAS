@@ -2282,6 +2282,8 @@ void refineOre() {
 					amount = 0;
 				}
 				var refinery = refineries[r];
+				var name = getBlockName(refinery);
+				setBlockName(refinery, name, "");
 				hideFromHud(refinery);
 				var input_inv = refinery.GetInventory(0);
 				var output_inv = refinery.GetInventory(1);
@@ -2601,11 +2603,14 @@ void declogAssemblers() {
 	for (int i = 0; i < assemblers.Count; i++) {
 		var assembler = assemblers[i] as IMyAssembler;
 		var inv = assembler.GetInventory(0);
+		var name = getBlockName(assembler);
+		setBlockName(assembler, name, "");
 		hideFromHud(assembler);
 
 		// input is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M && !assembler.IsProducing) {
 			alert = true;
+			setBlockName(assembler, name, "Input clogged");
 			showOnHud(assembler);
 		}
 		// empty assembler input if it's not doing anything
@@ -2620,6 +2625,7 @@ void declogAssemblers() {
 		inv = assembler.GetInventory(1);
 		// output is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M) {
+			setBlockName(assembler, name, "Output clogged");
 			alert = true;
 			showOnHud(assembler);
 		}
@@ -2632,6 +2638,7 @@ void declogAssemblers() {
 		}
 		// maybe we're missing some kind of ore?
 		if (!assembler.IsProducing && !assembler.IsQueueEmpty) {
+			setBlockName(assembler, name, "Missing materials");
 			alert = true;
 			showOnHud(assembler);
 		}
@@ -2648,20 +2655,24 @@ void declogRefineries() {
 	bool alert = false;
 	for (int i = 0; i < refineries.Count; i++) {
 		var refinery = refineries[i] as IMyRefinery;
+		var name = getBlockName(refinery);
 		var inv = refinery.GetInventory(1);
 		var items = inv.GetItems();
 		for (int j = items.Count - 1; j >= 0; j--) {
 			pushToStorage(inv, j, null);
 		}
+		setBlockName(refinery, name, "");
 		hideFromHud(refinery);
 		// output is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M) {
+			setBlockName(refinery, name, "Output clogged");
 			showOnHud(refinery);
 			alert = true;
 		}
 		inv = refinery.GetInventory(0);
 		// input is clogged
 		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M && !refinery.IsProducing) {
+			setBlockName(refinery, name, "Input clogged");
 			showOnHud(refinery);
 			alert = true;
 		}
