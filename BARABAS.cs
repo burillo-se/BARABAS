@@ -1,5 +1,5 @@
 /*
- * BARABAS v1.4beta1
+ * BARABAS v1.4beta2
  *
  * (Burillo's Automatic Resource Administration for BAses and Ships)
  *
