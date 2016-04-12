@@ -2921,6 +2921,7 @@ void addAlert(int level) {
 	removeAntennaAlert(ALERT_LOW_POWER);
 	removeAntennaAlert(ALERT_LOW_STORAGE);
 	removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
+	removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
 
 	// now, find enabled alerts
 	for (int i = 0; i < text_alerts.Count; i++) {
