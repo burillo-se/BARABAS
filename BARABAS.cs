@@ -301,7 +301,7 @@ public struct Alert {
 	public string text;
 }
 
-readonly List < Alert > alerts = new List < Alert > {
+readonly List < Alert > text_alerts = new List < Alert > {
 	new Alert(Color.Red, "Very low storage"),
 	new Alert(Color.Yellow, "Low storage"),
 	new Alert(Color.Blue, "Low power"),
@@ -311,6 +311,31 @@ readonly List < Alert > alerts = new List < Alert > {
 	new Alert(Color.HotPink, "Damaged blocks"),
 	new Alert(Color.Chocolate, "Oxygen leak"),
 	new Alert(Color.Green, "Connected"),
+};
+
+Dictionary < IMyTerminalBlock, int > blocks_to_alerts = new Dictionary < IMyTerminalBlock, int >();
+
+// alert flags
+const int ALERT_DAMAGED = 0x01;
+const int ALERT_CLOGGED = 0x02;
+const int ALERT_MATERIALS_MISSING = 0x04;
+const int ALERT_LOW_POWER = 0x08;
+const int ALERT_LOW_STORAGE = 0x10;
+const int ALERT_VERY_LOW_STORAGE = 0x20;
+const int ALERT_MATERIAL_SHORTAGE = 0x40;
+const int ALERT_OXYGEN_LEAK = 0x80;
+const int ALERT_LOW_OXYGEN = 0x100;
+
+readonly Dictionary < int, string > block_alerts = new Dictionary < int, string > {
+	{ALERT_DAMAGED, "Damaged"},
+	{ALERT_CLOGGED, "Clogged"},
+	{ALERT_MATERIALS_MISSING, "Materials missing"},
+	{ALERT_LOW_POWER, "Low power"},
+	{ALERT_LOW_STORAGE, "Low storage"},
+	{ALERT_VERY_LOW_STORAGE, "Very low storage"},
+	{ALERT_MATERIAL_SHORTAGE, "Material shortage"},
+	{ALERT_OXYGEN_LEAK, "Oxygen leak"},
+	{ALERT_LOW_OXYGEN, "Low oxygen"},
 };
 
 /* misc local data */
@@ -339,7 +364,6 @@ bool has_single_connector;
 bool has_trash_sensor;
 bool has_refineries;
 bool has_arc_furnaces;
-bool has_damaged_blocks;
 bool connected;
 bool connected_to_base;
 bool connected_to_ship;
@@ -466,19 +490,25 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	local_blocks = new List < IMyTerminalBlock > ();
 	GridTerminalSystem.GetBlocksOfType
 					< IMyTerminalBlock > (local_blocks, localGridFilter);
+	bool alert = false;
 	// check if we have unfinished blocks
-	has_damaged_blocks = false;
 	for (int i = local_blocks.Count - 1; i >= 0; i--) {
 		var block = local_blocks[i];
 		if (!slimBlock(block).IsFullIntegrity) {
-			addBlockAlert(block, "Damaged");
-			has_damaged_blocks = true;
+			alert = true;
+			addBlockAlert(block, ALERT_DAMAGED);
 			if (!block.IsFunctional) {
 				local_blocks.RemoveAt(i);
 			}
 		} else {
-			removeBlockAlert(block, "Damaged");
+			removeBlockAlert(block, ALERT_DAMAGED);
 		}
+		displayBlockAlerts(block);
+	}
+	if (alert) {
+		addAlert(PINK_ALERT);
+	} else {
+		removeAlert(PINK_ALERT);
 	}
 	return local_blocks;
 }
@@ -531,6 +561,26 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 	}
 	local_refineries = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyRefinery > (local_refineries, null, "LargeRefinery");
+	bool alert = false;
+	for (int i = 0; i < local_refineries.Count; i++) {
+		var refinery = local_refineries[i] as IMyRefinery;
+		var input_inv = refinery.GetInventory(0);
+		var output_inv = refinery.GetInventory(1);
+		Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
+		Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
+		if (input_load > 0.98M || output_load > 0.98M || (!refinery.IsQueueEmpty && !refinery.IsProducing)) {
+			addBlockAlert(refinery, ALERT_CLOGGED);
+			alert = true;
+		} else {
+			removeBlockAlert(refinery, ALERT_CLOGGED);
+		}
+		displayBlockAlerts(refinery);
+	}
+	if (alert) {
+		addAlert(MAGENTA_ALERT);
+	} else {
+		removeAlert(MAGENTA_ALERT);
+	}
 	return local_refineries;
 }
 
@@ -540,6 +590,26 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 	}
 	local_arc_furnaces = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyRefinery > (local_arc_furnaces, null, "Blast Furnace");
+	bool alert = false;
+	for (int i = 0; i < local_arc_furnaces.Count; i++) {
+		var refinery = local_arc_furnaces[i] as IMyRefinery;
+		var input_inv = refinery.GetInventory(0);
+		var output_inv = refinery.GetInventory(1);
+		Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
+		Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
+		if (input_load > 0.98M || output_load > 0.98M || (!refinery.IsQueueEmpty && !refinery.IsProducing)) {
+			addBlockAlert(refinery, ALERT_CLOGGED);
+			alert = true;
+		} else {
+			removeBlockAlert(refinery, ALERT_CLOGGED);
+		}
+		displayBlockAlerts(refinery);
+	}
+	if (alert) {
+		addAlert(MAGENTA_ALERT);
+	} else {
+		removeAlert(MAGENTA_ALERT);
+	}
 	return local_arc_furnaces;
 }
 
@@ -556,14 +626,37 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 	}
 	local_assemblers = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyAssembler > (local_assemblers);
+	bool alert = false;
 	for (int i = local_assemblers.Count - 1; i >= 0; i--) {
-		var block = local_assemblers[i];
-		if ((block as IMyAssembler).DisassembleEnabled) {
+		var block = local_assemblers[i] as IMyAssembler;
+		if (block.DisassembleEnabled) {
 			local_assemblers.RemoveAt(i);
 		} else {
 			consolidate(block.GetInventory(0));
 			consolidate(block.GetInventory(1));
+			var input_inv = block.GetInventory(0);
+			var output_inv = block.GetInventory(1);
+			Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
+			Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
+			if (input_load > 0.98M || output_load > 0.98M) {
+				addBlockAlert(block, ALERT_CLOGGED);
+				alert = true;
+			} else {
+				removeBlockAlert(block, ALERT_CLOGGED);
+			}
+			if (!block.IsQueueEmpty && !block.IsProducing) {
+				addBlockAlert(block, ALERT_MATERIALS_MISSING);
+				alert = true;
+			} else {
+				removeBlockAlert(block, ALERT_MATERIALS_MISSING);
+			}
+			displayBlockAlerts(block);
 		}
+	}
+	if (alert) {
+		addAlert(CYAN_ALERT);
+	} else {
+		removeAlert(CYAN_ALERT);
 	}
 	return local_assemblers;
 }
@@ -1021,7 +1114,7 @@ IMySensorBlock getTrashSensor(bool force_update = false) {
 	if (!force_update && trash_sensor != null) {
 		return trash_sensor;
 	}
-	var blocks = getBlocks();
+	var blocks = new List < IMyTerminalBlock> (getBlocks());
 	filterBlocks < IMySensorBlock > (blocks, "BARABAS Trash Sensor");
 	if (blocks.Count < 1) {
 		trash_sensor = null;
@@ -1054,7 +1147,7 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
  */
 List < ItemHelper > getAllInventories() {
 	List < ItemHelper > list = new List < ItemHelper > ();
-	var blocks = new List < IMyTerminalBlock> (getBlocks());
+	var blocks = getBlocks();
 	for (int i = 0; i < blocks.Count; i++) {
 		var block = blocks[i];
 		// skip blocks that don't have inventory
@@ -2283,7 +2376,7 @@ void refineOre() {
 					amount = 0;
 				}
 				var refinery = refineries[r];
-				removeBlockAlert(refinery, "Clogged");
+				removeBlockAlert(refinery, ALERT_CLOGGED);
 				var input_inv = refinery.GetInventory(0);
 				var output_inv = refinery.GetInventory(1);
 				Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
@@ -2302,20 +2395,8 @@ void refineOre() {
 						inv.TransferItemTo(input_inv, j, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
 					}
 				}
-				if (ore == ICE) {
-					continue;
-				}
-				Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
-				if (input_load == 1M || output_load == 1M || (!(refinery as IMyRefinery).IsQueueEmpty && !(refinery as IMyRefinery).IsProducing)) {
-					addBlockAlert(refinery, "Clogged");
-					addAlert(MAGENTA_ALERT);
-					alert = true;
-				}
 			}
 		}
-	}
-	if (!alert) {
-		removeAlert(MAGENTA_ALERT);
 	}
 }
 
@@ -2598,18 +2679,10 @@ bool refineriesClogged() {
  */
 void declogAssemblers() {
 	var assemblers = getAssemblers();
-	bool alert = false;
 	for (int i = 0; i < assemblers.Count; i++) {
 		var assembler = assemblers[i] as IMyAssembler;
 		var inv = assembler.GetInventory(0);
 
-		// input is clogged
-		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M && !assembler.IsProducing) {
-			alert = true;
-			addBlockAlert(assembler, "Input clogged");
-		} else {
-			removeBlockAlert(assembler, "Input clogged");
-		}
 		// empty assembler input if it's not doing anything
 		var items = inv.GetItems();
 		if (assembler.IsQueueEmpty) {
@@ -2620,13 +2693,7 @@ void declogAssemblers() {
 		}
 
 		inv = assembler.GetInventory(1);
-		// output is clogged
-		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M) {
-			addBlockAlert(assembler, "Output clogged");
-			alert = true;
-		} else {
-			removeBlockAlert(assembler, "Output clogged");
-		}
+
 		// empty output but only if it's not disassembling
 		if (!assembler.DisassembleEnabled) {
 			items = inv.GetItems();
@@ -2634,24 +2701,11 @@ void declogAssemblers() {
 				pushToStorage(inv, j, null);
 			}
 		}
-		// maybe we're missing some kind of ore?
-		if (!assembler.IsProducing && !assembler.IsQueueEmpty) {
-			addBlockAlert(assembler, "Materials missing");
-			alert = true;
-		} else {
-			removeBlockAlert(assembler, "Materials missing");
-		}
-	}
-	if (alert) {
-		addAlert(CYAN_ALERT);
-	} else {
-		removeAlert(CYAN_ALERT);
 	}
 }
 
 void declogRefineries() {
 	var refineries = getAllRefineries();
-	bool alert = false;
 	for (int i = 0; i < refineries.Count; i++) {
 		var refinery = refineries[i] as IMyRefinery;
 		var inv = refinery.GetInventory(1);
@@ -2659,26 +2713,6 @@ void declogRefineries() {
 		for (int j = items.Count - 1; j >= 0; j--) {
 			pushToStorage(inv, j, null);
 		}
-		// output is clogged
-		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M) {
-			addBlockAlert(refinery, "Output clogged");
-			alert = true;
-		} else {
-			removeBlockAlert(refinery, "Output clogged");
-		}
-		inv = refinery.GetInventory(0);
-		// input is clogged
-		if ((Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume > 0.98M && !refinery.IsProducing) {
-			addBlockAlert(refinery, "Input clogged");
-			alert = true;
-		} else {
-			removeBlockAlert(refinery, "Input clogged");
-		}
-	}
-	if (alert) {
-		addAlert(MAGENTA_ALERT);
-	} else {
-		removeAlert(MAGENTA_ALERT);
 	}
 }
 
@@ -2743,12 +2777,12 @@ void checkOxygenLeaks() {
 		StringBuilder builder = new StringBuilder();
 		block.GetActionWithName("Depressurize").WriteValue(block, builder);
 		if (builder.ToString() == "Off" && !block.IsPressurized()) {
-			addBlockAlert(block, "Oxygen leak");
+			addBlockAlert(block, ALERT_OXYGEN_LEAK);
 			alert = true;
-			break;
 		} else {
-			removeBlockAlert(block, "Oxygen leak");
+			removeBlockAlert(block, ALERT_OXYGEN_LEAK);
 		}
+		displayBlockAlerts(block);
 	}
 	if (alert) {
 		addAlert(BROWN_ALERT);
@@ -2839,54 +2873,63 @@ void selectOperationMode() {
 }
 
 void addAlert(int level) {
-	var alert = alerts[level];
+	var alert = text_alerts[level];
 	// this alert is already enabled
 	if (alert.enabled) {
 		return;
 	}
 	alert.enabled = true;
-	alerts[level] = alert;
+	text_alerts[level] = alert;
 	Alert ? cur_alert = null;
 	string text = "";
+
+	removeAntennaAlert(ALERT_LOW_POWER);
+	removeAntennaAlert(ALERT_LOW_STORAGE);
+	removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
+
 	// now, find enabled alerts
-	for (int i = 0; i < alerts.Count; i++) {
-		alert = alerts[i];
-		if (alerts[i].enabled) {
-			addAntennaAlert(alert.text);
+	for (int i = 0; i < text_alerts.Count; i++) {
+		alert = text_alerts[i];
+		if (text_alerts[i].enabled) {
+			if (i == BLUE_ALERT) {
+				addAntennaAlert(ALERT_LOW_POWER);
+			} else if (i == YELLOW_ALERT) {
+				addAntennaAlert(ALERT_LOW_STORAGE);
+			} else if (i == RED_ALERT) {
+				addAntennaAlert(ALERT_VERY_LOW_STORAGE);
+			} else if (i == WHITE_ALERT) {
+				addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+			}
 			if (cur_alert == null) {
 				cur_alert = alert;
 				text += alert.text;
 			} else {
 				text += ", " + alert.text;
 			}
-		} else {
-			removeAntennaAlert(alert.text);
 		}
 	}
+	displayAntennaAlerts();
 	showAlertColor(cur_alert.Value.color);
 	status_report[STATUS_ALERT] = text;
 }
 
 void removeAlert(int level) {
 	// disable the alert
-	var old_alert = alerts[level];
+	var old_alert = text_alerts[level];
 	old_alert.enabled = false;
-	alerts[level] = old_alert;
+	text_alerts[level] = old_alert;
 	// now, see if we should display another alert
 	Nullable < Alert > alert = null;
 	string text = "";
 	// now, find enabled alerts
-	for (int i = 0; i < alerts.Count; i++) {
-		if (alerts[i].enabled) {
-			addAntennaAlert(alerts[i].text);
+	for (int i = 0; i < text_alerts.Count; i++) {
+		if (text_alerts[i].enabled) {
 			if (alert == null) {
-				alert = alerts[i];
+				alert = text_alerts[i];
 				text += alert.Value.text;
 			} else {
-				text += ", " + alerts[i].text;
+				text += ", " + text_alerts[i].text;
 			}
-		} else {
-			removeAntennaAlert(alerts[i].text);
 		}
 	}
 	status_report[STATUS_ALERT] = text;
@@ -3178,47 +3221,59 @@ void parseConfiguration() {
 	}
 }
 
-List<string> getBlockAlerts(IMyTerminalBlock block) {
-	var name = block.CustomName;
-	var regex = new System.Text.RegularExpressions.Regex("\\[BARABAS");
-	var match = regex.Match(name);
-	if (!match.Success) {
-		return new List<string>();
+string getBlockAlerts(int ids) {
+	var sb = new StringBuilder();
+	int idx = 0;
+	bool first = true;
+	while (ids != 0) {
+		if ((ids & 0x1) != 0) {
+			if (!first) {
+				sb.Append(", ");
+			}
+			sb.Append(block_alerts[1 << idx]);
+		}
+		idx++;
+		ids >>= 1;
 	}
-	var alerts = name.Substring(match.Index + 10, name.Length - 11 - match.Index);
-	var spl_regex = new System.Text.RegularExpressions.Regex(", ");
-	var strs = spl_regex.Split(alerts);
-	List<string> list = new List<string>();
-	for (int i = 0; i < strs.Length; i++) {
-		list.Add(strs[i]);
-	}
-	return list;
+	return sb.ToString();
 }
 
-void addBlockAlert(IMyTerminalBlock block, string alert) {
-	var alerts = getBlockAlerts(block);
-	if (alerts.Contains(alert)) {
+void displayBlockAlerts(IMyTerminalBlock block) {
+	var name = getBlockName(block);
+	if (!blocks_to_alerts.ContainsKey(block)) {
+		setBlockName(block, name, "");
+		hideFromHud(block);
 		return;
 	}
-	var name = getBlockName(block);
-	alerts.Add(alert);
-	setBlockName(block, name, string.Join(", ", alerts.ToArray()));
-	showOnHud(block);
-}
+	var cur = blocks_to_alerts[block];
+	var alerts = getBlockAlerts(cur);
 
-void removeBlockAlert(IMyTerminalBlock block, string alert) {
-	var alerts = getBlockAlerts(block);
-	if (!alerts.Contains(alert)) {
-		return;
-	}
-	var name = getBlockName(block);
-	alerts.Remove(alert);
-	if (alerts.Count == 0) {
-		block.SetCustomName(name);
+	if (cur == 0) {
+		setBlockName(block, name, alerts);
 		hideFromHud(block);
 	} else {
-		setBlockName(block, name, string.Join(", ", alerts.ToArray()));
+		setBlockName(block, name, alerts);
 		showOnHud(block);
+	}
+}
+
+void addBlockAlert(IMyTerminalBlock block, int id) {
+	if (blocks_to_alerts.ContainsKey(block)) {
+		blocks_to_alerts[block] |= id;
+	} else {
+		blocks_to_alerts.Add(block, id);
+	}
+}
+
+void removeBlockAlert(IMyTerminalBlock block, int id) {
+	if (blocks_to_alerts.ContainsKey(block)) {
+		var cur = blocks_to_alerts[block];
+		cur &= ~id;
+		if (cur != 0) {
+			blocks_to_alerts[block] = cur;
+		} else {
+			blocks_to_alerts.Remove(block);
+		}
 	}
 }
 
@@ -3233,7 +3288,11 @@ string getBlockName(IMyTerminalBlock block) {
 }
 
 void setBlockName(IMyTerminalBlock antenna, string name, string alert) {
-	antenna.SetCustomName(name + " [BARABAS: " + alert + "]");
+	if (alert == "") {
+		antenna.SetCustomName(name);
+	} else {
+		antenna.SetCustomName(name + " [BARABAS: " + alert + "]");
+	}
 }
 
 void showOnHud(IMyTerminalBlock block) {
@@ -3248,19 +3307,27 @@ void hideFromHud(IMyTerminalBlock block) {
 	}
 }
 
-void addAntennaAlert(string text) {
+void displayAntennaAlerts() {
 	var antennas = getAntennas();
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
-		addBlockAlert(antenna, text);
+		displayBlockAlerts(antenna);
 	}
 }
 
-void removeAntennaAlert(string text) {
+void addAntennaAlert(int id) {
 	var antennas = getAntennas();
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
-		removeBlockAlert(antenna, text);
+		addBlockAlert(antenna, id);
+	}
+}
+
+void removeAntennaAlert(int id) {
+	var antennas = getAntennas();
+	for (int i = 0; i < antennas.Count; i++) {
+		var antenna = antennas[i];
+		removeBlockAlert(antenna, id);
 	}
 }
 
@@ -3391,12 +3458,6 @@ bool s_refreshState() {
 	}
 	configureWatermarks();
 	rebuildConfiguration();
-
-	if (has_damaged_blocks) {
-		addAlert(PINK_ALERT);
-	} else {
-		removeAlert(PINK_ALERT);
-	}
 
 
 	if (pull_ingots_from_base && push_ingots_to_base) {
