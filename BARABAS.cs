@@ -461,10 +461,11 @@ IMySlimBlock slimBlock(IMyTerminalBlock block) {
 // get local blocks
 List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	if (local_blocks != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_blocks);
+		return local_blocks;
 	}
 	local_blocks = new List < IMyTerminalBlock > ();
-	GridTerminalSystem.GetBlocksOfType < IMyTerminalBlock > (local_blocks, localGridFilter);
+	GridTerminalSystem.GetBlocksOfType
+					< IMyTerminalBlock > (local_blocks, localGridFilter);
 	// check if we have unfinished blocks
 	has_damaged_blocks = false;
 	for (int i = local_blocks.Count - 1; i >= 0; i--) {
@@ -479,14 +480,14 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 			removeBlockAlert(block, "Damaged");
 		}
 	}
-	return new List < IMyTerminalBlock > (local_blocks);
+	return local_blocks;
 }
 
 List < IMyTerminalBlock > getReactors(bool force_update = false) {
 	if (local_reactors != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_reactors, 1));
+		return removeNulls(local_reactors, 1);
 	}
-	local_reactors = getBlocks();
+	local_reactors = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyReactor > (local_reactors);
 	for (int i = 0; i < local_reactors.Count; i++) {
 		var inv = local_reactors[i].GetInventory(0);
@@ -494,65 +495,66 @@ List < IMyTerminalBlock > getReactors(bool force_update = false) {
 			consolidate(inv);
 		}
 	}
-	return new List < IMyTerminalBlock > (local_reactors);
+	return local_reactors;
 }
 
 List < IMyTerminalBlock > getBatteries(bool force_update = false) {
 	if (local_batteries != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_batteries);
+		return local_batteries;
 	}
-	local_batteries = getBlocks();
+	local_batteries = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyBatteryBlock > (local_batteries);
 	for (int i = local_batteries.Count - 1; i >= 0; i--) {
 		if ((local_batteries[i] as IMyBatteryBlock).OnlyRecharge) {
 			local_batteries.RemoveAt(i);
 		}
 	}
-	return new List < IMyTerminalBlock > (local_batteries);
+	return local_batteries;
 }
 
 List < IMyTerminalBlock > getStorage(bool force_update = false) {
 	if (local_storage != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_storage, 1));
+		return removeNulls(local_storage, 1);
 	}
-	local_storage = getBlocks();
+	local_storage = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyCargoContainer > (local_storage);
 	for (int i = 0; i < local_storage.Count; i++) {
 		var inv = local_storage[i].GetInventory(0);
 		consolidate(inv);
 	}
-	return new List < IMyTerminalBlock > (local_storage);
+	return local_storage;
 }
 
 List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 	if (local_refineries != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_refineries, 2));
+		return removeNulls(local_refineries, 2);
 	}
-	local_refineries = getBlocks();
+	local_refineries = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyRefinery > (local_refineries, null, "LargeRefinery");
-	return new List < IMyTerminalBlock > (local_refineries);
+	return local_refineries;
 }
 
 List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 	if (local_arc_furnaces != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_arc_furnaces, 2));
+		return removeNulls(local_arc_furnaces, 2);
 	}
-	local_arc_furnaces = getBlocks();
+	local_arc_furnaces = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyRefinery > (local_arc_furnaces, null, "Blast Furnace");
-	return new List < IMyTerminalBlock > (local_arc_furnaces);
+	return local_arc_furnaces;
 }
 
-List < IMyTerminalBlock > getAllRefineries(bool force_update = false) {
-	var list = getRefineries(force_update);
-	list.AddRange(getArcFurnaces(force_update));
+List < IMyTerminalBlock > getAllRefineries() {
+	var list = new List < IMyTerminalBlock > ();
+	list.AddRange(getRefineries());
+	list.AddRange(getArcFurnaces());
 	return list;
 }
 
 List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 	if (local_assemblers != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_assemblers, 2));
+		return removeNulls(local_assemblers, 2);
 	}
-	local_assemblers = getBlocks();
+	local_assemblers = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyAssembler > (local_assemblers);
 	for (int i = local_assemblers.Count - 1; i >= 0; i--) {
 		var block = local_assemblers[i];
@@ -563,25 +565,25 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 			consolidate(block.GetInventory(1));
 		}
 	}
-	return new List < IMyTerminalBlock > (local_assemblers);
+	return local_assemblers;
 }
 
 List < IMyTerminalBlock > getConnectors(bool force_update = false) {
 	if (local_connectors != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_connectors, 1));
+		return removeNulls(local_connectors, 1);
 	}
-	local_connectors = getBlocks();
+	local_connectors = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyShipConnector > (local_connectors);
 	for (int i = 0; i < local_connectors.Count; i++) {
 		consolidate(local_connectors[i].GetInventory(0));
 	}
-	return new List < IMyTerminalBlock > (local_connectors);
+	return local_connectors;
 }
 
 // get notification lights
 List < IMyTerminalBlock > getLights(bool force_update = false) {
 	if (local_lights != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_lights);
+		return local_lights;
 	}
 	// find our group
 	local_lights = new List < IMyTerminalBlock > ();
@@ -602,13 +604,13 @@ List < IMyTerminalBlock > getLights(bool force_update = false) {
 		local_lights = blocks;
 		break;
 	}
-	return new List < IMyTerminalBlock > (local_lights);
+	return local_lights;
 }
 
 // get status report text panels
 List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
 	if (local_text_panels != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_text_panels);
+		return local_text_panels;
 	}
 	// find our group
 	local_text_panels = new List < IMyTerminalBlock > ();
@@ -636,13 +638,13 @@ List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
 		local_text_panels = blocks;
 		break;
 	}
-	return new List < IMyTerminalBlock > (local_text_panels);
+	return local_text_panels;
 }
 
 // get status report text panels
 List < IMyTerminalBlock > getAntennas(bool force_update = false) {
 	if (local_text_panels != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_antennas);
+		return local_antennas;
 	}
 	// find our group
 	local_antennas = new List < IMyTerminalBlock > ();
@@ -676,63 +678,63 @@ List < IMyTerminalBlock > getAntennas(bool force_update = false) {
 		}
 		break;
 	}
-	return new List < IMyTerminalBlock > (local_antennas);
+	return local_antennas;
 }
 
 List < IMyTerminalBlock > getDrills(bool force_update = false) {
 	if (local_drills != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_drills, 1));
+		return removeNulls(local_drills, 1);
 	}
-	local_drills = getBlocks();
+	local_drills = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyShipDrill > (local_drills);
 	for (int i = 0; i < local_drills.Count; i++) {
 		consolidate(local_drills[i].GetInventory(0));
 	}
-	return new List < IMyTerminalBlock > (local_drills);
+	return local_drills;
 }
 
 List < IMyTerminalBlock > getGrinders(bool force_update = false) {
 	if (local_grinders != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_grinders, 1));
+		return removeNulls(local_grinders, 1);
 	}
-	local_grinders = getBlocks();
+	local_grinders = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyShipGrinder > (local_grinders);
 	for (int i = 0; i < local_grinders.Count; i++) {
 		consolidate(local_grinders[i].GetInventory(0));
 	}
-	return new List < IMyTerminalBlock > (local_grinders);
+	return local_grinders;
 }
 
 List < IMyTerminalBlock > getWelders(bool force_update = false) {
 	if (local_welders != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_welders, 1));
+		return removeNulls(local_welders, 1);
 	}
-	local_welders = getBlocks();
+	local_welders = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyShipWelder > (local_welders);
 	for (int i = 0; i < local_welders.Count; i++) {
 		consolidate(local_welders[i].GetInventory(0));
 	}
-	return new List < IMyTerminalBlock > (local_welders);
+	return local_welders;
 }
 
 List<IMyTerminalBlock> getTanks(string type) {
-	var list = getBlocks();
+	var list = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyOxygenTank > (list, null, type);
-	return new List < IMyTerminalBlock > (list);
+	return list;
 }
 
 List < IMyTerminalBlock > getAirVents(bool force_update = false) {
 	if (local_air_vents != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_air_vents);
+		return local_air_vents;
 	}
-	local_air_vents = getBlocks();
+	local_air_vents = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyAirVent > (local_air_vents);
-	return new List < IMyTerminalBlock > (local_air_vents);
+	return local_air_vents;
 }
 
 List < IMyTerminalBlock > getOxygenTanks(bool force_update = false) {
 	if (local_oxygen_tanks != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_oxygen_tanks);
+		return local_oxygen_tanks;
 	}
 	local_oxygen_tanks = getTanks("Oxygen");
 	// hydrogen tanks are counted as oxygen tanks here, so filter them out
@@ -742,24 +744,24 @@ List < IMyTerminalBlock > getOxygenTanks(bool force_update = false) {
 			local_oxygen_tanks.RemoveAt(i);
 		}
 	}
-	return new List < IMyTerminalBlock > (local_oxygen_tanks);
+	return local_oxygen_tanks;
 }
 
 List < IMyTerminalBlock > getHydrogenTanks(bool force_update = false) {
 	if (local_hydrogen_tanks != null && !force_update) {
-		return new List < IMyTerminalBlock > (local_hydrogen_tanks);
+		return local_hydrogen_tanks;
 	}
 	local_hydrogen_tanks = getTanks("Hydrogen");
-	return new List < IMyTerminalBlock > (local_hydrogen_tanks);
+	return local_hydrogen_tanks;
 }
 
 List < IMyTerminalBlock > getOxygenGenerators(bool force_update = false) {
 	if (local_oxygen_generators != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(local_oxygen_generators, 1));
+		return removeNulls(local_oxygen_generators, 1);
 	}
-	local_oxygen_generators = getBlocks();
+	local_oxygen_generators = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyOxygenGenerator > (local_oxygen_generators);
-	return new List < IMyTerminalBlock > (local_oxygen_generators);
+	return local_oxygen_generators;
 }
 
 string getGridId(string val) {
@@ -1035,7 +1037,7 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
 	if (!force_update && config_block != null) {
 		return config_block;
 	}
-	var blocks = getBlocks();
+	var blocks = new List < IMyTerminalBlock> (getBlocks());
 	filterBlocks < IMyTextPanel > (blocks, "BARABAS Config");
 	if (blocks.Count < 1) {
 		return null;
@@ -1052,7 +1054,7 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
  */
 List < ItemHelper > getAllInventories() {
 	List < ItemHelper > list = new List < ItemHelper > ();
-	var blocks = getBlocks();
+	var blocks = new List < IMyTerminalBlock> (getBlocks());
 	for (int i = 0; i < blocks.Count; i++) {
 		var block = blocks[i];
 		// skip blocks that don't have inventory
