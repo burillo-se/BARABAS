@@ -585,7 +585,8 @@ List < IMyTerminalBlock > getLights(bool force_update = false) {
 	}
 	// find our group
 	local_lights = new List < IMyTerminalBlock > ();
-	var groups = GridTerminalSystem.BlockGroups;
+	var groups = new List<IMyBlockGroup>();
+	GridTerminalSystem.GetBlockGroups(groups);
 	for (int i = 0; i < groups.Count; i++) {
 		var group = groups[i];
 		// skip groups we don't want
@@ -611,7 +612,8 @@ List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
 	}
 	// find our group
 	local_text_panels = new List < IMyTerminalBlock > ();
-	var groups = GridTerminalSystem.BlockGroups;
+	var groups = new List<IMyBlockGroup>();
+	GridTerminalSystem.GetBlockGroups(groups);
 	for (int i = 0; i < groups.Count; i++) {
 		var group = groups[i];
 		// skip groups we don't want
