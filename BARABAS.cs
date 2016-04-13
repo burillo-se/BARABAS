@@ -2962,9 +2962,24 @@ void removeAlert(int level) {
 	// now, see if we should display another alert
 	Nullable < Alert > alert = null;
 	string text = "";
+
+	removeAntennaAlert(ALERT_LOW_POWER);
+	removeAntennaAlert(ALERT_LOW_STORAGE);
+	removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
+	removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+
 	// now, find enabled alerts
 	for (int i = 0; i < text_alerts.Count; i++) {
 		if (text_alerts[i].enabled) {
+			if (i == BLUE_ALERT) {
+				addAntennaAlert(ALERT_LOW_POWER);
+			} else if (i == YELLOW_ALERT) {
+				addAntennaAlert(ALERT_LOW_STORAGE);
+			} else if (i == RED_ALERT) {
+				addAntennaAlert(ALERT_VERY_LOW_STORAGE);
+			} else if (i == WHITE_ALERT) {
+				addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+			}
 			if (alert == null) {
 				alert = text_alerts[i];
 				text += alert.Value.text;
@@ -2979,6 +2994,7 @@ void removeAlert(int level) {
 	} else {
 		showAlertColor(alert.Value.color);
 	}
+	displayAntennaAlerts();
 }
 
 bool clStrCompare(string str1, string str2) {
