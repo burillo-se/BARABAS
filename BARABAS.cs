@@ -58,6 +58,8 @@ Decimal power_low_watermark = 0M;
 bool throw_out_stone = false;
 bool sort_storage = true;
 bool hud_notifications = true;
+Decimal oxygen_threshold = 15M;
+Decimal hydrogen_threshold = 0M;
 
 bool push_ore_to_base = false;
 bool push_ingots_to_base = false;
@@ -90,6 +92,8 @@ const string CONFIGSTR_PULL_COMPONENTS = "pull components from base";
 const string CONFIGSTR_KEEP_STONE = "keep stone";
 const string CONFIGSTR_SORT_STORAGE = "sort storage";
 const string CONFIGSTR_HUD_NOTIFICATIONS = "HUD notifications";
+const string CONFIGSTR_OXYGEN_THRESHOLD = "oxygen threshold";
+const string CONFIGSTR_HYDROGEN_THRESHOLD = "hydrogen threshold";
 
 // ore_volume
 const Decimal VOLUME_ORE = 0.37M;
@@ -129,6 +133,10 @@ readonly Dictionary < string, string > config_options = new Dictionary < string,
 		CONFIGSTR_POWER_LOW_WATERMARK, ""
 	}, {
 		CONFIGSTR_POWER_HIGH_WATERMARK, ""
+	}, {
+		CONFIGSTR_OXYGEN_THRESHOLD, ""
+	}, {
+		CONFIGSTR_HYDROGEN_THRESHOLD, ""
 	}, {
 		CONFIGSTR_PUSH_ORE, ""
 	}, {
@@ -329,6 +337,7 @@ const int ALERT_VERY_LOW_STORAGE = 0x20;
 const int ALERT_MATERIAL_SHORTAGE = 0x40;
 const int ALERT_OXYGEN_LEAK = 0x80;
 const int ALERT_LOW_OXYGEN = 0x100;
+const int ALERT_LOW_HYDROGEN = 0x200;
 
 readonly Dictionary < int, string > block_alerts = new Dictionary < int, string > {
 	{ALERT_DAMAGED, "Damaged"},
@@ -340,6 +349,7 @@ readonly Dictionary < int, string > block_alerts = new Dictionary < int, string 
 	{ALERT_MATERIAL_SHORTAGE, "Material shortage"},
 	{ALERT_OXYGEN_LEAK, "Oxygen leak"},
 	{ALERT_LOW_OXYGEN, "Low oxygen"},
+	{ALERT_LOW_HYDROGEN, "Low hydrogen"},
 };
 
 /* misc local data */
@@ -2846,6 +2856,12 @@ void resetConfig() {
 	material_thresholds[STONE] = 5000M;
 	power_low_watermark = 0;
 	power_high_watermark = 0;
+	if (can_use_oxygen) {
+		oxygen_threshold = 15M;
+	} else {
+		oxygen_threshold = 0M;
+	}
+	hydrogen_threshold = 0M;
 }
 // update defaults based on auto configured values
 void autoConfigure() {
@@ -3036,6 +3052,16 @@ string generateConfiguration() {
 	} else {
 		config_options[CONFIGSTR_KEEP_STONE] = "all";
 	}
+	if (oxygen_threshold != 0M) {
+		config_options[CONFIGSTR_OXYGEN_THRESHOLD] = Convert.ToString(oxygen_threshold);
+	} else {
+		config_options[CONFIGSTR_OXYGEN_THRESHOLD] = "none";
+	}
+	if (hydrogen_threshold != 0M) {
+		config_options[CONFIGSTR_HYDROGEN_THRESHOLD] = Convert.ToString(hydrogen_threshold);
+	} else {
+		config_options[CONFIGSTR_HYDROGEN_THRESHOLD] = "none";
+	}
 
 	// currently selected operation mode
 	sb.AppendLine("# Operation mode");
@@ -3056,6 +3082,16 @@ string generateConfiguration() {
 	key = CONFIGSTR_POWER_LOW_WATERMARK;
 	sb.AppendLine("# Amount of power on \"empty\" batteries/reactors, in minutes.");
 	sb.AppendLine("# Can be a positive number, zero for automatic.");
+	sb.AppendLine(key + " = " + config_options[key]);
+	sb.AppendLine();
+	key = CONFIGSTR_OXYGEN_THRESHOLD;
+	sb.AppendLine("# Percentage of oxygen to be considered \"enough\".");
+	sb.AppendLine("# Can be a number between 0 and 100, or \"none\" to disable.");
+	sb.AppendLine(key + " = " + config_options[key]);
+	sb.AppendLine();
+	key = CONFIGSTR_HYDROGEN_THRESHOLD;
+	sb.AppendLine("# Percentage of hydrogen to be considered \"enough\".");
+	sb.AppendLine("# Can be a number between 0 and 100, or \"none\" to disable.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_KEEP_STONE;
@@ -3170,55 +3206,46 @@ void parseLine(string line) {
 				op_mode = OP_MODE_BASE;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-			return;
 		} else if (strval == "ship") {
 			if (op_mode != OP_MODE_SHIP) {
 				op_mode = OP_MODE_SHIP;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-			return;
 		} else if (strval == "drill") {
 			if (op_mode != OP_MODE_DRILL) {
 				op_mode = OP_MODE_DRILL;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-			return;
 		} else if (strval == "welder") {
 			if (op_mode != OP_MODE_WELDER) {
 				op_mode = OP_MODE_WELDER;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-			return;
 		} else if (strval == "grinder") {
 			if (op_mode != OP_MODE_GRINDER) {
 				op_mode = OP_MODE_GRINDER;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-			return;
 		} else if (strval == "tug") {
 			if (op_mode != OP_MODE_TUG) {
 				op_mode = OP_MODE_TUG;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-			return;
 		} else if (strval == "auto") {
 			op_mode = OP_MODE_AUTO;
 			crisis_mode = CRISIS_MODE_NONE;
-			return;
 		} else {
 			fail = true;
 		}
 	} else if (clStrCompare(str, CONFIGSTR_POWER_HIGH_WATERMARK)) {
 		if (fparse && fval >= 0) {
 			power_high_watermark = fval;
-			return;
 		} else {
 			fail = true;
 		}
 	} else if (clStrCompare(str, CONFIGSTR_POWER_LOW_WATERMARK)) {
 		if (fparse && fval >= 0) {
 			power_low_watermark = fval;
-			return;
 		} else {
 			fail = true;
 		}
@@ -3235,6 +3262,22 @@ void parseLine(string line) {
 		} else if (strval == "auto") {
 			throw_out_stone = true;
 			material_thresholds[STONE] = 5000M;
+		} else {
+			fail = true;
+		}
+	} else if (clStrCompare(str, CONFIGSTR_OXYGEN_THRESHOLD)) {
+		if (fparse && fval >= 0 && fval <= 100) {
+			oxygen_threshold = fval;
+		} else if (strval == "none") {
+			oxygen_threshold = 0;
+		} else {
+			fail = true;
+		}
+	} else if (clStrCompare(str, CONFIGSTR_HYDROGEN_THRESHOLD)) {
+		if (fparse && fval >= 0 && fval <= 100) {
+			hydrogen_threshold = fval;
+		} else if (strval == "none") {
+			hydrogen_threshold = 0;
 		} else {
 			fail = true;
 		}
@@ -3852,6 +3895,7 @@ bool s_updateMaterialStats() {
 	} else {
 		removeAlert(WHITE_ALERT);
 	}
+	alert = false;
 	status_report[STATUS_MATERIAL] = sb.ToString();
 
 	// display oxygen and hydrogen stats
@@ -3870,12 +3914,34 @@ bool s_updateMaterialStats() {
 			hydro_cur += (Decimal) tank.GetOxygenLevel();
 			hydro_total += 1M;
 		}
+		Decimal oxy_p = has_oxygen_tanks ? (oxy_cur / oxy_total) * 100M : 0;
+		Decimal hydro_p = has_hydrogen_tanks ? (hydro_cur / hydro_total) * 100M : 0;
 		string oxy_str = !has_oxygen_tanks ? "N/A" : String.Format("{0:0.0}%",
-					(oxy_cur / oxy_total) * 100M);
+					oxy_p);
 		string hydro_str = !has_hydrogen_tanks ? "N/A" : String.Format("{0:0.0}%",
-					(hydro_cur / hydro_total) * 100M);
-		status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1}",
+					hydro_p);
+		if (oxygen_threshold > 0 && oxy_p < oxygen_threshold) {
+			alert = true;
+			addAntennaAlert(ALERT_LOW_OXYGEN);
+		} else {
+			removeAntennaAlert(ALERT_LOW_OXYGEN);
+		}
+		if (hydrogen_threshold > 0 && hydro_p < hydrogen_threshold) {
+			alert = true;
+			addAntennaAlert(ALERT_LOW_HYDROGEN);
+		} else {
+			removeAntennaAlert(ALERT_LOW_HYDROGEN);
+		}
+		if (alert) {
+			status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1} WARNING!",
 					oxy_str, hydro_str);
+			addAlert(WHITE_ALERT);
+		} else {
+			status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1}",
+					oxy_str, hydro_str);
+			removeAlert(WHITE_ALERT);
+		}
+		displayAntennaAlerts();
 	}
 	return true;
 }
