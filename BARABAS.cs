@@ -3299,6 +3299,7 @@ string getBlockAlerts(int ids) {
 			if (!first) {
 				sb.Append(", ");
 			}
+			first = false;
 			sb.Append(block_alerts[1 << idx]);
 		}
 		idx++;
