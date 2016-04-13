@@ -2860,9 +2860,10 @@ void resetConfig() {
 	material_thresholds[STONE] = 5000M;
 	power_low_watermark = 0;
 	power_high_watermark = 0;
-	oxygen_threshold = 15M;
+	oxygen_threshold = has_oxygen_tanks ? 15M : 0M;
 	hydrogen_threshold = 0M;
 }
+
 // update defaults based on auto configured values
 void autoConfigure() {
 	resetConfig();
