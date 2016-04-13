@@ -57,6 +57,7 @@ Decimal power_high_watermark = 0M;
 Decimal power_low_watermark = 0M;
 bool throw_out_stone = false;
 bool sort_storage = true;
+bool hud_notifications = true;
 
 bool push_ore_to_base = false;
 bool push_ingots_to_base = false;
@@ -77,17 +78,18 @@ const int CRISIS_MODE_LOCKUP = 2;
 Func < bool > [] states = null;
 
 // config options
-const string OP_MODE = "mode";
-const string POWER_LOW_WATERMARK = "power low watermark";
-const string POWER_HIGH_WATERMARK = "power high watermark";
-const string PUSH_ORE = "push ore to base";
-const string PUSH_INGOTS = "push ingots to base";
-const string PUSH_COMPONENTS = "push components to base";
-const string PULL_ORE = "pull ore from base";
-const string PULL_INGOTS = "pull ingots from base";
-const string PULL_COMPONENTS = "pull components from base";
-const string KEEP_STONE = "keep stone";
-const string SORT_STORAGE = "sort storage";
+const string CONFIGSTR_OP_MODE = "mode";
+const string CONFIGSTR_POWER_LOW_WATERMARK = "power low watermark";
+const string CONFIGSTR_POWER_HIGH_WATERMARK = "power high watermark";
+const string CONFIGSTR_PUSH_ORE = "push ore to base";
+const string CONFIGSTR_PUSH_INGOTS = "push ingots to base";
+const string CONFIGSTR_PUSH_COMPONENTS = "push components to base";
+const string CONFIGSTR_PULL_ORE = "pull ore from base";
+const string CONFIGSTR_PULL_INGOTS = "pull ingots from base";
+const string CONFIGSTR_PULL_COMPONENTS = "pull components from base";
+const string CONFIGSTR_KEEP_STONE = "keep stone";
+const string CONFIGSTR_SORT_STORAGE = "sort storage";
+const string CONFIGSTR_HUD_NOTIFICATIONS = "HUD notifications";
 
 // ore_volume
 const Decimal VOLUME_ORE = 0.37M;
@@ -117,30 +119,32 @@ const string STATUS_OXYHYDRO_LEVEL = "O2/H2";
 
 const Decimal CHUNK_SIZE = 1000M;
 
-// config options
-readonly Dictionary < string, string > config_options = new Dictionary < string, string > {
+// config options, caseless dictionary
+readonly Dictionary < string, string > config_options = new Dictionary < string, string > (StringComparer.OrdinalIgnoreCase) {
 	{
-		OP_MODE, ""
+		CONFIGSTR_OP_MODE, ""
 	}, {
-		POWER_LOW_WATERMARK, ""
+		CONFIGSTR_HUD_NOTIFICATIONS, ""
 	}, {
-		POWER_HIGH_WATERMARK, ""
+		CONFIGSTR_POWER_LOW_WATERMARK, ""
 	}, {
-		PUSH_ORE, ""
+		CONFIGSTR_POWER_HIGH_WATERMARK, ""
 	}, {
-		PUSH_INGOTS, ""
+		CONFIGSTR_PUSH_ORE, ""
 	}, {
-		PUSH_COMPONENTS, ""
+		CONFIGSTR_PUSH_INGOTS, ""
 	}, {
-		PULL_ORE, ""
+		CONFIGSTR_PUSH_COMPONENTS, ""
 	}, {
-		PULL_INGOTS, ""
+		CONFIGSTR_PULL_ORE, ""
 	}, {
-		PULL_COMPONENTS, ""
+		CONFIGSTR_PULL_INGOTS, ""
 	}, {
-		KEEP_STONE, ""
+		CONFIGSTR_PULL_COMPONENTS, ""
 	}, {
-		SORT_STORAGE, ""
+		CONFIGSTR_KEEP_STONE, ""
+	}, {
+		CONFIGSTR_SORT_STORAGE, ""
 	}
 };
 
@@ -2830,6 +2834,7 @@ void checkOxygenLeaks() {
  * Functions pertaining to BARABAS's operation
  */
 void resetConfig() {
+	hud_notifications = true;
 	sort_storage = false;
 	pull_ore_from_base = false;
 	pull_ingots_from_base = false;
@@ -2976,63 +2981,73 @@ void removeAlert(int level) {
 	}
 }
 
+bool clStrCompare(string str1, string str2) {
+	return String.Equals(str1, str2, StringComparison.OrdinalIgnoreCase);
+}
+
 string generateConfiguration() {
 	StringBuilder sb = new StringBuilder();
 
 	if (op_mode == OP_MODE_BASE) {
-		config_options[OP_MODE] = "base";
+		config_options[CONFIGSTR_OP_MODE] = "base";
 	} else if (op_mode == OP_MODE_SHIP) {
-		config_options[OP_MODE] = "ship";
+		config_options[CONFIGSTR_OP_MODE] = "ship";
 	} else if (op_mode == OP_MODE_DRILL) {
-		config_options[OP_MODE] = "drill";
+		config_options[CONFIGSTR_OP_MODE] = "drill";
 	} else if (op_mode == OP_MODE_WELDER) {
-		config_options[OP_MODE] = "welder";
+		config_options[CONFIGSTR_OP_MODE] = "welder";
 	} else if (op_mode == OP_MODE_GRINDER) {
-		config_options[OP_MODE] = "grinder";
+		config_options[CONFIGSTR_OP_MODE] = "grinder";
 	} else if (op_mode == OP_MODE_TUG) {
-		config_options[OP_MODE] = "tug";
+		config_options[CONFIGSTR_OP_MODE] = "tug";
 	}
-	config_options[POWER_HIGH_WATERMARK] = Convert.ToString(power_high_watermark);
-	config_options[POWER_LOW_WATERMARK] = Convert.ToString(power_low_watermark);
-	config_options[PUSH_ORE] = Convert.ToString(push_ore_to_base);
-	config_options[PUSH_INGOTS] = Convert.ToString(push_ingots_to_base);
-	config_options[PUSH_COMPONENTS] = Convert.ToString(push_components_to_base);
-	config_options[PULL_ORE] = Convert.ToString(pull_ore_from_base);
-	config_options[PULL_INGOTS] = Convert.ToString(pull_ingots_from_base);
-	config_options[PULL_COMPONENTS] = Convert.ToString(pull_components_from_base);
-	config_options[SORT_STORAGE] = Convert.ToString(sort_storage);
+	config_options[CONFIGSTR_HUD_NOTIFICATIONS] = Convert.ToString(hud_notifications);
+	config_options[CONFIGSTR_POWER_HIGH_WATERMARK] = Convert.ToString(power_high_watermark);
+	config_options[CONFIGSTR_POWER_LOW_WATERMARK] = Convert.ToString(power_low_watermark);
+	config_options[CONFIGSTR_PUSH_ORE] = Convert.ToString(push_ore_to_base);
+	config_options[CONFIGSTR_PUSH_INGOTS] = Convert.ToString(push_ingots_to_base);
+	config_options[CONFIGSTR_PUSH_COMPONENTS] = Convert.ToString(push_components_to_base);
+	config_options[CONFIGSTR_PULL_ORE] = Convert.ToString(pull_ore_from_base);
+	config_options[CONFIGSTR_PULL_INGOTS] = Convert.ToString(pull_ingots_from_base);
+	config_options[CONFIGSTR_PULL_COMPONENTS] = Convert.ToString(pull_components_from_base);
+	config_options[CONFIGSTR_SORT_STORAGE] = Convert.ToString(sort_storage);
 	if (throw_out_stone) {
 		if (material_thresholds[STONE] == 0) {
-			config_options[KEEP_STONE] = "none";
+			config_options[CONFIGSTR_KEEP_STONE] = "none";
 		} else {
-			config_options[KEEP_STONE] = Convert.ToString(Math.Floor((material_thresholds[STONE] * 5) / CHUNK_SIZE));
+			config_options[CONFIGSTR_KEEP_STONE] = Convert.ToString(Math.Floor((material_thresholds[STONE] * 5) / CHUNK_SIZE));
 		}
 	} else {
-		config_options[KEEP_STONE] = "all";
+		config_options[CONFIGSTR_KEEP_STONE] = "all";
 	}
 
 	// currently selected operation mode
 	sb.AppendLine("# Operation mode");
 	sb.AppendLine("# Can be auto, base, ship, tug, drill, welder or grinder");
-	var key = OP_MODE;
+	var key = CONFIGSTR_OP_MODE;
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = POWER_HIGH_WATERMARK;
+	key = CONFIGSTR_HUD_NOTIFICATIONS;
+	sb.AppendLine("# HUD notifications for blocks and antennas.");
+	sb.AppendLine("# Can be True or False.");
+	sb.AppendLine(key + " = " + config_options[key]);
+	sb.AppendLine();
+	key = CONFIGSTR_POWER_HIGH_WATERMARK;
 	sb.AppendLine("# Amount of power on \"full\" batteries/reactors, in minutes.");
 	sb.AppendLine("# Can be a positive number, zero for automatic.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = POWER_LOW_WATERMARK;
+	key = CONFIGSTR_POWER_LOW_WATERMARK;
 	sb.AppendLine("# Amount of power on \"empty\" batteries/reactors, in minutes.");
 	sb.AppendLine("# Can be a positive number, zero for automatic.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = KEEP_STONE;
+	key = CONFIGSTR_KEEP_STONE;
 	sb.AppendLine("# How much stone to keep, in tons.");
 	sb.AppendLine("# Can be a positive number, \"none\", \"all\" or \"auto\".");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = SORT_STORAGE;
+	key = CONFIGSTR_SORT_STORAGE;
 	sb.AppendLine("# Automatically sort items in storage containers.");
 	sb.AppendLine("# Can be True or False");
 	sb.AppendLine(key + " = " + config_options[key]);
@@ -3042,37 +3057,37 @@ string generateConfiguration() {
 	sb.AppendLine("# ships when connected to base or other ships.");
 	sb.AppendLine("#");
 	sb.AppendLine();
-	key = PUSH_ORE;
+	key = CONFIGSTR_PUSH_ORE;
 	sb.AppendLine("# Push ore to base storage");
 	sb.AppendLine("# In tug mode, also pull ore from ships");
 	sb.AppendLine("# Can be True or False");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = PUSH_INGOTS;
+	key = CONFIGSTR_PUSH_INGOTS;
 	sb.AppendLine("# Push ingots to base storage");
 	sb.AppendLine("# In tug mode, also pull ingots from ships");
 	sb.AppendLine("# Can be True or False");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = PUSH_COMPONENTS;
+	key = CONFIGSTR_PUSH_COMPONENTS;
 	sb.AppendLine("# Push components to base storage");
 	sb.AppendLine("# In tug mode, also pull components from ships");
 	sb.AppendLine("# Can be True or False");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = PULL_ORE;
+	key = CONFIGSTR_PULL_ORE;
 	sb.AppendLine("# Pull ore from base storage");
 	sb.AppendLine("# In tug mode, also push ore to ships");
 	sb.AppendLine("# Can be True or False");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = PULL_INGOTS;
+	key = CONFIGSTR_PULL_INGOTS;
 	sb.AppendLine("# Pull ingots from base storage");
 	sb.AppendLine("# In tug mode, also push ingots to ships");
 	sb.AppendLine("# Can be True or False");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = PULL_COMPONENTS;
+	key = CONFIGSTR_PULL_COMPONENTS;
 	sb.AppendLine("# Pull components from base storage");
 	sb.AppendLine("# In tug mode, also push components to ships");
 	sb.AppendLine("# Can be True or False");
@@ -3118,10 +3133,10 @@ void parseLine(string line) {
 		return;
 	}
 	if (str == "reactor low watermark") {
-		str = POWER_LOW_WATERMARK;
+		str = CONFIGSTR_POWER_LOW_WATERMARK;
 	}
 	if (str == "reactor high watermark") {
-		str = POWER_HIGH_WATERMARK;
+		str = CONFIGSTR_POWER_HIGH_WATERMARK;
 	}
 	if (!config_options.ContainsKey(str)) {
 		throw new BarabasException("Invalid config option: " + str);
@@ -3133,7 +3148,7 @@ void parseLine(string line) {
 	bparse = Boolean.TryParse(strval, out bval);
 	fparse = Decimal.TryParse(strval, out fval);
 	// op mode
-	if (str == OP_MODE) {
+	if (clStrCompare(str, CONFIGSTR_OP_MODE)) {
 		if (strval == "base") {
 			if (op_mode != OP_MODE_BASE) {
 				op_mode = OP_MODE_BASE;
@@ -3177,21 +3192,21 @@ void parseLine(string line) {
 		} else {
 			fail = true;
 		}
-	} else if (str == POWER_HIGH_WATERMARK) {
+	} else if (clStrCompare(str, CONFIGSTR_POWER_HIGH_WATERMARK)) {
 		if (fparse && fval >= 0) {
 			power_high_watermark = fval;
 			return;
 		} else {
 			fail = true;
 		}
-	} else if (str == POWER_LOW_WATERMARK) {
+	} else if (clStrCompare(str, CONFIGSTR_POWER_LOW_WATERMARK)) {
 		if (fparse && fval >= 0) {
 			power_low_watermark = fval;
 			return;
 		} else {
 			fail = true;
 		}
-	} else if (str == KEEP_STONE) {
+	} else if (clStrCompare(str, CONFIGSTR_KEEP_STONE)) {
 		if (fparse && fval > 0) {
 			throw_out_stone = true;
 			material_thresholds[STONE] = (Decimal) Math.Floor((fval * 1000M) / 5);
@@ -3210,20 +3225,22 @@ void parseLine(string line) {
 	}
 	// bools
 	else if (bparse) {
-		if (str == PUSH_ORE) {
+		if (clStrCompare(str, CONFIGSTR_PUSH_ORE)) {
 			push_ore_to_base = bval;
-		} else if (str == PUSH_INGOTS) {
+		} else if (clStrCompare(str, CONFIGSTR_PUSH_INGOTS)) {
 			push_ingots_to_base = bval;
-		} else if (str == PUSH_COMPONENTS) {
+		} else if (clStrCompare(str, CONFIGSTR_PUSH_COMPONENTS)) {
 			push_components_to_base = bval;
-		} else if (str == PULL_ORE) {
+		} else if (clStrCompare(str, CONFIGSTR_PULL_ORE)) {
 			pull_ore_from_base = bval;
-		} else if (str == PULL_INGOTS) {
+		} else if (clStrCompare(str, CONFIGSTR_PULL_INGOTS)) {
 			pull_ingots_from_base = bval;
-		} else if (str == PULL_COMPONENTS) {
+		} else if (clStrCompare(str, CONFIGSTR_PULL_COMPONENTS)) {
 			pull_components_from_base = bval;
-		} else if (str == SORT_STORAGE) {
+		} else if (clStrCompare(str, CONFIGSTR_SORT_STORAGE)) {
 			sort_storage = bval;
+		} else if (clStrCompare(str, CONFIGSTR_HUD_NOTIFICATIONS)) {
+			hud_notifications = bval;
 		}
 	} else {
 		fail = true;
@@ -3275,6 +3292,9 @@ string getBlockAlerts(int ids) {
 }
 
 void displayBlockAlerts(IMyTerminalBlock block) {
+	if (!hud_notifications) {
+		return;
+	}
 	var name = getBlockName(block);
 	if (!blocks_to_alerts.ContainsKey(block)) {
 		setBlockName(block, name, "");
@@ -3294,6 +3314,9 @@ void displayBlockAlerts(IMyTerminalBlock block) {
 }
 
 void addBlockAlert(IMyTerminalBlock block, int id) {
+	if (!hud_notifications) {
+		return;
+	}
 	if (blocks_to_alerts.ContainsKey(block)) {
 		blocks_to_alerts[block] |= id;
 	} else {
@@ -3302,6 +3325,9 @@ void addBlockAlert(IMyTerminalBlock block, int id) {
 }
 
 void removeBlockAlert(IMyTerminalBlock block, int id) {
+	if (!hud_notifications) {
+		return;
+	}
 	if (blocks_to_alerts.ContainsKey(block)) {
 		var cur = blocks_to_alerts[block];
 		cur &= ~id;
@@ -3344,6 +3370,9 @@ void hideFromHud(IMyTerminalBlock block) {
 }
 
 void displayAntennaAlerts() {
+	if (!hud_notifications) {
+		return;
+	}
 	var antennas = getAntennas();
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
@@ -3352,6 +3381,9 @@ void displayAntennaAlerts() {
 }
 
 void addAntennaAlert(int id) {
+	if (!hud_notifications) {
+		return;
+	}
 	var antennas = getAntennas();
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
@@ -3360,6 +3392,9 @@ void addAntennaAlert(int id) {
 }
 
 void removeAntennaAlert(int id) {
+	if (!hud_notifications) {
+		return;
+	}
 	var antennas = getAntennas();
 	for (int i = 0; i < antennas.Count; i++) {
 		var antenna = antennas[i];
