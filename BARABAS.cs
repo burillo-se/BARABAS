@@ -1396,10 +1396,7 @@ void pushFront(IMyInventory src, int srcIndex, Nullable < VRage.MyFixedPoint > a
 Decimal getTotalStorageLoad() {
 	List < IMyTerminalBlock > storage;
 	storage = getStorage();
-	// return 100% if we have no storage
-	if (storage.Count == 0) {
-		return 1M;
-	}
+
 	Decimal cur_volume = 0M;
 	Decimal max_volume = 0M;
 	Decimal ratio;
@@ -1524,6 +1521,12 @@ bool hasOnlyComponents(IMyInventory inv) {
 }
 
 void checkStorageLoad() {
+	if (getStorage().Count == 0) {
+		status_report[STATUS_STORAGE_LOAD] = "";
+		removeAlert(YELLOW_ALERT);
+		removeAlert(RED_ALERT);
+		return;
+	}
 	Decimal storageLoad = getTotalStorageLoad();
 	if (storageLoad >= 0.98M) {
 		addAlert(RED_ALERT);
