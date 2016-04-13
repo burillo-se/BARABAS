@@ -60,6 +60,7 @@ bool sort_storage = true;
 bool hud_notifications = true;
 Decimal oxygen_threshold = 15M;
 Decimal hydrogen_threshold = 0M;
+Decimal prev_pwr_draw = 0M;
 
 bool push_ore_to_base = false;
 bool push_ingots_to_base = false;
@@ -3641,12 +3642,14 @@ bool s_power() {
 		// prevent division by zero
 		var max_pwr_draw = Math.Max(getMaxPowerDraw(), 0.001M);
 		var cur_pwr_draw = Math.Max(getCurPowerDraw(), 0.001M);
+		var adjusted_pwr_draw = (cur_pwr_draw + prev_pwr_draw) / 2M;
+		prev_pwr_draw = cur_pwr_draw;
 		Decimal time;
 		string time_str;
 		if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
 			time = Math.Round(stored_power / max_pwr_draw, 0);
 		} else {
-			time = Math.Round(stored_power / cur_pwr_draw, 0);
+			time = Math.Round(stored_power / adjusted_pwr_draw, 0);
 		}
 		if (time > 300) {
 			time = Math.Floor(time / 60M);
@@ -3660,7 +3663,7 @@ bool s_power() {
 			time_str = Convert.ToString(time) + " m";
 		}
 		string max_str = String.Format("{0:0.0}%", max_pwr_draw / max_pwr_output * 100);
-		string cur_str = String.Format("{0:0.0}%", cur_pwr_draw / max_pwr_output * 100);
+		string cur_str = String.Format("{0:0.0}%", adjusted_pwr_draw / max_pwr_output * 100);
 		status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
 	}
 
