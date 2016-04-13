@@ -3320,14 +3320,8 @@ void displayBlockAlerts(IMyTerminalBlock block) {
 	}
 	var cur = blocks_to_alerts[block];
 	var alerts = getBlockAlerts(cur);
-
-	if (cur == 0) {
-		setBlockName(block, name, alerts);
-		hideFromHud(block);
-	} else {
-		setBlockName(block, name, alerts);
-		showOnHud(block);
-	}
+	setBlockName(block, name, alerts);
+	showOnHud(block);
 }
 
 void addBlockAlert(IMyTerminalBlock block, int id) {
