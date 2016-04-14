@@ -593,9 +593,9 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 	if (local_refineries != null && !force_update) {
 		return removeNulls(local_refineries, 2);
 	}
+	refineries_clogged = false;
 	local_refineries = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyRefinery > (local_refineries, null, "LargeRefinery");
-	refineries_clogged = false;
 	for (int i = 0; i < local_refineries.Count; i++) {
 		var refinery = local_refineries[i] as IMyRefinery;
 		var input_inv = refinery.GetInventory(0);
@@ -3955,6 +3955,9 @@ public Program() {
 	loadLocalGrids(local_grids);
 }
 
+int maxILCount = 0;
+int maxFNCount = 0;
+
 public void Main() {
 	bool result;
 	do {
@@ -3985,4 +3988,18 @@ public void Main() {
 	if (has_status_panels) {
 		displayStatusReport();
 	}
+	if (Runtime.CurrentInstructionCount > maxILCount) {
+		maxILCount = Runtime.CurrentInstructionCount;
+	}
+	if (Runtime.CurrentMethodCallCount > maxFNCount) {
+		maxFNCount = Runtime.CurrentMethodCallCount;
+	}
+	string il_str = String.Format("{0}/{1} ({2:0.0}%)", maxILCount,
+				Runtime.MaxInstructionCount,
+				(Decimal) maxILCount / Runtime.MaxInstructionCount * 100M);
+	string fn_str = String.Format("{0}/{1} ({2:0.0}%)", maxFNCount,
+				Runtime.MaxMethodCallCount,
+				(Decimal) maxFNCount / Runtime.MaxMethodCallCount * 100M);
+	Echo(il_str);
+	Echo(fn_str);
 }
