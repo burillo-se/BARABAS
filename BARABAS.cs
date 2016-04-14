@@ -3938,23 +3938,33 @@ bool s_updateMaterialStats() {
 	return true;
 }
 
-void Main() {
-	if (!init) {
-		// kick off state machine
-		states = new Func < bool > [] {
-			s_refreshState,
-			s_refreshRemote,
-			s_updateMaterialStats,
-			s_power,
-			s_refineries,
-			s_materials,
-			s_tools,
-			s_storage
-		};
-		current_state = 0;
-		crisis_mode = CRISIS_MODE_NONE;
-		init = true;
-	}
+// saving state
+public void Save() {
+	saveLocalGrids(local_grids);
+}
+
+// constructor
+public Program() {
+	// kick off state machine
+	states = new Func < bool > [] {
+		s_refreshState,
+		s_refreshRemote,
+		s_updateMaterialStats,
+		s_power,
+		s_refineries,
+		s_materials,
+		s_tools,
+		s_storage
+	};
+	current_state = 0;
+	crisis_mode = CRISIS_MODE_NONE;
+
+	// load grids from storage
+	local_grids = new List < IMyCubeGrid > ();
+	loadLocalGrids(local_grids);
+}
+
+public void Main() {
 	bool result;
 	do {
 		result = states[current_state]();
