@@ -921,7 +921,7 @@ void saveLocalGrids(List < IMyCubeGrid > grids) {
 // getting local grids is not trivial, we're basically doing some heuristics
 List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 	if (local_grids != null && !force_update) {
-		return new List < IMyCubeGrid > (local_grids);
+		return local_grids;
 	}
 	var tentative_grids = new List < IMyCubeGrid > ();
 	tentative_grids.Add(Me.CubeGrid);
@@ -935,15 +935,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 	for (int i = 0; i < list.Count; i++) {
 		var connector = list[i] as IMyShipConnector;
 		if (connector.IsLocked) {
-			// mayday!
-			if (local_grids != null) {
-				// return old list
-				return new List < IMyCubeGrid > (local_grids);
-			} else {
-				local_grids = new List < IMyCubeGrid > ();
-				loadLocalGrids(local_grids);
-				return new List < IMyCubeGrid > (local_grids);
-			}
+			return local_grids;
 		}
 		if (!tentative_grids.Contains(connector.CubeGrid)) {
 			tentative_grids.Add(connector.CubeGrid);
