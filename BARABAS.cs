@@ -3579,6 +3579,8 @@ bool s_refreshState() {
 		throw new BarabasException("Invalid configuration - " +
 			"pull_components_from_base and push_components_to_base both set to \"true\"");
 	}
+	maxILCount = 0;
+	maxFNCount = 0;
 	return true;
 }
 
@@ -3929,6 +3931,9 @@ bool s_updateMaterialStats() {
 	return true;
 }
 
+int maxILCount = 0;
+int maxFNCount = 0;
+
 // saving state
 public void Save() {
 	saveLocalGrids(local_grids);
@@ -3954,9 +3959,6 @@ public Program() {
 	local_grids = new List < IMyCubeGrid > ();
 	loadLocalGrids(local_grids);
 }
-
-int maxILCount = 0;
-int maxFNCount = 0;
 
 public void Main() {
 	bool result;
@@ -3994,10 +3996,10 @@ public void Main() {
 	if (Runtime.CurrentMethodCallCount > maxFNCount) {
 		maxFNCount = Runtime.CurrentMethodCallCount;
 	}
-	string il_str = String.Format("{0}/{1} ({2:0.0}%)", maxILCount,
+	string il_str = String.Format("IL Count: {0}/{1} ({2:0.0}%)", maxILCount,
 				Runtime.MaxInstructionCount,
 				(Decimal) maxILCount / Runtime.MaxInstructionCount * 100M);
-	string fn_str = String.Format("{0}/{1} ({2:0.0}%)", maxFNCount,
+	string fn_str = String.Format("Call count: {0}/{1} ({2:0.0}%)", maxFNCount,
 				Runtime.MaxMethodCallCount,
 				(Decimal) maxFNCount / Runtime.MaxMethodCallCount * 100M);
 	Echo(il_str);
