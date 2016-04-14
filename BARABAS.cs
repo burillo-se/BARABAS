@@ -1086,26 +1086,26 @@ List < IMyCubeGrid > getRemoteGrids() {
 
 List < IMyTerminalBlock > getRemoteStorage(bool force_update = false) {
 	if (remote_storage != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(remote_storage, 1));
+		return removeNulls(remote_storage, 1);
 	}
 	remote_storage = new List < IMyTerminalBlock > ();
 	GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (remote_storage, remoteGridFilter);
 	for (int i = 0; i < remote_storage.Count; i++) {
 		consolidate(remote_storage[i].GetInventory(0));
 	}
-	return new List < IMyTerminalBlock > (remote_storage);
+	return remote_storage;
 }
 
 List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
 	if (remote_ship_storage != null && !force_update) {
-		return new List < IMyTerminalBlock > (removeNulls(remote_ship_storage, 1));
+		return removeNulls(remote_ship_storage, 1);
 	}
 	remote_ship_storage = new List < IMyTerminalBlock > ();
 	GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (remote_ship_storage, shipFilter);
 	for (int i = 0; i < remote_ship_storage.Count; i++) {
 		consolidate(remote_ship_storage[i].GetInventory(0));
 	}
-	return new List < IMyTerminalBlock > (remote_ship_storage);
+	return remote_ship_storage;
 }
 
 // get local trash disposal connector
