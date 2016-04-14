@@ -950,8 +950,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 		}
 	}
 	local_grids = tentative_grids;
-	saveLocalGrids(local_grids);
-	return new List < IMyCubeGrid > (local_grids);
+	return local_grids;
 }
 
 // a process of getting remote grids comprises getting all non-local storage
