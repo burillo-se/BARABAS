@@ -2177,7 +2177,7 @@ bool refillReactors(bool force = false) {
 		var rinv = reactor.GetInventory(0);
 		Decimal reactor_proportion = (Decimal) reactor.MaxOutput * 1000M / getMaxReactorPowerOutput();
 		Decimal reactor_power_draw = getMaxPowerDraw() * (reactor_proportion);
-		Decimal ingots_per_reactor = getHighWatermark(reactor_power_draw);
+		Decimal ingots_per_reactor = getHighWatermark(reactor_power_draw) / URANIUM_INGOT_POWER;
 		Decimal ingots_in_reactor = getTotalIngots(rinv, URANIUM);
 		if ((ingots_in_reactor < ingots_per_reactor) || force) {
 			// find us an ingot
