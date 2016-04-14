@@ -1069,18 +1069,18 @@ void findRemoteGrids() {
 }
 
 List < IMyCubeGrid > getBaseGrids() {
-	return new List < IMyCubeGrid > (remote_base_grids);
+	return remote_base_grids;
 }
 
 List < IMyCubeGrid > getShipGrids() {
-	return new List < IMyCubeGrid > (remote_ship_grids);
+	return remote_ship_grids;
 }
 
 List < IMyCubeGrid > getRemoteGrids() {
 	if (op_mode == OP_MODE_BASE) {
-		return new List < IMyCubeGrid > (remote_ship_grids);
+		return remote_ship_grids;
 	} else {
-		return new List < IMyCubeGrid > (remote_base_grids);
+		return remote_base_grids;
 	}
 }
 
