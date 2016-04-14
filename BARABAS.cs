@@ -9,8 +9,8 @@
  * - Red: storage 98% full
  * - Yellow: storage 75% full
  * - Blue: running out of power
- * - Magenta: refinery clogged
- * - Cyan: assembler clogged
+ * - Cyan: ice shortage (low oxygen or hydrogen)
+ * - Magenta: refinery or assembler clogged
  * - White: running out of materials
  * - Brown: oxygen leak detected
  * - Pink: unfinished/damaged blocks present
@@ -21,13 +21,13 @@
  * To exclude a block from being affected by BARABAS, have its name start with "X".
  *
  * Mandatory requirements:
- * - A timer to run this code (recommended timer value is one second)
  * - Storage containers must be present.
+ * - A timer to run this code (recommended timer value is one second)
  * - Don't go to town with pistons and rotors - while things will likely work,
  *   it is not recommended and may produce weird results.
  *
  * Optional requirements:
- * - Group of text/LCD panels/beacons/antennas or lights named "BARABAS Notify",
+ * - Group of text/LCD panels/beacons/antennas/lights named "BARABAS Notify",
  *   used for notification and status reports.
  * - Text block named "BARABAS Config", used for storing configuration (if not
  *   present, automatic configuration will be used)
@@ -61,6 +61,9 @@ bool hud_notifications = true;
 Decimal oxygen_threshold = 15M;
 Decimal hydrogen_threshold = 0M;
 Decimal prev_pwr_draw = 0M;
+bool refineries_clogged = false;
+bool arc_furnaces_clogged = false;
+bool assemblers_clogged = false;
 
 bool push_ore_to_base = false;
 bool push_ingots_to_base = false;
@@ -296,8 +299,8 @@ List < IMyCubeGrid > remote_ship_grids = null;
 const int RED_ALERT = 0;
 const int YELLOW_ALERT = 1;
 const int BLUE_ALERT = 2;
-const int MAGENTA_ALERT = 3;
-const int CYAN_ALERT = 4;
+const int CYAN_ALERT = 3;
+const int MAGENTA_ALERT = 4;
 const int WHITE_ALERT = 5;
 const int PINK_ALERT = 6;
 const int BROWN_ALERT = 7;
@@ -318,8 +321,8 @@ readonly List < Alert > text_alerts = new List < Alert > {
 	new Alert(Color.Red, "Very low storage"),
 	new Alert(Color.Yellow, "Low storage"),
 	new Alert(Color.Blue, "Low power"),
-	new Alert(Color.DarkMagenta, "Refinery clogged"),
-	new Alert(Color.Cyan, "Assembler clogged"),
+	new Alert(Color.Cyan, "Ice shortage"),
+	new Alert(Color.DarkMagenta, "Clogged"),
 	new Alert(Color.White, "Material shortage"),
 	new Alert(Color.HotPink, "Damaged blocks"),
 	new Alert(Color.Chocolate, "Oxygen leak"),
@@ -592,7 +595,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 	}
 	local_refineries = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyRefinery > (local_refineries, null, "LargeRefinery");
-	bool alert = false;
+	refineries_clogged = false;
 	for (int i = 0; i < local_refineries.Count; i++) {
 		var refinery = local_refineries[i] as IMyRefinery;
 		var input_inv = refinery.GetInventory(0);
@@ -601,16 +604,11 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 		Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
 		if (input_load > 0.98M || output_load > 0.98M || (!refinery.IsQueueEmpty && !refinery.IsProducing)) {
 			addBlockAlert(refinery, ALERT_CLOGGED);
-			alert = true;
+			refineries_clogged = true;
 		} else {
 			removeBlockAlert(refinery, ALERT_CLOGGED);
 		}
 		displayBlockAlerts(refinery);
-	}
-	if (alert) {
-		addAlert(MAGENTA_ALERT);
-	} else {
-		removeAlert(MAGENTA_ALERT);
 	}
 	return local_refineries;
 }
@@ -619,6 +617,7 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 	if (local_arc_furnaces != null && !force_update) {
 		return removeNulls(local_arc_furnaces, 2);
 	}
+	arc_furnaces_clogged = false;
 	local_arc_furnaces = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyRefinery > (local_arc_furnaces, null, "Blast Furnace");
 	bool alert = false;
@@ -630,16 +629,11 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 		Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
 		if (input_load > 0.98M || output_load > 0.98M || (!refinery.IsQueueEmpty && !refinery.IsProducing)) {
 			addBlockAlert(refinery, ALERT_CLOGGED);
-			alert = true;
+			arc_furnaces_clogged = true;
 		} else {
 			removeBlockAlert(refinery, ALERT_CLOGGED);
 		}
 		displayBlockAlerts(refinery);
-	}
-	if (alert) {
-		addAlert(MAGENTA_ALERT);
-	} else {
-		removeAlert(MAGENTA_ALERT);
 	}
 	return local_arc_furnaces;
 }
@@ -655,6 +649,7 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 	if (local_assemblers != null && !force_update) {
 		return removeNulls(local_assemblers, 2);
 	}
+	assemblers_clogged = false;
 	local_assemblers = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyAssembler > (local_assemblers);
 	bool alert = false;
@@ -671,23 +666,18 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 			Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
 			if (input_load > 0.98M || output_load > 0.98M) {
 				addBlockAlert(block, ALERT_CLOGGED);
-				alert = true;
+				assemblers_clogged = true;
 			} else {
 				removeBlockAlert(block, ALERT_CLOGGED);
 			}
 			if (!block.IsQueueEmpty && !block.IsProducing) {
 				addBlockAlert(block, ALERT_MATERIALS_MISSING);
-				alert = true;
+				assemblers_clogged = true;
 			} else {
 				removeBlockAlert(block, ALERT_MATERIALS_MISSING);
 			}
 			displayBlockAlerts(block);
 		}
-	}
-	if (alert) {
-		addAlert(CYAN_ALERT);
-	} else {
-		removeAlert(CYAN_ALERT);
 	}
 	return local_assemblers;
 }
@@ -3938,13 +3928,12 @@ bool s_updateMaterialStats() {
 		if (alert) {
 			status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1} WARNING!",
 					oxy_str, hydro_str);
-			addAlert(WHITE_ALERT);
+			addAlert(CYAN_ALERT);
 		} else {
 			status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1}",
 					oxy_str, hydro_str);
-			removeAlert(WHITE_ALERT);
+			removeAlert(CYAN_ALERT);
 		}
-		displayAntennaAlerts();
 	}
 	return true;
 }
@@ -3983,6 +3972,12 @@ void Main() {
 	// check for leaks
 	if (can_use_oxygen) {
 		checkOxygenLeaks();
+	}
+
+	if (refineries_clogged || arc_furnaces_clogged || assemblers_clogged) {
+		addAlert(MAGENTA_ALERT);
+	} else {
+		removeAlert(MAGENTA_ALERT);
 	}
 
 	// display status updates
