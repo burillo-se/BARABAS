@@ -81,7 +81,7 @@ const int CRISIS_MODE_NONE = 0;
 const int CRISIS_MODE_THROW_ORE = 1;
 const int CRISIS_MODE_LOCKUP = 2;
 
-Func < bool > [] states = null;
+Action [] states = null;
 
 // config options
 const string CONFIGSTR_OP_MODE = "mode";
@@ -3516,7 +3516,7 @@ void displayStatusReport() {
 /*
  * States
  */
-bool s_refreshState() {
+void s_refreshState() {
 	getLocalGrids(true);
 	getBlocks(true);
 	getConfigBlock(true);
@@ -3579,12 +3579,9 @@ bool s_refreshState() {
 		throw new BarabasException("Invalid configuration - " +
 			"pull_components_from_base and push_components_to_base both set to \"true\"");
 	}
-	maxILCount = 0;
-	maxFNCount = 0;
-	return true;
 }
 
-bool s_refreshRemote() {
+void s_refreshRemote() {
 	// local refresh finished, now see if we have any remote grids
 	findRemoteGrids();
 	// signal that we have something connected to us
@@ -3595,10 +3592,9 @@ bool s_refreshRemote() {
 	} else {
 		removeAlert(GREEN_ALERT);
 	}
-	return true;
 }
 
-bool s_power() {
+void s_power() {
 	// determine if we need more uranium
 	bool above_high_watermark = aboveHighWatermark();
 	var max_pwr_output = getMaxReactorPowerOutput() + getMaxBatteryPowerOutput();
@@ -3658,18 +3654,15 @@ bool s_power() {
 		bool can_refuel = (op_mode & OP_MODE_SHIP) > 0 && connected_to_base;
 		if (refillReactors()) {
 			pushSpareUraniumToStorage();
-		} else if (!can_refuel && !has_refineries) {
-			return false;
 		}
 	}
 	// if we're in a crisis, push all available uranium ingots to reactors.
 	else {
 		refillReactors(true);
 	}
-	return true;
 }
 
-bool s_refineries() {
+void s_refineries() {
 	if (crisis_mode == CRISIS_MODE_NONE && can_refine) {
 		// if we're a ship and we're connected, push ore to storage
 		if ((op_mode & OP_MODE_SHIP) > 0 && push_ore_to_base && connected_to_base) {
@@ -3677,22 +3670,16 @@ bool s_refineries() {
 		} else {
 			refineOre();
 		}
-	} else {
-		return false;
 	}
-	return true;
 }
 
-bool s_materials() {
-	bool result = false;
+void s_materials() {
 	// check if any ore needs to be prioritized
 	if (can_use_ingots || prioritize_uranium) {
 		reprioritizeOre();
-		result = true;
 	}
 	if (can_refine) {
 		rebalanceRefineries();
-		result = true;
 	}
 	if (crisis_mode == CRISIS_MODE_NONE && throw_out_stone) {
 		// check if we want to throw out extra stone
@@ -3702,7 +3689,6 @@ bool s_materials() {
 				if (haveEnoughStone) {
 					// prevent us from throwing out something of value
 					if (!trashHasUsefulItems() && startThrowing()) {
-						result = true;
 						throwOutOre(STONE);
 					}
 				}
@@ -3710,7 +3696,6 @@ bool s_materials() {
 				if (ore_status[STONE] > material_thresholds[STONE] * 5) {
 					if (startThrowing()) {
 						throwOutOre(STONE);
-						result = true;
 					}
 				} else {
 					storeTrash();
@@ -3721,63 +3706,49 @@ bool s_materials() {
 		tried_throwing = true;
 		// if we can't even throw out ore, well, all bets are off
 		string ore = getBiggestOre();
-		result = ore != null;
 		if ((ore != null && startThrowing() && !throwOutOre(ore)) || ore == null) {
 			stopThrowing();
 			crisis_mode = CRISIS_MODE_LOCKUP;
 		}
 	}
-	return result;
 }
 
-bool s_tools() {
-	bool result = false;
+void s_tools() {
 	var drills = getDrills();
 	var grinders = getGrinders();
 	if (has_drills) {
-		result = true;
 		emptyBlocks(drills);
 		spreadLoad(drills);
 	}
 	if (has_grinders) {
-		result = true;
 		emptyBlocks(grinders);
 		spreadLoad(grinders);
 	}
 	if (has_welders && op_mode == OP_MODE_WELDER) {
-		result = true;
 		fillWelders();
 	}
-	return result;
 }
 
-bool s_storage() {
-	bool result = false;
+void s_storage() {
 	if (can_use_ingots) {
 		declogAssemblers();
-		result = true;
 	}
 	if (can_refine) {
 		declogRefineries();
-		result = true;
 	}
 	if (sort_storage) {
 		sortLocalStorage();
-		result = true;
 	}
 	if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
 		pushAllToRemoteStorage();
 		pullFromRemoteStorage();
-		result = true;
 	}
 	// tug is a special case as it can push to and pull from ships, but only
 	// when connected to a ship and not to a base
 	else if (op_mode == OP_MODE_TUG && connected_to_ship && !connected_to_base) {
 		pullFromRemoteShipStorage();
 		pushToRemoteShipStorage();
-		result = true;
 	}
-	return result;
 }
 
 string roundStr(Decimal val) {
@@ -3792,7 +3763,7 @@ string roundStr(Decimal val) {
 	}
 }
 
-bool s_updateMaterialStats() {
+void s_updateMaterialStats() {
 	Decimal uranium_in_reactors = 0;
 	// clear stats
 	for (int i = 0; i < ore_types.Count; i++) {
@@ -3928,11 +3899,10 @@ bool s_updateMaterialStats() {
 			removeAlert(CYAN_ALERT);
 		}
 	}
-	return true;
 }
 
-int maxILCount = 0;
-int maxFNCount = 0;
+int[] state_cycle_counts;
+int[] state_fn_counts;
 
 // saving state
 public void Save() {
@@ -3942,7 +3912,7 @@ public void Save() {
 // constructor
 public Program() {
 	// kick off state machine
-	states = new Func < bool > [] {
+	states = new Action [] {
 		s_refreshState,
 		s_refreshRemote,
 		s_updateMaterialStats,
@@ -3954,6 +3924,13 @@ public Program() {
 	};
 	current_state = 0;
 	crisis_mode = CRISIS_MODE_NONE;
+	state_cycle_counts = new int[states.Length];
+	state_fn_counts = new int[states.Length];
+
+	for (int i = 0; i < state_cycle_counts.Length; i++) {
+		state_cycle_counts[i] = 0;
+		state_fn_counts[i] = 0;
+	}
 
 	// load grids from storage
 	local_grids = new List < IMyCubeGrid > ();
@@ -3961,11 +3938,36 @@ public Program() {
 }
 
 public void Main() {
-	bool result;
+	bool hasHeadroom = false;
+	int prev_cycle_count = 0;
+	int prev_fn_count = 0;
+	int states_executed = 0;
 	do {
-		result = states[current_state]();
+		states[current_state]();
+		// store how many cycles we've used during this function
+		state_cycle_counts[current_state] = Runtime.CurrentInstructionCount - prev_cycle_count;
+		state_fn_counts[current_state] = Runtime.CurrentMethodCallCount - prev_fn_count;
+		prev_cycle_count = Runtime.CurrentInstructionCount;
+		prev_fn_count = Runtime.CurrentMethodCallCount;
+
+		// increment the state
 		current_state = (current_state + 1) % states.Length;
-	} while (!result);
+		states_executed++;
+
+		// if we have enough headroom (we want no more than 80% cycle/method count)
+		int projected_cycle_count = prev_cycle_count + state_cycle_counts[current_state];
+		int projected_fn_count = prev_fn_count + state_fn_counts[current_state];
+		Decimal cycle_percentage = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
+		Decimal fn_percentage = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
+
+		if (state_cycle_counts[current_state] != 0 && states_executed < states.Length &&
+				state_fn_counts[current_state] != 0 && cycle_percentage <= 0.8M &&
+				fn_percentage <= 0.8M) {
+			hasHeadroom = true;
+		} else {
+			hasHeadroom = false;
+		}
+	} while (hasHeadroom);
 
 	if (has_single_connector && trashSensorActive()) {
 		stopThrowing();
@@ -3990,18 +3992,15 @@ public void Main() {
 	if (has_status_panels) {
 		displayStatusReport();
 	}
-	if (Runtime.CurrentInstructionCount > maxILCount) {
-		maxILCount = Runtime.CurrentInstructionCount;
-	}
-	if (Runtime.CurrentMethodCallCount > maxFNCount) {
-		maxFNCount = Runtime.CurrentMethodCallCount;
-	}
-	string il_str = String.Format("IL Count: {0}/{1} ({2:0.0}%)", maxILCount,
+	string il_str = String.Format("IL Count: {0}/{1} ({2:0.0}%)",
+				Runtime.CurrentInstructionCount,
 				Runtime.MaxInstructionCount,
-				(Decimal) maxILCount / Runtime.MaxInstructionCount * 100M);
-	string fn_str = String.Format("Call count: {0}/{1} ({2:0.0}%)", maxFNCount,
+				(Decimal) Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100M);
+	string fn_str = String.Format("Call count: {0}/{1} ({2:0.0}%)",
+				Runtime.CurrentMethodCallCount,
 				Runtime.MaxMethodCallCount,
-				(Decimal) maxFNCount / Runtime.MaxMethodCallCount * 100M);
+				(Decimal) Runtime.CurrentMethodCallCount / Runtime.MaxMethodCallCount * 100M);
+	Echo(String.Format("States executed: {0}", states_executed));
 	Echo(il_str);
 	Echo(fn_str);
 }
