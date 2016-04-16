@@ -363,6 +363,7 @@ Decimal cur_power_draw;
 Decimal max_power_draw;
 Decimal max_battery_output;
 Decimal max_reactor_output;
+Decimal cur_reactor_output;
 bool tried_throwing = false;
 bool auto_refuel_ship;
 bool prioritize_uranium = false;
@@ -1948,6 +1949,21 @@ Decimal getMaxReactorPowerOutput(bool force_update = false) {
 	return max_reactor_output;
 }
 
+Decimal getCurReactorPowerOutput(bool force_update = false) {
+ if (!force_update) {
+	 return cur_reactor_output;
+ }
+
+ cur_reactor_output = 0;
+ var reactors = getReactors();
+ for (int i = 0; i < reactors.Count; i++) {
+	 if (reactors[i].IsWorking)
+	 	cur_reactor_output += (Decimal) (reactors[i] as IMyReactor).MaxOutput * 1000M;
+ }
+
+ return cur_reactor_output;
+}
+
 Decimal getMaxBatteryPowerOutput(bool force_update = false) {
  if (!force_update) {
 	 return max_battery_output;
@@ -2043,11 +2059,11 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 	// add 5% to account for various misc stuff like conveyors etc
 	power_draw *= 1.05M;
 
-	if (getMaxBatteryPowerOutput() + getMaxReactorPowerOutput() == 0) {
+	if (getMaxBatteryPowerOutput() + getCurReactorPowerOutput() == 0) {
 		max_power_draw = power_draw;
 	} else {
 		// now, check if we're not overflowing the reactors and batteries
-		max_power_draw = Math.Min(power_draw, getMaxBatteryPowerOutput() + getMaxReactorPowerOutput());
+		max_power_draw = Math.Min(power_draw, getMaxBatteryPowerOutput() + getCurReactorPowerOutput());
 	}
 
 	return max_power_draw;
@@ -3546,6 +3562,7 @@ void s_refreshState() {
 	getAntennas(true);
 	if (has_reactors) {
 		getMaxReactorPowerOutput(true);
+		getCurReactorPowerOutput(true);
 	}
 	getMaxBatteryPowerOutput(true);
 	getCurPowerDraw(true);
@@ -3600,7 +3617,7 @@ void s_refreshRemote() {
 void s_power() {
 	// determine if we need more uranium
 	bool above_high_watermark = aboveHighWatermark();
-	var max_pwr_output = getMaxReactorPowerOutput() + getMaxBatteryPowerOutput();
+	var max_pwr_output = getCurReactorPowerOutput() + getMaxBatteryPowerOutput();
 
 	// if we have enough uranium ingots, business as usual
 	if (!above_high_watermark) {
@@ -3620,7 +3637,7 @@ void s_power() {
 		removeAlert(BLUE_ALERT);
 		prioritize_uranium = false;
 	}
-	status_report[STATUS_POWER_STATS] = "";
+	status_report[STATUS_POWER_STATS] = "No power sources";
 
 	if (max_pwr_output != 0) {
 		// figure out how much time we have on batteries and reactors
