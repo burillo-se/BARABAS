@@ -2222,7 +2222,7 @@ bool refillReactors(bool force = false) {
 				rinv.TransferItemFrom(ingot.Value.Inventory, ingot.Value.Index, null, true, null);
 				ingot = null;
 			} else {
-				if (Transfer(rinv, ingot.Value.Inventory, ingot.Value.Index, null, true, (VRage.MyFixedPoint) amount)) {
+				if (Transfer(ingot.Value.Inventory, rinv, ingot.Value.Index, null, true, (VRage.MyFixedPoint) amount)) {
 					cur_amount -= amount;
 				}
 			}
