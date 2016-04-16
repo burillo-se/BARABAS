@@ -1356,6 +1356,13 @@ Nullable < int > dstIndex, Nullable < bool > stack, Nullable < VRage.MyFixedPoin
 	var curVolume = dst_inv.CurrentVolume;
 
 	if (!src_inv.TransferItemTo(dst_inv, srcIndex, dstIndex, stack, amount)) {
+		var sb = new StringBuilder();
+		sb.Append("Error transfering from ");
+		sb.Append((src_inv.Owner as IMyTerminalBlock).CustomName);
+		sb.Append(" to ");
+		sb.Append((dst_inv.Owner as IMyTerminalBlock).CustomName);
+		Echo(sb.ToString());
+		Echo("Check conveyors for missing/damage and\nblock ownership");
 		return false;
 	}
 
@@ -1899,8 +1906,6 @@ void fillWelders() {
 				// send one and check load
 				Decimal old_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
 				if (!Transfer(src_inv, dst_inv, j, null, true, (VRage.MyFixedPoint) 1)) {
-					Echo("Error transfering from: " + container.CustomName);
-					Echo("Check conveyors for missing/damage and\nblock ownership");
 					continue;
 				}
 				Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
@@ -2787,8 +2792,6 @@ void spreadLoad(List < IMyTerminalBlock > blocks) {
 			// send one and check load
 			Decimal cur_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
 			if (!Transfer(src_inv, dst_inv, maxIndex, i, true, (VRage.MyFixedPoint) 1)) {
-				Echo("Error transfering from: " + blocks[maxIndex].CustomName);
-				Echo("Check conveyors for missing/damage and\nblock ownership");
 				continue;
 			}
 			Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
