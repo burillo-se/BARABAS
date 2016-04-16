@@ -603,7 +603,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 		var output_inv = refinery.GetInventory(1);
 		Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
 		Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
-		if (input_load > 0.98M || output_load > 0.98M || (!refinery.IsQueueEmpty && !refinery.IsProducing)) {
+		if (!refinery.IsQueueEmpty && !refinery.IsProducing) {
 			addBlockAlert(refinery, ALERT_CLOGGED);
 			refineries_clogged = true;
 		} else {
@@ -628,7 +628,7 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 		var output_inv = refinery.GetInventory(1);
 		Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
 		Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
-		if (input_load > 0.98M || output_load > 0.98M || (!refinery.IsQueueEmpty && !refinery.IsProducing)) {
+		if (!refinery.IsQueueEmpty && !refinery.IsProducing) {
 			addBlockAlert(refinery, ALERT_CLOGGED);
 			arc_furnaces_clogged = true;
 		} else {
@@ -665,17 +665,15 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 			var output_inv = block.GetInventory(1);
 			Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
 			Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
-			if (input_load > 0.98M || output_load > 0.98M) {
+			bool isWaiting = !block.IsQueueEmpty && !block.IsProducing;
+			removeBlockAlert(block, ALERT_MATERIALS_MISSING);
+			removeBlockAlert(block, ALERT_CLOGGED);
+			if ((input_load > 0.98M || output_load > 0.98M) && isWaiting) {
 				addBlockAlert(block, ALERT_CLOGGED);
 				assemblers_clogged = true;
-			} else {
-				removeBlockAlert(block, ALERT_CLOGGED);
-			}
-			if (!block.IsQueueEmpty && !block.IsProducing) {
+			} else if (isWaiting) {
 				addBlockAlert(block, ALERT_MATERIALS_MISSING);
 				assemblers_clogged = true;
-			} else {
-				removeBlockAlert(block, ALERT_MATERIALS_MISSING);
 			}
 			displayBlockAlerts(block);
 		}
