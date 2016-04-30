@@ -2902,10 +2902,12 @@ void configureWatermarks() {
 // select operation mode, unless already set in config
 void selectOperationMode() {
 	var list = new List < IMyTerminalBlock > ();
-	// get a list of local thrusters
+	var wlist = new List < IMyTerminalBlock > ();
+	// get a list of local thrusters and wheels
 	GridTerminalSystem.GetBlocksOfType < IMyThrust > (list, localGridDumbFilter);
-	// if we found some thrusters, assume we're a ship
-	if (list.Count > 0) {
+	GridTerminalSystem.GetBlocksOfType < IMyMotorSuspension > (wlist, localGridDumbFilter);
+	// if we found some thrusters or wheels, assume we're a ship
+	if (list.Count > 0 || wlist.count > 0) {
 		// this is likely a drill ship
 		if (has_drills && !has_welders && !has_grinders) {
 			op_mode = OP_MODE_DRILL;
