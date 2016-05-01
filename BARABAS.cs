@@ -2069,7 +2069,9 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 
 Decimal getBlockPowerOutput(IMyTerminalBlock block) {
 	var cur_regex = new System.Text.RegularExpressions.Regex("Current Output: ([\\d\\.]+) (\\w?)W");
+	var inp_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+) (\\w?)W");
 	var cur_match = cur_regex.Match(block.DetailedInfo);
+	var inp_match = inp_regex.Match(block.DetailedInfo);
 	if (!cur_match.Success) {
 		return 0;
 	}
@@ -2082,7 +2084,15 @@ Decimal getBlockPowerOutput(IMyTerminalBlock block) {
 		}
 		cur *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
 	}
-	return cur;
+	Decimal inp = 0;
+	if (inp_match.Groups[1].Success && inp_match.Groups[2].Success) {
+		bool result = Decimal.TryParse(inp_match.Groups[1].Value, out inp);
+		if (!result) {
+			throw new BarabasException("Invalid detailed info format!");
+		}
+		inp *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(inp_match.Groups[2].Value) - 1);
+	}
+	return cur - inp;
 }
 
 Decimal getBlockPowerUse(IMyTerminalBlock block) {
