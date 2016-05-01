@@ -3535,70 +3535,87 @@ void displayStatusReport() {
 /*
  * States
  */
-void s_refreshState() {
+
+void s_refreshGrids() {
 	getLocalGrids(true);
 	getBlocks(true);
-	getConfigBlock(true);
-	has_refineries = getRefineries(true).Count > 0;
-	has_arc_furnaces = getArcFurnaces(true).Count > 0;
-	can_refine = has_refineries || has_arc_furnaces || (getOxygenGenerators(true).Count > 0);
-	can_use_ingots = getAssemblers(true).Count > 0;
-	has_reactors = getReactors(true).Count > 0;
-	has_air_vents = getAirVents(true).Count > 0;
-	has_oxygen_tanks = getOxygenTanks(true).Count > 0;
-	has_hydrogen_tanks = getHydrogenTanks(true).Count > 0;
-	has_connectors = getConnectors(true).Count > 0;
-	has_single_connector = getConnectors().Count == 1;
-	has_trash_sensor = getTrashSensor(true) != null;
-	has_drills = getDrills(true).Count > 0;
-	has_grinders = getGrinders(true).Count > 0;
-	has_welders = getWelders(true).Count > 0;
-	has_status_panels = getTextPanels(true).Count > 0;
-	can_use_oxygen = has_oxygen_tanks && has_air_vents;
-	getBatteries(true);
-	getTrashConnector(true);
-	getStorage(true);
-	getLights(true);
-	getAntennas(true);
-	if (has_reactors) {
-		getMaxReactorPowerOutput(true);
-		getCurReactorPowerOutput(true);
-	}
-	getMaxBatteryPowerOutput(true);
-	getCurPowerDraw(true);
-	getMaxPowerDraw(true);
-	if (!has_single_connector) {
-		startThrowing();
-	}
-	turnOffConveyors();
+}
 
-	// configure BARABAS
-	parseConfiguration();
-	if (op_mode == OP_MODE_AUTO) {
-		selectOperationMode();
-		autoConfigure();
-	}
-	if ((op_mode & OP_MODE_SHIP) > 0) {
-		Me.SetCustomName("BARABAS Ship CPU");
-	} else {
-		Me.SetCustomName("BARABAS Base CPU");
-	}
-	configureWatermarks();
-	rebuildConfiguration();
+void s_refreshProduction() {
+ has_refineries = getRefineries(true).Count > 0;
+ has_arc_furnaces = getArcFurnaces(true).Count > 0;
+ can_refine = has_refineries || has_arc_furnaces || (getOxygenGenerators(true).Count > 0);
+ can_use_ingots = getAssemblers(true).Count > 0;
+ getStorage(true);
+ turnOffConveyors();
+}
 
+void s_refreshPower() {
+ has_reactors = getReactors(true).Count > 0;
+ getBatteries(true);
+ if (has_reactors) {
+	 getMaxReactorPowerOutput(true);
+	 getCurReactorPowerOutput(true);
+ }
+ getMaxBatteryPowerOutput(true);
+ getCurPowerDraw(true);
+ getMaxPowerDraw(true);
+}
 
-	if (pull_ingots_from_base && push_ingots_to_base) {
-		throw new BarabasException("Invalid configuration - " +
-			"pull_ingots_from_base and push_ingots_to_base both set to \"true\"");
-	}
-	if (pull_ore_from_base && push_ore_to_base) {
-		throw new BarabasException("Invalid configuration - " +
-			"pull_ore_from_base and push_ore_to_base both set to \"true\"");
-	}
-	if (pull_components_from_base && push_components_to_base) {
-		throw new BarabasException("Invalid configuration - " +
-			"pull_components_from_base and push_components_to_base both set to \"true\"");
-	}
+void s_refreshOxyHydro() {
+ has_air_vents = getAirVents(true).Count > 0;
+ has_oxygen_tanks = getOxygenTanks(true).Count > 0;
+ has_hydrogen_tanks = getHydrogenTanks(true).Count > 0;
+ can_use_oxygen = has_oxygen_tanks && has_air_vents;
+}
+
+void s_refreshTools() {
+ has_drills = getDrills(true).Count > 0;
+ has_grinders = getGrinders(true).Count > 0;
+ has_welders = getWelders(true).Count > 0;
+}
+
+void s_refreshMisc() {
+ has_connectors = getConnectors(true).Count > 0;
+ has_single_connector = getConnectors().Count == 1;
+ has_trash_sensor = getTrashSensor(true) != null;
+ has_status_panels = getTextPanels(true).Count > 0;
+ getTrashConnector(true);
+ getLights(true);
+ getAntennas(true);
+ if (!has_single_connector) {
+	 startThrowing();
+ }
+}
+
+void s_refreshConfig() {
+ // configure BARABAS
+ getConfigBlock(true);
+ parseConfiguration();
+ if (op_mode == OP_MODE_AUTO) {
+	 selectOperationMode();
+	 autoConfigure();
+ }
+ if ((op_mode & OP_MODE_SHIP) > 0) {
+	 Me.SetCustomName("BARABAS Ship CPU");
+ } else {
+	 Me.SetCustomName("BARABAS Base CPU");
+ }
+ configureWatermarks();
+ rebuildConfiguration();
+
+ if (pull_ingots_from_base && push_ingots_to_base) {
+	 throw new BarabasException("Invalid configuration - " +
+		 "pull_ingots_from_base and push_ingots_to_base both set to \"true\"");
+ }
+ if (pull_ore_from_base && push_ore_to_base) {
+	 throw new BarabasException("Invalid configuration - " +
+		 "pull_ore_from_base and push_ore_to_base both set to \"true\"");
+ }
+ if (pull_components_from_base && push_components_to_base) {
+	 throw new BarabasException("Invalid configuration - " +
+		 "pull_components_from_base and push_components_to_base both set to \"true\"");
+ }
 }
 
 void s_refreshRemote() {
@@ -3969,7 +3986,13 @@ bool canContinue() {
 public Program() {
 	// kick off state machine
 	states = new Action [] {
-		s_refreshState,
+		s_refreshGrids,
+		s_refreshPower,
+		s_refreshProduction,
+		s_refreshOxyHydro,
+		s_refreshTools,
+		s_refreshMisc,
+		s_refreshConfig,
 		s_refreshRemote,
 		s_updateMaterialStats,
 		s_power,
