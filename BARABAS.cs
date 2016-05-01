@@ -2907,7 +2907,7 @@ void selectOperationMode() {
 	GridTerminalSystem.GetBlocksOfType < IMyThrust > (list, localGridDumbFilter);
 	GridTerminalSystem.GetBlocksOfType < IMyMotorSuspension > (wlist, localGridDumbFilter);
 	// if we found some thrusters or wheels, assume we're a ship
-	if (list.Count > 0 || wlist.count > 0) {
+	if (list.Count > 0 || wlist.Count > 0) {
 		// this is likely a drill ship
 		if (has_drills && !has_welders && !has_grinders) {
 			op_mode = OP_MODE_DRILL;
