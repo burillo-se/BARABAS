@@ -3923,10 +3923,46 @@ void s_updateMaterialStats() {
 
 int[] state_cycle_counts;
 int[] state_fn_counts;
+int cycle_count;
+int fn_count;
 
 // saving state
 public void Save() {
 	saveLocalGrids(local_grids);
+}
+
+bool canContinue() {
+	bool hasHeadroom = false;
+	bool isFirstRun = state_cycle_counts[current_state] == 0;
+	var prev_state = current_state == 0 ? states.Length - 1 : current_state - 1;
+	var next_state = (current_state + 1) % states.Length;
+	var cur_i = Runtime.CurrentInstructionCount;
+	var cur_fn = Runtime.CurrentMethodCallCount;
+
+	// now store how many cycles we've used during this iteration
+	state_cycle_counts[current_state] = cur_i - cycle_count;
+	state_fn_counts[current_state] = cur_fn - fn_count;
+
+	var last_cycle_count = state_cycle_counts[next_state];
+	var last_fn_count = state_fn_counts[next_state];
+
+	// if we have enough headroom (we want no more than 80% cycle/method count)
+	int projected_cycle_count = cur_i + last_cycle_count;
+	int projected_fn_count = cur_fn + last_fn_count;
+	Decimal cycle_percentage = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
+	Decimal fn_percentage = (Decimal) projected_fn_count / Runtime.MaxMethodCallCount;
+
+	if (!isFirstRun && last_cycle_count != 0 && last_fn_count != 0 &&
+			cycle_percentage <= 0.8M && fn_percentage <= 0.8M) {
+		hasHeadroom = true;
+	}
+
+	// advance current state and store IL count values
+	current_state = next_state;
+	cycle_count = cur_i;
+	fn_count = cur_fn;
+
+	return hasHeadroom;
 }
 
 // constructor
@@ -3958,36 +3994,13 @@ public Program() {
 }
 
 public void Main() {
-	bool hasHeadroom = false;
-	int prev_cycle_count = 0;
-	int prev_fn_count = 0;
-	int states_executed = 0;
+	int num_states = 0;
+	cycle_count = 0;
+	fn_count = 0;
 	do {
 		states[current_state]();
-		// store how many cycles we've used during this function
-		state_cycle_counts[current_state] = Runtime.CurrentInstructionCount - prev_cycle_count;
-		state_fn_counts[current_state] = Runtime.CurrentMethodCallCount - prev_fn_count;
-		prev_cycle_count = Runtime.CurrentInstructionCount;
-		prev_fn_count = Runtime.CurrentMethodCallCount;
-
-		// increment the state
-		current_state = (current_state + 1) % states.Length;
-		states_executed++;
-
-		// if we have enough headroom (we want no more than 80% cycle/method count)
-		int projected_cycle_count = prev_cycle_count + state_cycle_counts[current_state];
-		int projected_fn_count = prev_fn_count + state_fn_counts[current_state];
-		Decimal cycle_percentage = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
-		Decimal fn_percentage = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
-
-		if (state_cycle_counts[current_state] != 0 && states_executed < states.Length &&
-				state_fn_counts[current_state] != 0 && cycle_percentage <= 0.8M &&
-				fn_percentage <= 0.8M) {
-			hasHeadroom = true;
-		} else {
-			hasHeadroom = false;
-		}
-	} while (hasHeadroom);
+		num_states++;
+	} while (canContinue() && num_states < states.Length);
 
 	if (has_single_connector && trashSensorActive()) {
 		stopThrowing();
@@ -4020,7 +4033,7 @@ public void Main() {
 				Runtime.CurrentMethodCallCount,
 				Runtime.MaxMethodCallCount,
 				(Decimal) Runtime.CurrentMethodCallCount / Runtime.MaxMethodCallCount * 100M);
-	Echo(String.Format("States executed: {0}", states_executed));
+	Echo(String.Format("States executed: {0}", num_states));
 	Echo(il_str);
 	Echo(fn_str);
 }
