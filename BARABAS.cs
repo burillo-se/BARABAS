@@ -933,8 +933,11 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 	// this is our first time, go with guaranteed-local grid only
 	for (int i = 0; i < list.Count; i++) {
 		var connector = list[i] as IMyShipConnector;
-		if (connector.IsLocked) {
-			return local_grids;
+		if (connector.IsConnected) {
+			// see if it's on the same grid
+			var other = connector.OtherConnector;
+			if (!local_grids.Contains(other.CubeGrid))
+				return local_grids;
 		}
 		if (!tentative_grids.Contains(connector.CubeGrid)) {
 			tentative_grids.Add(connector.CubeGrid);
