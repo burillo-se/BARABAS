@@ -3688,7 +3688,11 @@ void s_power() {
 			time = Math.Floor(time / 60M);
 			if (time > 48) {
 				time = Math.Floor(time / 24M);
-				time_str = Convert.ToString(time) + " d";
+				if (time > 30) {
+					time_str = "lots";
+				} else {
+					time_str = Convert.ToString(time) + " d";
+				}
 			} else {
 				time_str = Convert.ToString(time) + " h";
 			}
