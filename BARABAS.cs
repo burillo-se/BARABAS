@@ -507,6 +507,7 @@ List<IMyTerminalBlock> removeNulls(List<IMyTerminalBlock> list, int invCount) {
 	for (int i = list.Count - 1; i >= 0; i--) {
 	 var block = list[i];
 	 if (block.GetInventoryCount() != invCount) {
+		 blocks_to_alerts.Remove(block);
 		 list.RemoveAt(i);
 	 }
 	}
