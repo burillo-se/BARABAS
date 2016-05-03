@@ -3728,14 +3728,20 @@ void s_refineries() {
 	}
 }
 
-void s_materials() {
+void s_materialsPriority() {
 	// check if any ore needs to be prioritized
 	if (can_use_ingots || prioritize_uranium) {
 		reprioritizeOre();
 	}
+}
+
+void s_materialsRebalance() {
 	if (can_refine) {
 		rebalanceRefineries();
 	}
+}
+
+void s_materialsCrisis() {
 	if (crisis_mode == CRISIS_MODE_NONE && throw_out_stone) {
 		// check if we want to throw out extra stone
 		if (ore_status[STONE] > 0) {
@@ -3768,32 +3774,47 @@ void s_materials() {
 	}
 }
 
-void s_tools() {
-	var drills = getDrills();
-	var grinders = getGrinders();
+void s_toolsDrills() {
 	if (has_drills) {
+		var drills = getDrills();
 		emptyBlocks(drills);
 		spreadLoad(drills);
 	}
+}
+
+void s_toolsGrinders() {
 	if (has_grinders) {
+		var grinders = getGrinders();
 		emptyBlocks(grinders);
 		spreadLoad(grinders);
 	}
+}
+
+void s_toolsWelders() {
 	if (has_welders && op_mode == OP_MODE_WELDER) {
 		fillWelders();
 	}
 }
 
-void s_storage() {
+void s_declogAssemblers() {
 	if (can_use_ingots) {
 		declogAssemblers();
 	}
+}
+
+void s_declogRefineries() {
 	if (can_refine) {
 		declogRefineries();
 	}
+}
+
+void s_localStorage() {
 	if (sort_storage) {
 		sortLocalStorage();
 	}
+}
+
+void s_remoteStorage() {
 	if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
 		pushAllToRemoteStorage();
 		pullFromRemoteStorage();
@@ -4015,9 +4036,16 @@ public Program() {
 		s_updateMaterialStats,
 		s_power,
 		s_refineries,
-		s_materials,
-		s_tools,
-		s_storage
+		s_materialsPriority,
+		s_materialsRebalance,
+		s_materialsCrisis,
+		s_toolsDrills,
+		s_toolsGrinders,
+		s_toolsWelders,
+		s_declogAssemblers,
+		s_declogRefineries,
+		s_localStorage,
+		s_remoteStorage
 	};
 	current_state = 0;
 	crisis_mode = CRISIS_MODE_NONE;
