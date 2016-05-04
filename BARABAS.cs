@@ -1010,6 +1010,7 @@ void findRemoteGrids() {
 			skip_grids.Add(thruster_grid);
 		}
 	}
+
 	// anything that wasn't filtered out previously, is a base grid. at least
 	// we hope it is.
 	for (int i = 0; i < list.Count; i++) {
@@ -1052,7 +1053,7 @@ void findRemoteGrids() {
 	}
 
 	// having multiple bases is not supported
-	if (base_grids.Count > 1) {
+	if ((op_mode == OP_MODE_BASE && base_grids.Count != 0) || base_grids.Count > 1) {
 		throw new BarabasException("Connecting to multiple bases is not supported!");
 	}
 	remote_base_grids = base_grids;
