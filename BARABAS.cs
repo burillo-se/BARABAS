@@ -3992,7 +3992,7 @@ bool canContinue() {
 	var next_state = (current_state + 1) % states.Length;
 	var cur_i = Runtime.CurrentInstructionCount;
 	var cur_fn = Runtime.CurrentMethodCallCount;
-	
+
 	// check if we ever executed the next state and therefore can estimate how
 	// much cycle/fn count it will likely take
 	bool canEstimate = state_cycle_counts[next_state] != 0;
@@ -4008,7 +4008,7 @@ bool canContinue() {
 	// estimate cycle/fn count after executing the next state
 	int projected_cycle_count = cur_i + last_cycle_count;
 	int projected_fn_count = cur_fn + last_fn_count;
-	
+
 	// given our estimate, how are we doing with regards to IL count limits?
 	Decimal cycle_p = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
 	Decimal fn_p = (Decimal) projected_fn_count / Runtime.MaxMethodCallCount;
@@ -4022,7 +4022,7 @@ bool canContinue() {
 
 	// check if we are exceeding our stated thresholds (projected 80% cycle/fn
 	// count for known states, or 40% up to this point for unknown states)
-	haveEnoughHeadroom = cycle_p <= cycle_thresh && fn_p <= fn_thresh;
+	bool haveEnoughHeadroom = cycle_p <= cycle_thresh && fn_p <= fn_thresh;
 
 	// advance current state and store IL count values
 	current_state = next_state;
@@ -4075,7 +4075,7 @@ public Program() {
 
 public void Main() {
 	int num_states = 0;
-	
+
 	// zero out IL counters
 	cur_cycle_count = 0;
 	cur_fn_count = 0;
