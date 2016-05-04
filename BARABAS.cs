@@ -3979,8 +3979,8 @@ void s_updateMaterialStats() {
 
 int[] state_cycle_counts;
 int[] state_fn_counts;
-int cycle_count;
-int fn_count;
+int cur_cycle_count = 0;
+int cur_fn_count = 0;
 
 // saving state
 public void Save() {
@@ -3988,43 +3988,48 @@ public void Save() {
 }
 
 bool canContinue() {
-	bool hasHeadroom = false;
-	bool isFirstRun = state_cycle_counts[current_state] == 0;
 	var prev_state = current_state == 0 ? states.Length - 1 : current_state - 1;
 	var next_state = (current_state + 1) % states.Length;
 	var cur_i = Runtime.CurrentInstructionCount;
 	var cur_fn = Runtime.CurrentMethodCallCount;
+	
+	// check if we ever executed the next state and therefore can estimate how
+	// much cycle/fn count it will likely take
+	bool canEstimate = state_cycle_counts[next_state] != 0;
 
-	// now store how many cycles we've used during this iteration
-	state_cycle_counts[current_state] = cur_i - cycle_count;
-	state_fn_counts[current_state] = cur_fn - fn_count;
+	// store how many cycles/fn calls we've used during this state
+	state_cycle_counts[current_state] = cur_i - cur_cycle_count;
+	state_fn_counts[current_state] = cur_fn - cur_fn_count;
 
+	// how many cycles/fn did the next state take when it was last executed?
 	var last_cycle_count = state_cycle_counts[next_state];
 	var last_fn_count = state_fn_counts[next_state];
 
-	// if we have enough headroom (we want no more than 80% cycle/method count)
+	// estimate cycle/fn count after executing the next state
 	int projected_cycle_count = cur_i + last_cycle_count;
 	int projected_fn_count = cur_fn + last_fn_count;
-	Decimal cycle_percentage = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
-	Decimal fn_percentage = (Decimal) projected_fn_count / Runtime.MaxMethodCallCount;
+	
+	// given our estimate, how are we doing with regards to IL count limits?
+	Decimal cycle_p = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
+	Decimal fn_p = (Decimal) projected_fn_count / Runtime.MaxMethodCallCount;
 
-	// to speed up initial run, keep 40% headroom for next states
-	bool initRunCycleHeadroom = isFirstRun && cycle_percentage <= 0.4M;
-	bool initRunFnHeadroom = isFirstRun && fn_percentage <= 0.4M;
+	// if we never executed the next state, we leave 60% headroom for our next
+	// state (for all we know it could be a big state), otherwise leave at 20%
+	// because we already know how much it usually takes and it's unlikely to
+	// suddenly become much bigger than what we've seen before
+	var cycle_thresh = canEstimate ? 0.8M : 0.4M;
+	var fn_thresh = canEstimate ? 0.8M : 0.4M;
 
-	bool runCycleHeadroom = !isFirstRun && cycle_percentage <= 0.8M;
-	bool runFnHeadroom = !isFirstRun && fn_percentage <= 0.8M;
-
-	if ((initRunCycleHeadroom && initRunFnHeadroom) || (runCycleHeadroom && runFnHeadroom)) {
-		hasHeadroom = true;
-	}
+	// check if we are exceeding our stated thresholds (projected 80% cycle/fn
+	// count for known states, or 40% up to this point for unknown states)
+	haveEnoughHeadroom = cycle_p <= cycle_thresh && fn_p <= fn_thresh;
 
 	// advance current state and store IL count values
 	current_state = next_state;
-	cycle_count = cur_i;
-	fn_count = cur_fn;
+	cur_cycle_count = cur_i;
+	cur_fn_count = cur_fn;
 
-	return hasHeadroom;
+	return haveEnoughHeadroom;
 }
 
 // constructor
@@ -4070,8 +4075,10 @@ public Program() {
 
 public void Main() {
 	int num_states = 0;
-	cycle_count = 0;
-	fn_count = 0;
+	
+	// zero out IL counters
+	cur_cycle_count = 0;
+	cur_fn_count = 0;
 	do {
 		states[current_state]();
 		num_states++;
