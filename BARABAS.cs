@@ -3175,8 +3175,8 @@ void rebuildConfiguration() {
 	string text = generateConfiguration();
 
 	// put text back into the text block
-	block.WritePublicText(text);
-	block.WritePublicTitle("BARABAS Configuration");
+	block.WritePrivateText(text);
+	block.WritePrivateTitle("BARABAS Configuration");
 }
 
 void parseLine(string line) {
@@ -3332,7 +3332,16 @@ void parseConfiguration() {
 	if (block == null) {
 		return;
 	}
-	string text = block.GetPublicText();
+	string text;
+
+  // update from older versions, move config to private text
+  if (block.GetPublicTitle() == "BARABAS Configuration") {
+	 	text = block.GetPublicText();
+		block.WritePublicText("");
+		block.WritePublicTitle("");
+	} else {
+		text = block.GetPrivateText();
+	}
 
 	// check if the text is empty
 	if (text.Trim().Length != 0) {
