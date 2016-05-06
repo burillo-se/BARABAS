@@ -443,6 +443,9 @@ bool localGridFilter(IMyTerminalBlock block) {
 	}
 	return getLocalGrids().Contains(block.CubeGrid);
 }
+bool pbGridDumbFilter(IMyTerminalBlock block) {
+	return block.CubeGrid == Me.CubeGrid;
+}
 /*
  * Difference between remoteGridFilter and remoteGridDumbFilter is that
  * remoteGridFilter looks at *known* remote grids (i.e. ones we have established
@@ -1151,6 +1154,9 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
 	if (blocks.Count < 1) {
 		return null;
 	} else if (blocks.Count > 1) {
+		foreach (var tp in blocks) {
+			Echo(tp.ToString() + " " + tp.CustomName);
+		}
 		throw new BarabasException("Multiple config blocks found");
 	} else {
 		config_block = blocks[0] as IMyTextPanel;
@@ -4042,6 +4048,55 @@ bool canContinue() {
 	return haveEnoughHeadroom;
 }
 
+// check if we are disabled or if we should disable other BARABAS instances
+bool canRun() {
+	bool isDisabled = Me.CustomName.Contains("DISABLED");
+	var pbs = new List<IMyTerminalBlock>();
+	var configs = new List<IMyTerminalBlock>();
+	var cb = getConfigBlock();
+	GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (pbs, pbGridDumbFilter);
+	GridTerminalSystem.GetBlocksOfType < IMyTextPanel > (configs, pbGridDumbFilter);
+
+	// find the current config block
+	if (cb != null) {
+		foreach (var c in configs) {
+			if (c.ToString() == cb.ToString()) {
+				cb = c as IMyTextPanel;
+				break;
+			}
+		}
+	}
+
+	foreach (var block in pbs) {
+		if (block == Me) {
+			continue;
+		}
+		if (!block.CustomName.Contains("BARABAS")) {
+			continue;
+		}
+		// if we aren't disabled, disable all rival BARABAS instances
+		if (!isDisabled && !block.CustomName.Contains("DISABLED")) {
+			block.SetCustomName(block.CustomName + " [DISABLED]");
+			foreach (var tp in configs) {
+				if (cb != tp && tp.CustomName == "BARABAS Config") {
+					tp.SetCustomName("BARABAS Config [DISABLED]");
+				}
+			}
+		} else if (isDisabled) {
+			// also disable our config
+			if (cb != null) {
+				cb.SetCustomName("BARABAS Config [DISABLED]");
+			}
+			return false;
+		}
+	}
+	// if we made it this far, that means we aren't disabled, so re-enable our config
+	if (cb != null) {
+		cb.SetCustomName("BARABAS Config");
+	}
+	return true;
+}
+
 // constructor
 public Program() {
 	// kick off state machine
@@ -4084,6 +4139,9 @@ public Program() {
 }
 
 public void Main() {
+	if (!canRun()) {
+		return;
+	}
 	int num_states = 0;
 
 	// zero out IL counters
