@@ -1405,10 +1405,11 @@ Decimal getTotalStorageLoad() {
 	}
 	ratio = Math.Round(cur_volume / max_volume, 2);
 
-	if (op_mode == OP_MODE_DRILL || op_mode == OP_MODE_GRINDER) {
+	bool isSpecialized = (op_mode & (OP_MODE_DRILL | OP_MODE_WELDER | OP_MODE_GRINDER)) != 0;
+
+	if (isSpecialized) {
 		ratio = Math.Round(ratio * 0.75M, 4);
-	}
-	if (op_mode != OP_MODE_DRILL && op_mode != OP_MODE_GRINDER) {
+	} else {
 		return ratio;
 	}
 	// if we're a drill ship or a grinder, also look for block with the biggest load
@@ -1416,6 +1417,8 @@ Decimal getTotalStorageLoad() {
 		storage = getDrills();
 	} else if (op_mode == OP_MODE_GRINDER) {
 		storage = getGrinders();
+	} else if (op_mode == OP_MODE_WELDER) {
+		storage = getWelders();
 	} else {
 		throw new BarabasException("Unknown mode");
 	}
