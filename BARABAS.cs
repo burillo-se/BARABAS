@@ -119,7 +119,7 @@ const string SCRAP = "Scrap";
 
 // status items
 const string STATUS_MATERIAL = "Materials";
-const string STATUS_STORAGE_LOAD = "Total storage load";
+const string STATUS_STORAGE_LOAD = "Total storage load/mass";
 const string STATUS_POWER_STATS = "Power (max/cur/left)";
 const string STATUS_ALERT = "Alerts";
 const string STATUS_CRISIS_MODE = "Crisis mode";
@@ -1434,6 +1434,36 @@ Decimal getTotalStorageLoad() {
 	return ratio;
 }
 
+Decimal getTotalStorageMass() {
+ List < IMyTerminalBlock > storage;
+ storage = getStorage();
+
+ Decimal cur_mass = 0M;
+	for (int i = 0; i < storage.Count; i++) {
+		var container = storage[i] as IMyCargoContainer;
+		cur_mass += (Decimal) container.GetInventory(0).CurrentMass;
+	}
+	bool isSpecialized = (op_mode & (OP_MODE_DRILL | OP_MODE_WELDER | OP_MODE_GRINDER)) != 0;
+	if (!isSpecialized) {
+		return cur_mass;
+	}
+	// if we're a drill ship or a grinder, also look for block with the biggest load
+	if (op_mode == OP_MODE_DRILL) {
+		storage = getDrills();
+	} else if (op_mode == OP_MODE_GRINDER) {
+		storage = getGrinders();
+	} else if (op_mode == OP_MODE_WELDER) {
+		storage = getWelders();
+	} else {
+		throw new BarabasException("Unknown mode");
+	}
+	for (int i = 0; i < storage.Count; i++) {
+		var inv = storage[i].GetInventory(0);
+		cur_mass += (Decimal) inv.CurrentMass;
+	}
+	return cur_mass;
+}
+
 bool canAcceptOre(IMyInventory inv, string name) {
 	Decimal volumeLeft = ((Decimal) inv.MaxVolume - (Decimal) inv.CurrentVolume) * 1000M;
 	if (volumeLeft > 1500M) {
@@ -1520,7 +1550,7 @@ bool hasOnlyComponents(IMyInventory inv) {
 
 void checkStorageLoad() {
 	if (getStorage().Count == 0) {
-		status_report[STATUS_STORAGE_LOAD] = "";
+		status_report[STATUS_STORAGE_LOAD] = "No storage found";
 		removeAlert(YELLOW_ALERT);
 		removeAlert(RED_ALERT);
 		return;
@@ -1558,7 +1588,18 @@ void checkStorageLoad() {
 			tried_throwing = false;
 		}
 	}
-	status_report[STATUS_STORAGE_LOAD] = String.Format("{0}%", Math.Round(storageLoad * 100M, 0));
+	Decimal mass = getTotalStorageMass();
+	int idx = 0;
+	string suffixes = " kMGTPEZY";
+	while (mass >= 1000M) {
+		mass /= 1000M;
+		idx++;
+	}
+	mass = Math.Round(mass, 1);
+	char suffix = suffixes[idx];
+
+	status_report[STATUS_STORAGE_LOAD] = String.Format("{0}% / {1}{2}",
+			Math.Round(storageLoad * 100M, 0), mass, suffix);
 }
 
 string getPowerLoadStr(Decimal value) {
