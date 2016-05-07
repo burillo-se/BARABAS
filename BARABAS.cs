@@ -342,6 +342,9 @@ const int ALERT_MATERIAL_SHORTAGE = 0x40;
 const int ALERT_OXYGEN_LEAK = 0x80;
 const int ALERT_LOW_OXYGEN = 0x100;
 const int ALERT_LOW_HYDROGEN = 0x200;
+const int ALERT_CRISIS_THROW_OUT = 0x400;
+const int ALERT_CRISIS_LOCKUP = 0x800;
+const int ALERT_CRISIS_STANDBY = 0x1000;
 
 readonly Dictionary < int, string > block_alerts = new Dictionary < int, string > {
 	{ALERT_DAMAGED, "Damaged"},
@@ -354,6 +357,9 @@ readonly Dictionary < int, string > block_alerts = new Dictionary < int, string 
 	{ALERT_OXYGEN_LEAK, "Oxygen leak"},
 	{ALERT_LOW_OXYGEN, "Low oxygen"},
 	{ALERT_LOW_HYDROGEN, "Low hydrogen"},
+	{ALERT_CRISIS_THROW_OUT, "Crisis: throwing out ore"},
+	{ALERT_CRISIS_LOCKUP, "Crisis: locked up"},
+	{ALERT_CRISIS_STANDBY, "Crisis: standing by"},
 };
 
 /* misc local data */
@@ -3594,15 +3600,24 @@ void turnOffConveyors() {
 void displayStatusReport() {
 	var panels = getTextPanels();
 
+	removeAntennaAlert(ALERT_CRISIS_LOCKUP);
+	removeAntennaAlert(ALERT_CRISIS_STANDBY);
+	removeAntennaAlert(ALERT_CRISIS_THROW_OUT);
+
 	if (crisis_mode == CRISIS_MODE_NONE && tried_throwing) {
 		status_report[STATUS_CRISIS_MODE] = "Standby";
+		addAntennaAlert(ALERT_CRISIS_STANDBY);
 	} else if (crisis_mode == CRISIS_MODE_NONE) {
 		status_report[STATUS_CRISIS_MODE] = "";
 	} else if (crisis_mode == CRISIS_MODE_THROW_ORE) {
 		status_report[STATUS_CRISIS_MODE] = "Ore throwout";
+		addAntennaAlert(ALERT_CRISIS_THROW_OUT);
 	} else if (crisis_mode == CRISIS_MODE_LOCKUP) {
 		status_report[STATUS_CRISIS_MODE] = "Lockup";
+		addAntennaAlert(ALERT_CRISIS_LOCKUP);
 	}
+
+	displayAntennaAlerts();
 
 	// construct panel text
 	string panel_text = "";
