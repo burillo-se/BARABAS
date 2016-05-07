@@ -4096,20 +4096,7 @@ bool canContinue() {
 bool canRun() {
 	bool isDisabled = Me.CustomName.Contains("DISABLED");
 	var pbs = new List<IMyTerminalBlock>();
-	var configs = new List<IMyTerminalBlock>();
-	var cb = getConfigBlock();
 	GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (pbs, pbGridDumbFilter);
-	GridTerminalSystem.GetBlocksOfType < IMyTextPanel > (configs, pbGridDumbFilter);
-
-	// find the current config block
-	if (cb != null) {
-		foreach (var c in configs) {
-			if (c.ToString() == cb.ToString()) {
-				cb = c as IMyTextPanel;
-				break;
-			}
-		}
-	}
 
 	foreach (var block in pbs) {
 		if (block == Me) {
@@ -4121,22 +4108,9 @@ bool canRun() {
 		// if we aren't disabled, disable all rival BARABAS instances
 		if (!isDisabled && !block.CustomName.Contains("DISABLED")) {
 			block.SetCustomName(block.CustomName + " [DISABLED]");
-			foreach (var tp in configs) {
-				if (cb != tp && tp.CustomName == "BARABAS Config") {
-					tp.SetCustomName("BARABAS Config [DISABLED]");
-				}
-			}
 		} else if (isDisabled) {
-			// also disable our config
-			if (cb != null) {
-				cb.SetCustomName("BARABAS Config [DISABLED]");
-			}
 			return false;
 		}
-	}
-	// if we made it this far, that means we aren't disabled, so re-enable our config
-	if (cb != null) {
-		cb.SetCustomName("BARABAS Config");
 	}
 	return true;
 }
