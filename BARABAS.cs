@@ -521,6 +521,15 @@ IMySlimBlock slimBlock(IMyTerminalBlock block) {
 	return block.CubeGrid.GetCubeBlock(block.Position);
 }
 
+IMyTerminalBlock findBlockById(IMyTerminalBlock block, List<IMyTerminalBlock> blocks) {
+	foreach (var cur in blocks) {
+		if (cur.ToString() == block.ToString()) {
+			return cur;
+		}
+	}
+	return null;
+}
+
 // get local blocks
 List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	if (local_blocks != null && !force_update) {
@@ -1121,7 +1130,15 @@ IMyShipConnector getTrashConnector(bool force_update = false) {
 			trash_connector = connectors[0] as IMyShipConnector;
 		}
 	} else if (blocks.Count > 1) {
-		throw new BarabasException("Multiple trash blocks found!");
+		Echo("Multiple trash connectors found.");
+		if (trash_connector != null) {
+			// find our previous config block, ignore the rest
+			trash_connector = findBlockById(trash_connector, blocks);
+		}
+		if (trash_connector == null) {
+			// if we didn't find our config block, just use the first one
+			trash_connector = blocks[0] as IMyShipConnector;
+		}
 	} else {
 		trash_connector = blocks[0] as IMyShipConnector;
 	}
@@ -1138,7 +1155,15 @@ IMySensorBlock getTrashSensor(bool force_update = false) {
 	if (blocks.Count < 1) {
 		trash_sensor = null;
 	} else if (blocks.Count > 1) {
-		throw new BarabasException("Multiple trash sensors found!");
+		Echo("Multiple trash sensors found.");
+		if (trash_sensor != null) {
+			// find our previous config block, ignore the rest
+			trash_sensor = findBlockById(trash_sensor, blocks);
+		}
+		if (trash_sensor == null) {
+			// if we didn't find our config block, just use the first one
+			trash_sensor = blocks[0] as IMySensorBlock;
+		}
 	} else {
 		trash_sensor = blocks[0] as IMySensorBlock;
 	}
@@ -1154,10 +1179,15 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
 	if (blocks.Count < 1) {
 		return null;
 	} else if (blocks.Count > 1) {
-		foreach (var tp in blocks) {
-			Echo(tp.ToString() + " " + tp.CustomName);
+		Echo("Multiple config blocks found.");
+		if (config_block != null) {
+			// find our previous config block, ignore the rest
+			config_block = findBlockById(config_block, blocks);
 		}
-		throw new BarabasException("Multiple config blocks found");
+		if (config_block == null) {
+			// if we didn't find our config block, just use the first one
+			config_block = blocks[0] as IMyTextPanel;
+		}
 	} else {
 		config_block = blocks[0] as IMyTextPanel;
 	}
