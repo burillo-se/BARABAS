@@ -1133,7 +1133,7 @@ IMyShipConnector getTrashConnector(bool force_update = false) {
 		Echo("Multiple trash connectors found.");
 		if (trash_connector != null) {
 			// find our previous config block, ignore the rest
-			trash_connector = findBlockById(trash_connector, blocks);
+			trash_connector = findBlockById(trash_connector, blocks) as IMyShipConnector;
 		}
 		if (trash_connector == null) {
 			// if we didn't find our config block, just use the first one
@@ -1158,7 +1158,7 @@ IMySensorBlock getTrashSensor(bool force_update = false) {
 		Echo("Multiple trash sensors found.");
 		if (trash_sensor != null) {
 			// find our previous config block, ignore the rest
-			trash_sensor = findBlockById(trash_sensor, blocks);
+			trash_sensor = findBlockById(trash_sensor, blocks) as IMySensorBlock;
 		}
 		if (trash_sensor == null) {
 			// if we didn't find our config block, just use the first one
@@ -1182,7 +1182,7 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
 		Echo("Multiple config blocks found.");
 		if (config_block != null) {
 			// find our previous config block, ignore the rest
-			config_block = findBlockById(config_block, blocks);
+			config_block = findBlockById(config_block, blocks) as IMyTextPanel;
 		}
 		if (config_block == null) {
 			// if we didn't find our config block, just use the first one
