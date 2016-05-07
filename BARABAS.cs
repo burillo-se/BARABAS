@@ -984,8 +984,10 @@ void findRemoteGrids() {
 
 	// find all remote thrusters
 	List < IMyTerminalBlock > thrusters = new List < IMyTerminalBlock > ();
+	List < IMyTerminalBlock > wheels = new List < IMyTerminalBlock > ();
 	List < IMyTerminalBlock > pb = new List < IMyTerminalBlock > ();
 	GridTerminalSystem.GetBlocksOfType < IMyThrust > (thrusters, remoteGridDumbFilter);
+	GridTerminalSystem.GetBlocksOfType < IMyMotorSuspension > (wheels, remoteGridDumbFilter);
 	GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (pb, remoteGridDumbFilter);
 
 	// find any thruster grids that also have a connector or storage on the same grid
@@ -1011,6 +1013,31 @@ void findRemoteGrids() {
 		// we don't know what the hell it is
 		if (!found) {
 			skip_grids.Add(thruster_grid);
+		}
+	}
+	skip_grids.Clear();
+	foreach (var wheel in wheels) {
+		var wheel_grid = wheel.CubeGrid;
+		bool found = false;
+		// if we already seen this grid, skip
+		if (skip_grids.Contains(wheel_grid) || ship_grids.Contains(wheel_grid)) {
+			continue;
+		}
+		for (int j = list.Count - 1; j >= 0; j--) {
+			var grid = list[j].CubeGrid;
+			if (wheel_grid == grid) {
+				// assume it's a ship
+				if (!ship_grids.Contains(wheel_grid)) {
+					ship_grids.Add(wheel_grid);
+				}
+				list.RemoveAt(j);
+				found = true;
+				// go on and see if any other block in the list is on the same grid
+			}
+		}
+		// we don't know what the hell it is
+		if (!found) {
+			skip_grids.Add(wheel_grid);
 		}
 	}
 
