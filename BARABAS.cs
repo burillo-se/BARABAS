@@ -321,7 +321,7 @@ readonly List < Alert > text_alerts = new List < Alert > {
 	new Alert(Color.Red, "Very low storage"),
 	new Alert(Color.Yellow, "Low storage"),
 	new Alert(Color.Blue, "Low power"),
-	new Alert(Color.Cyan, "Ice shortage"),
+	new Alert(Color.Cyan, "Gas shortage"),
 	new Alert(Color.DarkMagenta, "Clogged"),
 	new Alert(Color.White, "Material shortage"),
 	new Alert(Color.HotPink, "Damaged blocks"),
