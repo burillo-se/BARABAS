@@ -724,12 +724,12 @@ List < IMyTerminalBlock > getLights(bool force_update = false) {
 		if (group.Name != "BARABAS Notify") {
 			continue;
 		}
-		group.GetBlocks(locak_lights);
-		
+		group.GetBlocks(local_lights);
+
 		// we may find multiple Notify groups, as we may have a BARABAS-driven
 		// ships connected, so let's filter lights
-		filterLocalGrid < IMyLightingBlock > (locak_lights);
-		
+		filterLocalGrid < IMyLightingBlock > (local_lights);
+
 		break;
 	}
 	return local_lights;
