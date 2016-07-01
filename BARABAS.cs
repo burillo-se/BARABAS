@@ -724,13 +724,12 @@ List < IMyTerminalBlock > getLights(bool force_update = false) {
 		if (group.Name != "BARABAS Notify") {
 			continue;
 		}
-		var blocks = group.Blocks;
+		group.GetBlocks(locak_lights);
+		
 		// we may find multiple Notify groups, as we may have a BARABAS-driven
 		// ships connected, so let's filter lights
-		filterLocalGrid < IMyLightingBlock > (blocks);
-
-		// now we know it's our lights group, so store it
-		local_lights = blocks;
+		filterLocalGrid < IMyLightingBlock > (locak_lights);
+		
 		break;
 	}
 	return local_lights;
@@ -750,20 +749,17 @@ List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
 		if (group.Name != "BARABAS Notify") {
 			continue;
 		}
-		var blocks = group.Blocks;
+		group.GetBlocks(local_text_panels);
 		// we may find multiple Status groups, as we may have a BARABAS-driven
 		// ships connected, so let's filter text panels
-		filterLocalGrid < IMyTextPanel > (blocks);
+		filterLocalGrid < IMyTextPanel > (local_text_panels);
 
 		// if the user accidentally included a config block into this group,
 		// notify him immediately
-		if (blocks.Contains(getConfigBlock() as IMyTerminalBlock)) {
+		if (local_text_panels.Contains(getConfigBlock() as IMyTerminalBlock)) {
 			throw new BarabasException("Configuration text panel should not " +
 				"be part of BARABAS Notify group");
 		}
-
-		// now we know it's our text panels group, so store it
-		local_text_panels = blocks;
 		break;
 	}
 	return local_text_panels;
@@ -783,9 +779,12 @@ List < IMyTerminalBlock > getAntennas(bool force_update = false) {
 		if (group.Name != "BARABAS Notify") {
 			continue;
 		}
-		var tmp_antennas = group.Blocks;
-		var tmp_beacons = group.Blocks;
-		var tmp_laser = group.Blocks;
+		var tmp_antennas = new List<IMyTerminalBlock>();
+		var tmp_beacons = new List<IMyTerminalBlock>();
+		var tmp_laser = new List<IMyTerminalBlock>();
+		group.GetBlocks(tmp_antennas);
+		group.GetBlocks(tmp_beacons);
+		group.GetBlocks(tmp_laser);
 
 		// we may find multiple Status groups, as we may have a BARABAS-driven
 		// ships connected, so let's filter text panels
