@@ -286,10 +286,8 @@ List < IMyTerminalBlock > local_oxygen_generators = null;
 List < IMyTerminalBlock > local_antennas = null;
 List < IMyTerminalBlock > remote_storage = null;
 List < IMyTerminalBlock > remote_ship_storage = null;
-List < IMyTerminalBlock > remote_reactors = null;
 IMyShipConnector trash_connector = null;
 IMySensorBlock trash_sensor = null;
-IMyProgrammableBlock local_pb = null;
 IMyTextPanel config_block = null;
 List < IMyCubeGrid > local_grids = null;
 List < IMyCubeGrid > remote_base_grids = null;
@@ -363,7 +361,6 @@ readonly Dictionary < int, string > block_alerts = new Dictionary < int, string 
 };
 
 /* misc local data */
-bool init = false;
 bool power_above_threshold = false;
 Decimal cur_power_draw;
 Decimal max_power_draw;
@@ -639,7 +636,6 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 	arc_furnaces_clogged = false;
 	local_arc_furnaces = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyRefinery > (local_arc_furnaces, null, "Blast Furnace");
-	bool alert = false;
 	foreach (IMyRefinery furnace in local_arc_furnaces) {
 		var input_inv = furnace.GetInventory(0);
 		var output_inv = furnace.GetInventory(1);
@@ -670,7 +666,6 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 	assemblers_clogged = false;
 	local_assemblers = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyAssembler > (local_assemblers);
-	bool alert = false;
 	for (int i = local_assemblers.Count - 1; i >= 0; i--) {
 		var block = local_assemblers[i] as IMyAssembler;
 		if (block.DisassembleEnabled) {
@@ -2492,7 +2487,6 @@ void storeTrash() {
  * Ore and refineries
  */
 void refineOre() {
-	bool alert = false;
 	var storage = getStorage();
 	foreach (var s in storage) {
 		var inv = s.GetInventory(0);
@@ -2751,7 +2745,7 @@ void rebalanceRefineries() {
 		}
 	}
 	if (arcresult.maxLoad > 250M) {
-		bool trySpread = arcresult.minLoad == 0 || arcresult.maxLoad / arcresult.minLoad > ratio;
+		bool trySpread = arcresult.minLoad == 0 || (arcresult.maxLoad / arcresult.minLoad) > ratio;
 		if (arcresult.minIndex != arcresult.maxIndex && trySpread) {
 			var src_inv = furnaces[arcresult.maxIndex].GetInventory(0);
 			var dst_inv = furnaces[arcresult.minIndex].GetInventory(0);
