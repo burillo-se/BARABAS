@@ -2922,7 +2922,7 @@ void checkOxygenLeaks() {
 	foreach (IMyAirVent vent in blocks) {
 		StringBuilder builder = new StringBuilder();
 		vent.GetActionWithName("Depressurize").WriteValue(vent, builder);
-		if (builder.ToString() == "Off" && !vent.IsPressurized()) {
+		if (builder.ToString() == "Off" && !vent.CanPressurize) {
 			addBlockAlert(vent, ALERT_OXYGEN_LEAK);
 			alert = true;
 		} else {
