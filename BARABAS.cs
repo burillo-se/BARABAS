@@ -2477,8 +2477,9 @@ void storeTrash() {
 		var items = inv.GetItems();
 		for (int i = items.Count - 1; i >= 0; i--) {
 			var item = items[i];
-			pushToStorage(inv, i, null);
-			return;
+			if (pushToStorage(inv, i, null)) {
+				break;
+			}
 		}
 	}
 }
