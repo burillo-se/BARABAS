@@ -1220,7 +1220,7 @@ List < ItemHelper > getAllInventories() {
 	var blocks = getBlocks();
 	foreach (var block in blocks) {
 		// skip blocks that don't have inventory
-		if ((block as IMyInventoryOwner) != null && !block.HasInventory()) {
+		if (!block.HasInventory()) {
 			continue;
 		}
 		int invCount = block.GetInventoryCount();
@@ -3584,7 +3584,8 @@ void turnOffConveyors() {
 		if (block is IMyShipWelder) {
 			continue;
 		}
-		if (block.HasAction("UseConveyor") && block.GetUseConveyorSystem()) {
+
+		if (block.HasAction("UseConveyor") && block.GetValue<bool>("UseConveyor")) {
 			block.ApplyAction("UseConveyor");
 		}
 	}
