@@ -273,6 +273,7 @@ List < IMyTerminalBlock > local_refineries = null;
 List < IMyTerminalBlock > local_refineries_subset = null;
 List < IMyTerminalBlock > local_arc_furnaces = null;
 List < IMyTerminalBlock > local_arc_furnaces_subset = null;
+List < IMyTerminalBlock > local_all_refineries = null;
 List < IMyTerminalBlock > local_assemblers = null;
 List < IMyTerminalBlock > local_connectors = null;
 List < IMyTerminalBlock > local_storage = null;
@@ -661,6 +662,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 		}
 		displayBlockAlerts(refinery);
 	}
+	local_all_refineries = null;
 	return local_refineries;
 }
 
@@ -688,14 +690,17 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 		}
 		displayBlockAlerts(furnace);
 	}
+	local_all_refineries = null;
 	return local_arc_furnaces;
 }
 
 List < IMyTerminalBlock > getAllRefineries() {
-	var list = new List < IMyTerminalBlock > ();
-	list.AddRange(getRefineries());
-	list.AddRange(getArcFurnaces());
-	return list;
+	if (local_all_refineries == null) {
+		local_all_refineries = new List<IMyTerminalBlock>();
+		local_all_refineries.AddRange(getRefineries());
+		local_all_refineries.AddRange(getArcFurnaces());
+	}
+	return local_all_refineries;
 }
 
 List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
@@ -4227,8 +4232,10 @@ public void Main() {
 	cur_cycle_count = 0;
 	cur_fn_count = 0;
 
-	// clear set of lists we have refreshed during this iteration
+	// clear per-iteration data
 	null_list = new HashSet<List<IMyTerminalBlock>>();
+	local_all_refineries = null;
+
 	do {
 		states[current_state]();
 		num_states++;
