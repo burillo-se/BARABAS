@@ -270,7 +270,9 @@ List < IMyTerminalBlock > local_blocks = null;
 List < IMyTerminalBlock > local_reactors = null;
 List < IMyTerminalBlock > local_batteries = null;
 List < IMyTerminalBlock > local_refineries = null;
+List < IMyTerminalBlock > local_refineries_subset = null;
 List < IMyTerminalBlock > local_arc_furnaces = null;
+List < IMyTerminalBlock > local_arc_furnaces_subset = null;
 List < IMyTerminalBlock > local_assemblers = null;
 List < IMyTerminalBlock > local_connectors = null;
 List < IMyTerminalBlock > local_storage = null;
@@ -538,6 +540,30 @@ IMyTerminalBlock findBlockById(IMyTerminalBlock block, List<IMyTerminalBlock> bl
 	return null;
 }
 
+List<IMyTerminalBlock> randomSubset(List<IMyTerminalBlock> list, int limit) {
+	int count = Math.Min(list.Count, limit);
+	var random_idx = new List<int>();
+	var result = new List<IMyTerminalBlock>();
+
+	// initialize the index list
+	for (int i = 0; i < list.Count; i++) {
+		random_idx.Add(i);
+	}
+
+	// randomize the list
+	Random rng = new Random();
+	for (int i = 0; i < random_idx.Count; i++) {
+		random_idx.Swap(i, rng.Next(0, random_idx.Count));
+	}
+
+	// now, pick out the random subset
+	for (int i = 0; i < count; i++) {
+		result.Add(list[random_idx[i]]);
+	}
+
+	return result;
+}
+
 // get local blocks
 List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 	if (local_blocks != null && !force_update) {
@@ -613,7 +639,11 @@ List < IMyTerminalBlock > getStorage(bool force_update = false) {
 
 List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 	if (local_refineries != null && !force_update) {
-		return removeNulls(local_refineries, 2);
+		// if we didn't refresh the list yet, get a random subset
+		if (!null_list.Contains(local_refineries)) {
+			local_refineries_subset = randomSubset(local_refineries, 50);
+		}
+		return removeNulls(local_refineries_subset, 2);
 	}
 	refineries_clogged = false;
 	local_refineries = new List < IMyTerminalBlock > (getBlocks());
@@ -636,7 +666,11 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 
 List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 	if (local_arc_furnaces != null && !force_update) {
-		return removeNulls(local_arc_furnaces, 2);
+		// if we didn't refresh the list yet, get a random subset
+		if (!null_list.Contains(local_arc_furnaces)) {
+			local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 30);
+		}
+		return removeNulls(local_arc_furnaces_subset, 2);
 	}
 	arc_furnaces_clogged = false;
 	local_arc_furnaces = new List < IMyTerminalBlock > (getBlocks());
