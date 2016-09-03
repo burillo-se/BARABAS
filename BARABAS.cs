@@ -506,10 +506,15 @@ public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks) {
 }
 
 // remove null blocks from list
+HashSet<List<IMyTerminalBlock>> null_list;
 List<IMyTerminalBlock> removeNulls(List<IMyTerminalBlock> list, int invCount) {
 	if (invCount == 0) {
 		return list;
 	}
+	if (null_list.Contains(list)) {
+		return list;
+	}
+	null_list.Add(list);
 	for (int i = list.Count - 1; i >= 0; i--) {
 	 var block = list[i];
 	 if (block.GetInventoryCount() != invCount) {
@@ -4187,6 +4192,9 @@ public void Main() {
 	// zero out IL counters
 	cur_cycle_count = 0;
 	cur_fn_count = 0;
+
+	// clear set of lists we have refreshed during this iteration
+	null_list = new HashSet<List<IMyTerminalBlock>>();
 	do {
 		states[current_state]();
 		num_states++;
