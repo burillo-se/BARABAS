@@ -641,7 +641,7 @@ List < IMyTerminalBlock > getStorage(bool force_update = false) {
 List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 	if (local_refineries != null && !force_update) {
 		// if we didn't refresh the list yet, get a random subset
-		if (!null_list.Contains(local_refineries)) {
+		if (!null_list.Contains(local_refineries_subset)) {
 			local_refineries_subset = randomSubset(local_refineries, 50);
 		}
 		return removeNulls(local_refineries_subset, 2);
