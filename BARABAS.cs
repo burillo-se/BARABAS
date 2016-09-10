@@ -2673,13 +2673,11 @@ void refineOre() {
 			ore = IRON;
 		}
 		if (ore == ICE) {
-			// ice is a special case, we only need to refine it if we're below high watermark
-			if (!refine_ice) {
-				continue;
-			}
 			refineries = getOxygenGenerators();
-			if (refineries.Count == 0) {
+			if (refineries.Count == 0 && refine_ice) {
 				refineries = getRefineries();
+			} else {
+				continue;
 			}
 		} else if (arc_furnace_ores.Contains(ore)) {
 			refineries = getAllRefineries();
