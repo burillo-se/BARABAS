@@ -55,11 +55,13 @@ const int OP_MODE_BASE = 0x100;
 int op_mode = OP_MODE_AUTO;
 Decimal power_high_watermark = 0M;
 Decimal power_low_watermark = 0M;
+Decimal oxygen_high_watermark = 0M;
+Decimal oxygen_low_watermark = 0M;
+Decimal hydrogen_high_watermark = 0M;
+Decimal hydrogen_low_watermark = 0M;
 bool throw_out_stone = false;
 bool sort_storage = true;
 bool hud_notifications = true;
-Decimal oxygen_threshold = 15M;
-Decimal hydrogen_threshold = 0M;
 Decimal prev_pwr_draw = 0M;
 bool refineries_clogged = false;
 bool arc_furnaces_clogged = false;
@@ -370,9 +372,12 @@ Decimal max_power_draw;
 Decimal max_battery_output;
 Decimal max_reactor_output;
 Decimal cur_reactor_output;
+Decimal cur_oxygen_level;
+Decimal cur_hydrogen_level;
 bool tried_throwing = false;
 bool auto_refuel_ship;
 bool prioritize_uranium = false;
+bool refine_ice = true;
 bool can_use_ingots;
 bool can_use_oxygen;
 bool can_refine;
@@ -2059,7 +2064,7 @@ void pullFromRemoteStorage() {
 			if (isIngot(item)) {
 				var type = item.Content.SubtypeName;
 				// don't take all uranium from base
-				if (type == URANIUM && auto_refuel_ship && !aboveHighWatermark()) {
+				if (type == URANIUM && auto_refuel_ship && !powerAboveHighWatermark()) {
 					pushToStorage(inv, j, (VRage.MyFixedPoint) Math.Min(0.5M, (Decimal) item.Amount));
 				} else if (type != URANIUM && pull_ingots_from_base) {
 					pushToStorage(inv, j, null);
@@ -2137,6 +2142,20 @@ void pushOreToStorage() {
 	foreach (var refinery in refineries) {
 		var inv = refinery.GetInventory(0);
 		for (int j = inv.GetItems().Count - 1; j >= 0; j--) {
+			pushToStorage(inv, j, null);
+		}
+	}
+}
+
+void pushIceToStorage() {
+	var refineries = getRefineries();
+	foreach (var refinery in refineries) {
+		var inv = refinery.GetInventory(0);
+		for (int j = inv.GetItems().Count - 1; j >= 0; j--) {
+			var item = inv.GetItems()[j];
+			if (item.Content.SubtypeName != ICE) {
+				continue;
+			}
 			pushToStorage(inv, j, null);
 		}
 	}
@@ -2353,15 +2372,15 @@ Decimal getMaxOutput(IMyTerminalBlock reactor) {
 	return power;
 }
 
-Decimal getHighWatermark(Decimal power_use) {
+Decimal getPowerHighWatermark(Decimal power_use) {
 	return power_use * power_high_watermark;
 }
 
-Decimal getLowWatermark(Decimal power_use) {
+Decimal getPowerLowWatermark(Decimal power_use) {
 	return power_use * power_low_watermark;
 }
 
-bool aboveHighWatermark() {
+bool powerAboveHighWatermark() {
 	var stored_power = getBatteryStoredPower() + getReactorStoredPower();
 
 	// check if we have enough uranium ingots to fill all local reactors and
@@ -2372,7 +2391,7 @@ bool aboveHighWatermark() {
 	} else {
 		power_draw = getCurPowerDraw();
 	}
-	Decimal power_needed = getHighWatermark(power_draw);
+	Decimal power_needed = getPowerHighWatermark(power_draw);
 	Decimal totalPowerNeeded = power_needed * 1.3M;
 
 	if (stored_power > totalPowerNeeded) {
@@ -2393,14 +2412,14 @@ bool aboveHighWatermark() {
 	return false;
 }
 
-bool aboveLowWatermark() {
+bool powerAboveLowWatermark() {
 	Decimal power_draw;
 	if ((op_mode & OP_MODE_SHIP) != 0 && connected_to_base) {
 		power_draw = getMaxPowerDraw();
 	} else {
 		power_draw = getCurPowerDraw();
 	}
-	return getBatteryStoredPower() + getReactorStoredPower() > getLowWatermark(power_draw);
+	return getBatteryStoredPower() + getReactorStoredPower() > getPowerLowWatermark(power_draw);
 }
 
 bool refillReactors(bool force = false) {
@@ -2414,7 +2433,7 @@ bool refillReactors(bool force = false) {
 		var rinv = reactor.GetInventory(0);
 		Decimal reactor_proportion = (Decimal) reactor.MaxOutput * 1000M / getMaxReactorPowerOutput();
 		Decimal reactor_power_draw = getMaxPowerDraw() * (reactor_proportion);
-		Decimal ingots_per_reactor = getHighWatermark(reactor_power_draw) / URANIUM_INGOT_POWER;
+		Decimal ingots_per_reactor = getPowerHighWatermark(reactor_power_draw) / URANIUM_INGOT_POWER;
 		Decimal ingots_in_reactor = getTotalIngots(rinv, URANIUM);
 		if ((ingots_in_reactor < ingots_per_reactor) || force) {
 			// find us an ingot
@@ -2481,7 +2500,7 @@ void pushSpareUraniumToStorage() {
 		Decimal ingots = getTotalIngots(reactor.GetInventory(0), URANIUM);
 		Decimal reactor_power_draw = getMaxPowerDraw() *
 						(((Decimal) reactor.MaxOutput * 1000M) / (getMaxReactorPowerOutput() + getMaxBatteryPowerOutput()));
-		Decimal ingots_per_reactor = getHighWatermark(reactor_power_draw);
+		Decimal ingots_per_reactor = getPowerHighWatermark(reactor_power_draw);
 		if (ingots > ingots_per_reactor) {
 			Decimal amount = ingots - ingots_per_reactor;
 			pushToStorage(inv, 0, (VRage.MyFixedPoint) amount);
@@ -2648,61 +2667,58 @@ void storeTrash(bool store_all = false) {
  * Ore and refineries
  */
 void refineOre() {
-	var storage = getStorage();
-	foreach (var s in storage) {
-		var inv = s.GetInventory(0);
-		var items = inv.GetItems();
-		for (int j = 0; j < items.Count; j++) {
-			List < IMyTerminalBlock > refineries;
-			var item = items[j];
-			if (!isOre(item)) {
+	refine_ice = !iceAboveHighWatermark();
+	var items = getAllStorageOre();
+	foreach (var item in items) {
+		List < IMyTerminalBlock > refineries;
+		string ore = item.Item.Content.SubtypeName;
+		if (ore == SCRAP) {
+			ore = IRON;
+		}
+		if (ore == ICE) {
+			// ice is a special case, we only need to refine it if we're below high watermark
+			if (!refine_ice) {
 				continue;
 			}
-			string ore = item.Content.SubtypeName;
-			if (ore == SCRAP) {
-				ore = IRON;
-			}
-			if (ore == ICE) {
-				refineries = getOxygenGenerators();
-				if (refineries.Count == 0) {
-					refineries = getRefineries();
-				}
-			} else if (arc_furnace_ores.Contains(ore)) {
-				refineries = getAllRefineries();
-			} else {
+			refineries = getOxygenGenerators();
+			if (refineries.Count == 0) {
 				refineries = getRefineries();
 			}
-			if (refineries.Count == 0) {
-				continue;
-			}
+		} else if (arc_furnace_ores.Contains(ore)) {
+			refineries = getAllRefineries();
+		} else {
+			refineries = getRefineries();
+		}
+		if (refineries.Count == 0) {
+			continue;
+		}
 
-			Decimal orig_amount = Math.Round((Decimal) item.Amount / (Decimal) refineries.Count, 4);
-			Decimal amount = (Decimal) Math.Min(CHUNK_SIZE, orig_amount);
-			// now, go through every refinery and do the transfer
-			for (int r = 0; r < refineries.Count; r++) {
-				// if we're last in the list, send it all
-				if (r == refineries.Count - 1 && amount < CHUNK_SIZE) {
-					amount = 0;
+		Decimal orig_amount = Math.Round((Decimal) item.Item.Amount / (Decimal) refineries.Count, 4);
+		Decimal amount = (Decimal) Math.Min(CHUNK_SIZE, orig_amount);
+		// now, go through every refinery and do the transfer
+		for (int r = 0; r < refineries.Count; r++) {
+			// if we're last in the list, send it all
+			if (r == refineries.Count - 1 && amount < CHUNK_SIZE) {
+				amount = 0;
+			}
+			var refinery = refineries[r];
+			removeBlockAlert(refinery, ALERT_CLOGGED);
+			var input_inv = refinery.GetInventory(0);
+			var output_inv = refinery.GetInventory(1);
+			Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
+			if (canAcceptOre(input_inv, ore) || ore == ICE) {
+				// if we've got a very small amount, send it all
+				if (amount < 1) {
+					if (Transfer(item.Inventory, input_inv, item.Index, input_inv.GetItems().Count, true, null)) {
+						break;
+					}
 				}
-				var refinery = refineries[r];
-				removeBlockAlert(refinery, ALERT_CLOGGED);
-				var input_inv = refinery.GetInventory(0);
-				var output_inv = refinery.GetInventory(1);
-				Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
-				if (canAcceptOre(input_inv, ore) || ore == ICE) {
-					// if we've got a very small amount, send it all
-					if (amount < 1) {
-						if (Transfer(inv, input_inv, j, input_inv.GetItems().Count, true, null)) {
-							break;
-						}
-					}
-					// if refinery is almost empty, send a lot
-					else if (input_load < 0.2M) {
-						amount = Math.Min(CHUNK_SIZE * 5, orig_amount);
-						inv.TransferItemTo(input_inv, j, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
-					} else {
-						inv.TransferItemTo(input_inv, j, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
-					}
+				// if refinery is almost empty, send a lot
+				else if (input_load < 0.2M) {
+					amount = Math.Min(CHUNK_SIZE * 5, orig_amount);
+					item.Inventory.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
+				} else {
+					item.Inventory.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
 				}
 			}
 		}
@@ -3091,6 +3107,26 @@ void checkOxygenLeaks() {
 	}
 }
 
+void toggleOxygenGenerators(bool val) {
+	var refineries = getOxygenGenerators();
+	foreach (IMyOxygenGenerator refinery in refineries) {
+		if (refinery.Enabled != val) {
+			refinery.ApplyAction(val ? "OnOff_On" : "OnOff_Off");
+		}
+	}
+}
+
+bool iceAboveHighWatermark() {
+	bool result = true;
+	if (has_oxygen_tanks && oxygen_high_watermark > 0 && cur_oxygen_level < oxygen_high_watermark) {
+		result = false;
+	}
+	if (has_hydrogen_tanks && hydrogen_high_watermark > 0 && cur_hydrogen_level < hydrogen_high_watermark) {
+		result = false;
+	}
+	return result;
+}
+
 /**
  * Functions pertaining to BARABAS's operation
  */
@@ -3107,8 +3143,10 @@ void resetConfig() {
 	material_thresholds[STONE] = 5000M;
 	power_low_watermark = 0;
 	power_high_watermark = 0;
-	oxygen_threshold = has_oxygen_tanks ? 15M : 0M;
-	hydrogen_threshold = 0M;
+	oxygen_high_watermark = 30;
+	oxygen_low_watermark = has_oxygen_tanks ? 10 : 0;
+	hydrogen_high_watermark = 0;
+	hydrogen_low_watermark = 0;
 }
 
 // update defaults based on auto configured values
@@ -3302,13 +3340,13 @@ string generateConfiguration() {
 	} else {
 		config_options[CONFIGSTR_KEEP_STONE] = "all";
 	}
-	if (oxygen_threshold != 0M) {
-		config_options[CONFIGSTR_OXYGEN_THRESHOLD] = Convert.ToString(oxygen_threshold);
+	if (oxygen_low_watermark != 0M) {
+		config_options[CONFIGSTR_OXYGEN_THRESHOLD] = Convert.ToString(oxygen_low_watermark);
 	} else {
 		config_options[CONFIGSTR_OXYGEN_THRESHOLD] = "none";
 	}
-	if (hydrogen_threshold != 0M) {
-		config_options[CONFIGSTR_HYDROGEN_THRESHOLD] = Convert.ToString(hydrogen_threshold);
+	if (hydrogen_low_watermark != 0M) {
+		config_options[CONFIGSTR_HYDROGEN_THRESHOLD] = Convert.ToString(hydrogen_low_watermark);
 	} else {
 		config_options[CONFIGSTR_HYDROGEN_THRESHOLD] = "none";
 	}
@@ -3517,17 +3555,17 @@ void parseLine(string line) {
 		}
 	} else if (clStrCompare(str, CONFIGSTR_OXYGEN_THRESHOLD)) {
 		if (fparse && fval >= 0 && fval <= 100) {
-			oxygen_threshold = fval;
+			oxygen_low_watermark = fval;
 		} else if (strval == "none") {
-			oxygen_threshold = 0;
+			oxygen_low_watermark = 0;
 		} else {
 			fail = true;
 		}
 	} else if (clStrCompare(str, CONFIGSTR_HYDROGEN_THRESHOLD)) {
 		if (fparse && fval >= 0 && fval <= 100) {
-			hydrogen_threshold = fval;
+			hydrogen_low_watermark = fval;
 		} else if (strval == "none") {
-			hydrogen_threshold = 0;
+			hydrogen_low_watermark = 0;
 		} else {
 			fail = true;
 		}
@@ -3891,13 +3929,13 @@ void s_refreshRemote() {
 
 void s_power() {
 	// determine if we need more uranium
-	bool above_high_watermark = aboveHighWatermark();
+	bool above_high_watermark = powerAboveHighWatermark();
 	var max_pwr_output = getCurReactorPowerOutput() + getMaxBatteryPowerOutput();
 
 	// if we have enough uranium ingots, business as usual
 	if (!above_high_watermark) {
 		// check if we're below low watermark
-		bool above_low_watermark = aboveLowWatermark();
+		bool above_low_watermark = powerAboveLowWatermark();
 
 		if (has_reactors && has_refineries && ore_status[URANIUM] > 0) {
 			prioritize_uranium = true;
@@ -3970,6 +4008,14 @@ void s_refineries() {
 			refineOre();
 		}
 	}
+}
+
+void s_processIce() {
+	toggleOxygenGenerators(refine_ice);
+	if (refine_ice) {
+		return;
+	}
+	pushIceToStorage();
 }
 
 void s_materialsPriority() {
@@ -4176,19 +4222,20 @@ void s_updateMaterialStats() {
 			hydro_cur += (Decimal) tank.GetOxygenLevel();
 			hydro_total += 1M;
 		}
-		Decimal oxy_p = has_oxygen_tanks ? (oxy_cur / oxy_total) * 100M : 0;
-		Decimal hydro_p = has_hydrogen_tanks ? (hydro_cur / hydro_total) * 100M : 0;
+		cur_oxygen_level = has_oxygen_tanks ? (oxy_cur / oxy_total) * 100M : 0;
+		cur_hydrogen_level = has_hydrogen_tanks ? (hydro_cur / hydro_total) * 100M : 0;
 		string oxy_str = !has_oxygen_tanks ? "N/A" : String.Format("{0:0.0}%",
-					oxy_p);
+					cur_oxygen_level);
 		string hydro_str = !has_hydrogen_tanks ? "N/A" : String.Format("{0:0.0}%",
-					hydro_p);
-		if (oxygen_threshold > 0 && oxy_p < oxygen_threshold) {
+					cur_hydrogen_level);
+
+		if (oxygen_low_watermark > 0 && cur_oxygen_level < oxygen_low_watermark && ore_status[ICE] == 0) {
 			alert = true;
 			addAntennaAlert(ALERT_LOW_OXYGEN);
 		} else {
 			removeAntennaAlert(ALERT_LOW_OXYGEN);
 		}
-		if (hydrogen_threshold > 0 && hydro_p < hydrogen_threshold) {
+		if (hydrogen_low_watermark > 0 && cur_hydrogen_level < hydrogen_low_watermark && ore_status[ICE] == 0) {
 			alert = true;
 			addAntennaAlert(ALERT_LOW_HYDROGEN);
 		} else {
@@ -4299,6 +4346,7 @@ public Program() {
 		s_updateMaterialStats,
 		s_power,
 		s_refineries,
+		s_processIce,
 		s_materialsPriority,
 		s_materialsRebalance,
 		s_materialsCrisis,
