@@ -3548,7 +3548,7 @@ void parseLine(string line) {
 			fail = true;
 		}
 	} else if (clStrCompare(str, CONFIGSTR_POWER_WATERMARKS)) {
-		if (clStrCompare(str, "auto") {
+		if (strval == "auto") {
 			power_low_watermark = 0;
 			power_high_watermark = 0;
 		} else if (!parseWatermarkStr(strval, out power_low_watermark, out power_high_watermark)) {
