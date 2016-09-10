@@ -662,7 +662,10 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 		}
 		displayBlockAlerts(refinery);
 	}
-	return local_refineries;
+	if (!null_list.Contains(local_refineries_subset)) {
+		local_refineries_subset = randomSubset(local_refineries, 50);
+	}
+	return local_refineries_subset;
 }
 
 List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
@@ -689,7 +692,10 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 		}
 		displayBlockAlerts(furnace);
 	}
-	return local_arc_furnaces;
+	if (!null_list.Contains(local_arc_furnaces_subset)) {
+		local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 30);
+	}
+	return local_arc_furnaces_subset;
 }
 
 List < IMyTerminalBlock > getAllRefineries() {
