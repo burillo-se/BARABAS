@@ -3183,7 +3183,7 @@ string generateConfiguration() {
 		if (material_thresholds[STONE] == 0) {
 			config_options[CONFIGSTR_KEEP_STONE] = "none";
 		} else {
-			config_options[CONFIGSTR_KEEP_STONE] = Convert.ToString(Math.Floor((material_thresholds[STONE] * 5) / CHUNK_SIZE));
+			config_options[CONFIGSTR_KEEP_STONE] = Convert.ToString(Math.Floor((material_thresholds[STONE] * 5) / 1000));
 		}
 	} else {
 		config_options[CONFIGSTR_KEEP_STONE] = "all";
