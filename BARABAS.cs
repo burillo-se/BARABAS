@@ -97,7 +97,7 @@ const string CONFIGSTR_PULL_COMPONENTS = "pull components from base";
 const string CONFIGSTR_KEEP_STONE = "keep stone";
 const string CONFIGSTR_SORT_STORAGE = "sort storage";
 const string CONFIGSTR_HUD_NOTIFICATIONS = "HUD notifications";
-const string CONFIGSTR_OXYGEN_THRESHOLD = "oxygen threshold";
+const string CONFIGSTR_OXYGEN_WATERMARKS = "oxygen watermarks";
 const string CONFIGSTR_HYDROGEN_THRESHOLD = "hydrogen threshold";
 
 // ore_volume
@@ -137,7 +137,7 @@ readonly Dictionary < string, string > config_options = new Dictionary < string,
 	}, {
 		CONFIGSTR_POWER_WATERMARKS, ""
 	}, {
-		CONFIGSTR_OXYGEN_THRESHOLD, ""
+		CONFIGSTR_OXYGEN_WATERMARKS, ""
 	}, {
 		CONFIGSTR_HYDROGEN_THRESHOLD, ""
 	}, {
@@ -3140,8 +3140,8 @@ void resetConfig() {
 	material_thresholds[STONE] = 5000M;
 	power_low_watermark = 0;
 	power_high_watermark = 0;
-	oxygen_high_watermark = 30;
-	oxygen_low_watermark = has_oxygen_tanks ? 10 : 0;
+	oxygen_high_watermark = 0;
+	oxygen_low_watermark = 0;
 	hydrogen_high_watermark = 0;
 	hydrogen_low_watermark = 0;
 }
@@ -3179,6 +3179,20 @@ void configureWatermarks() {
 			power_high_watermark = 480;
 		} else {
 			power_high_watermark = 120;
+		}
+	}
+	if (oxygen_high_watermark == 0 && has_oxygen_tanks) {
+		if (op_mode == OP_MODE_BASE) {
+			oxygen_high_watermark = 30;
+		} else {
+			oxygen_high_watermark = 60;
+		}
+	}
+	if (oxygen_low_watermark == 0 && has_oxygen_tanks) {
+		if (op_mode == OP_MODE_BASE) {
+			oxygen_low_watermark = 10;
+		} else {
+			oxygen_low_watermark = 15;
 		}
 	}
 }
@@ -3356,10 +3370,10 @@ string generateConfiguration() {
 	} else {
 		config_options[CONFIGSTR_KEEP_STONE] = "all";
 	}
-	if (oxygen_low_watermark != 0M) {
-		config_options[CONFIGSTR_OXYGEN_THRESHOLD] = Convert.ToString(oxygen_low_watermark);
+	if (oxygen_low_watermark > 0) {
+		config_options[CONFIGSTR_OXYGEN_WATERMARKS] = getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark);
 	} else {
-		config_options[CONFIGSTR_OXYGEN_THRESHOLD] = "none";
+		config_options[CONFIGSTR_OXYGEN_WATERMARKS] = "none";
 	}
 	if (hydrogen_low_watermark != 0M) {
 		config_options[CONFIGSTR_HYDROGEN_THRESHOLD] = Convert.ToString(hydrogen_low_watermark);
@@ -3386,9 +3400,12 @@ string generateConfiguration() {
 	sb.AppendLine("# Second number is when to stop refueling.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = CONFIGSTR_OXYGEN_THRESHOLD;
-	sb.AppendLine("# Percentage of oxygen to be considered \"enough\".");
-	sb.AppendLine("# Can be a number between 0 and 100, or \"none\" to disable.");
+	key = CONFIGSTR_OXYGEN_WATERMARKS;
+	sb.AppendLine("# Percentage of oxygen to keep.");
+	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100");
+	sb.AppendLine("# separated by slash (for example, \"15 / 30\").");
+	sb.AppendLine("# First number is when to sound an alarm.");
+	sb.AppendLine("# second number is when to shut off oxygen generators.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_HYDROGEN_THRESHOLD;
@@ -3500,6 +3517,18 @@ void parseLine(string line) {
 			throw new BarabasException("Invalid config value: " + strval);
 		}
 	}
+	if (str == "oxygen threshold") {
+		Decimal tmp;
+		if (strval == "none") {
+			oxygen_low_watermark = -1;
+			oxygen_high_watermark = -1;
+		} else if (Decimal.TryParse(strval, out tmp) && tmp > 0 && tmp <= 100) {
+				oxygen_low_watermark = tmp;
+				oxygen_high_watermark = 100;
+		} else {
+			throw new BarabasException("Invalid config value: " + strval);
+		}
+	}
 	if (!config_options.ContainsKey(str)) {
 		throw new BarabasException("Invalid config option: " + str);
 	}
@@ -3582,11 +3611,25 @@ void parseLine(string line) {
 		} else {
 			fail = true;
 		}
-	} else if (clStrCompare(str, CONFIGSTR_OXYGEN_THRESHOLD)) {
-		if (fparse && fval >= 0 && fval <= 100) {
-			oxygen_low_watermark = fval;
-		} else if (strval == "none") {
+	} else if (clStrCompare(str, CONFIGSTR_OXYGEN_WATERMARKS)) {
+		Decimal low, high;
+		if (strval == "auto") {
 			oxygen_low_watermark = 0;
+			oxygen_high_watermark = 0;
+		} else if (strval == "none") {
+			oxygen_low_watermark = -1;
+			oxygen_high_watermark = -1;
+		} else if (parseWatermarkStr(strval, out low, out high)) {
+			if (low > 0 && low <= 100) {
+				oxygen_low_watermark = low;
+			} else {
+				fail = true;
+			}
+			if (high > 0 && high <= 100 && low <= high) {
+				oxygen_high_watermark = high;
+			} else {
+				fail = true;
+			}
 		} else {
 			fail = true;
 		}
