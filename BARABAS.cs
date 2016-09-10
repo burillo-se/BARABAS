@@ -3689,37 +3689,37 @@ void s_refreshGrids() {
 }
 
 void s_refreshProduction() {
- has_refineries = getRefineries(true).Count > 0;
- has_arc_furnaces = getArcFurnaces(true).Count > 0;
- can_refine = has_refineries || has_arc_furnaces || (getOxygenGenerators(true).Count > 0);
- can_use_ingots = getAssemblers(true).Count > 0;
- getStorage(true);
- turnOffConveyors();
+	has_refineries = getRefineries(true).Count > 0;
+	has_arc_furnaces = getArcFurnaces(true).Count > 0;
+	can_refine = has_refineries || has_arc_furnaces || (getOxygenGenerators(true).Count > 0);
+	can_use_ingots = getAssemblers(true).Count > 0;
+	getStorage(true);
+	turnOffConveyors();
 }
 
 void s_refreshPower() {
- has_reactors = getReactors(true).Count > 0;
- getBatteries(true);
- if (has_reactors) {
-	 getMaxReactorPowerOutput(true);
-	 getCurReactorPowerOutput(true);
- }
- getMaxBatteryPowerOutput(true);
- getCurPowerDraw(true);
- getMaxPowerDraw(true);
+	has_reactors = getReactors(true).Count > 0;
+	getBatteries(true);
+	if (has_reactors) {
+		getMaxReactorPowerOutput(true);
+		getCurReactorPowerOutput(true);
+	}
+	getMaxBatteryPowerOutput(true);
+	getCurPowerDraw(true);
+	getMaxPowerDraw(true);
 }
 
 void s_refreshOxyHydro() {
- has_air_vents = getAirVents(true).Count > 0;
- has_oxygen_tanks = getOxygenTanks(true).Count > 0;
- has_hydrogen_tanks = getHydrogenTanks(true).Count > 0;
- can_use_oxygen = has_oxygen_tanks && has_air_vents;
+	has_air_vents = getAirVents(true).Count > 0;
+	has_oxygen_tanks = getOxygenTanks(true).Count > 0;
+	has_hydrogen_tanks = getHydrogenTanks(true).Count > 0;
+	can_use_oxygen = has_oxygen_tanks && has_air_vents;
 }
 
 void s_refreshTools() {
- has_drills = getDrills(true).Count > 0;
- has_grinders = getGrinders(true).Count > 0;
- has_welders = getWelders(true).Count > 0;
+	has_drills = getDrills(true).Count > 0;
+	has_grinders = getGrinders(true).Count > 0;
+	has_welders = getWelders(true).Count > 0;
 }
 
 void s_refreshMisc() {
