@@ -832,15 +832,10 @@ List < IMyTerminalBlock > getAntennas(bool force_update = false) {
 		filterLocalGrid < IMyLaserAntenna > (tmp_laser);
 
 		// populate the list
-		foreach (var beacon in tmp_beacons) {
-			local_antennas.Add(beacon);
-		}
-		foreach (var antenna in tmp_antennas) {
-			local_antennas.Add(antenna);
-		}
-		foreach (var laser in tmp_laser) {
-			local_antennas.Add(laser);
-		}
+		local_antennas.AddRange(tmp_beacons);
+		local_antennas.AddRange(tmp_antennas);
+		local_antennas.AddRange(tmp_laser);
+
 		break;
 	}
 	return local_antennas;
