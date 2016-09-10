@@ -3525,7 +3525,7 @@ void parseLine(string line) {
 			return;
 		} else if (Decimal.TryParse(strval, out tmp) && tmp > 0 && tmp <= 100) {
 				oxygen_low_watermark = tmp;
-				oxygen_high_watermark = 100;
+				oxygen_high_watermark = Math.Min(tmp * 2, 100);
 				return;
 		} else {
 			throw new BarabasException("Invalid config value: " + strval);
