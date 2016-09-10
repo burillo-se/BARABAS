@@ -3489,37 +3489,37 @@ void parseLine(string line) {
 	fparse = Decimal.TryParse(strval, out fval);
 	// op mode
 	if (clStrCompare(str, CONFIGSTR_OP_MODE)) {
-		if (clStrCompare(strval, "base")) {
+		if (strval == "base") {
 			if (op_mode != OP_MODE_BASE) {
 				op_mode = OP_MODE_BASE;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-		} else if (clStrCompare(strval, "ship")) {
+		} else if (strval == "ship") {
 			if (op_mode != OP_MODE_SHIP) {
 				op_mode = OP_MODE_SHIP;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-		} else if (clStrCompare(strval, "drill")) {
+		} else if (strval == "drill") {
 			if (op_mode != OP_MODE_DRILL) {
 				op_mode = OP_MODE_DRILL;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-		} else if (clStrCompare(strval, "welder")) {
+		} else if (strval == "welder") {
 			if (op_mode != OP_MODE_WELDER) {
 				op_mode = OP_MODE_WELDER;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-		} else if (clStrCompare(strval, "grinder")) {
+		} else if (strval == "grinder") {
 			if (op_mode != OP_MODE_GRINDER) {
 				op_mode = OP_MODE_GRINDER;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-		} else if (clStrCompare(strval, "tug")) {
+		} else if (strval == "tug") {
 			if (op_mode != OP_MODE_TUG) {
 				op_mode = OP_MODE_TUG;
 				crisis_mode = CRISIS_MODE_NONE;
 			}
-		} else if (clStrCompare(strval, "auto")) {
+		} else if (strval == "auto") {
 			op_mode = OP_MODE_AUTO;
 			crisis_mode = CRISIS_MODE_NONE;
 		} else {
@@ -3541,13 +3541,13 @@ void parseLine(string line) {
 		if (fparse && fval > 0) {
 			throw_out_stone = true;
 			material_thresholds[STONE] = (Decimal) Math.Floor((fval * 1000M) / 5);
-		} else if (clStrCompare(strval, "all")) {
+		} else if (strval == "all") {
 			throw_out_stone = false;
 			material_thresholds[STONE] = 5000M;
-		} else if (clStrCompare(strval, "none")) {
+		} else if (strval == "none") {
 			throw_out_stone = true;
 			material_thresholds[STONE] = 0;
-		} else if (clStrCompare(strval, "auto")) {
+		} else if (strval == "auto") {
 			throw_out_stone = true;
 			material_thresholds[STONE] = 5000M;
 		} else {
@@ -3556,7 +3556,7 @@ void parseLine(string line) {
 	} else if (clStrCompare(str, CONFIGSTR_OXYGEN_THRESHOLD)) {
 		if (fparse && fval >= 0 && fval <= 100) {
 			oxygen_low_watermark = fval;
-		} else if (clStrCompare(strval, "none")) {
+		} else if (strval == "none") {
 			oxygen_low_watermark = 0;
 		} else {
 			fail = true;
@@ -3564,7 +3564,7 @@ void parseLine(string line) {
 	} else if (clStrCompare(str, CONFIGSTR_HYDROGEN_THRESHOLD)) {
 		if (fparse && fval >= 0 && fval <= 100) {
 			hydrogen_low_watermark = fval;
-		} else if (clStrCompare(strval, "none")) {
+		} else if (strval == "none") {
 			hydrogen_low_watermark = 0;
 		} else {
 			fail = true;
