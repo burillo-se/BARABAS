@@ -2592,22 +2592,28 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
 		var item = entry.Item;
 		var srcInv = entry.Inventory;
 		var index = entry.Index;
-		var amount = Math.Min(target_amount, (Decimal) entry.Item.Amount);
+		var orig_amount = Math.Min(target_amount, (Decimal) entry.Item.Amount);
+		var cur_amount = orig_amount;
 
 		foreach (IMyShipConnector connector in connectors) {
 			if (skip_list.Contains(connector)) {
 				continue;
 			}
 			var connector_inv = connector.GetInventory(0);
-			amount /= getTrashConnectors().Count;
+			var amount = Math.Min(orig_amount / getTrashConnectors().Count, cur_amount);
 
 			// send it to connector
-			amount = TryTransfer(srcInv, connector_inv, index, null, true,
-			                     (VRage.MyFixedPoint) amount);
-			if (amount > 0) {
-				target_amount -= amount;
+			var transferred = TryTransfer(srcInv, connector_inv, index, null, true,
+			                              (VRage.MyFixedPoint) amount);
+			if (transferred > 0) {
+				target_amount -= transferred;
+				cur_amount -= transferred;
+
 				if (target_amount == 0) {
 					return true;
+				}
+				if (cur_amount == 0) {
+					break;
 				}
 			}
 		}
