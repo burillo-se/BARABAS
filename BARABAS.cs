@@ -3548,10 +3548,22 @@ void parseLine(string line) {
 			fail = true;
 		}
 	} else if (clStrCompare(str, CONFIGSTR_POWER_WATERMARKS)) {
+		Decimal low, high;
 		if (strval == "auto") {
 			power_low_watermark = 0;
 			power_high_watermark = 0;
-		} else if (!parseWatermarkStr(strval, out power_low_watermark, out power_high_watermark)) {
+		} else if (parseWatermarkStr(strval, out low, out high)) {
+			if (low > 0) {
+				power_low_watermark = low;
+			} else {
+				fail = true;
+			}
+			if (high > 0 && low <= high) {
+				power_high_watermark = high;
+			} else {
+				fail = true;
+			}
+		} else {
 			fail = true;
 		}
 	} else if (clStrCompare(str, CONFIGSTR_KEEP_STONE)) {
