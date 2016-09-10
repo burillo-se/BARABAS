@@ -3049,7 +3049,7 @@ void spreadLoad(List < IMyTerminalBlock > blocks) {
 
 			// send one and check load
 			Decimal cur_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-			if (!Transfer(src_inv, dst_inv, maxIndex, i, true, (VRage.MyFixedPoint) 1)) {
+			if (!Transfer(src_inv, dst_inv, i, null, true, (VRage.MyFixedPoint) 1)) {
 				continue;
 			}
 			Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
