@@ -1340,6 +1340,25 @@ void getAllIngots(IMyInventory inv, string name, List < ItemHelper > list) {
 	}
 }
 
+// get all ingots of a certain type from a particular inventory
+void getAllOre(IMyInventory inv, string name, List < ItemHelper > list) {
+	var items = inv.GetItems();
+	for (int i = items.Count - 1; i >= 0; i--) {
+		var item = items[i];
+		if (!isOre(item)) {
+			continue;
+		}
+		if (name != null && item.Content.SubtypeName != name) {
+			continue;
+		}
+		ItemHelper ih = new ItemHelper();
+		ih.Inventory = inv;
+		ih.Item = item;
+		ih.Index = i;
+		list.Add(ih);
+	}
+}
+
 // get all local ingots of a certain type
 List < ItemHelper > getAllIngots(string name) {
 	List < ItemHelper > list = new List < ItemHelper > ();
