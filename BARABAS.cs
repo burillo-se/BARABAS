@@ -87,8 +87,7 @@ Action [] states = null;
 
 // config options
 const string CONFIGSTR_OP_MODE = "mode";
-const string CONFIGSTR_POWER_LOW_WATERMARK = "power low watermark";
-const string CONFIGSTR_POWER_HIGH_WATERMARK = "power high watermark";
+const string CONFIGSTR_POWER_WATERMARKS = "power watermarks";
 const string CONFIGSTR_PUSH_ORE = "push ore to base";
 const string CONFIGSTR_PUSH_INGOTS = "push ingots to base";
 const string CONFIGSTR_PUSH_COMPONENTS = "push components to base";
@@ -136,9 +135,7 @@ readonly Dictionary < string, string > config_options = new Dictionary < string,
 	}, {
 		CONFIGSTR_HUD_NOTIFICATIONS, ""
 	}, {
-		CONFIGSTR_POWER_LOW_WATERMARK, ""
-	}, {
-		CONFIGSTR_POWER_HIGH_WATERMARK, ""
+		CONFIGSTR_POWER_WATERMARKS, ""
 	}, {
 		CONFIGSTR_OXYGEN_THRESHOLD, ""
 	}, {
@@ -3305,6 +3302,26 @@ bool clStrCompare(string str1, string str2) {
 	return String.Equals(str1, str2, StringComparison.OrdinalIgnoreCase);
 }
 
+string getWatermarkStr(Decimal low, Decimal high) {
+	return String.Format("{0:0} / {1:0}", low, high);
+}
+
+bool parseWatermarkStr(string val, out Decimal low, out Decimal high) {
+	low = 0;
+	high = 0;
+	string[] strs = val.Split('/');
+	if (strs.Length != 2) {
+		return false;
+	}
+	if (!Decimal.TryParse(strs[0], out low)) {
+		return false;
+	}
+	if (!Decimal.TryParse(strs[1], out high)) {
+		return false;
+	}
+	return true;
+}
+
 string generateConfiguration() {
 	StringBuilder sb = new StringBuilder();
 
@@ -3322,8 +3339,7 @@ string generateConfiguration() {
 		config_options[CONFIGSTR_OP_MODE] = "tug";
 	}
 	config_options[CONFIGSTR_HUD_NOTIFICATIONS] = Convert.ToString(hud_notifications);
-	config_options[CONFIGSTR_POWER_HIGH_WATERMARK] = Convert.ToString(power_high_watermark);
-	config_options[CONFIGSTR_POWER_LOW_WATERMARK] = Convert.ToString(power_low_watermark);
+	config_options[CONFIGSTR_POWER_WATERMARKS] = getWatermarkStr(power_low_watermark, power_high_watermark);
 	config_options[CONFIGSTR_PUSH_ORE] = Convert.ToString(push_ore_to_base);
 	config_options[CONFIGSTR_PUSH_INGOTS] = Convert.ToString(push_ingots_to_base);
 	config_options[CONFIGSTR_PUSH_COMPONENTS] = Convert.ToString(push_components_to_base);
@@ -3362,14 +3378,9 @@ string generateConfiguration() {
 	sb.AppendLine("# Can be True or False.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = CONFIGSTR_POWER_HIGH_WATERMARK;
-	sb.AppendLine("# Amount of power on \"full\" batteries/reactors, in minutes.");
-	sb.AppendLine("# Can be a positive number, zero for automatic.");
-	sb.AppendLine(key + " = " + config_options[key]);
-	sb.AppendLine();
-	key = CONFIGSTR_POWER_LOW_WATERMARK;
-	sb.AppendLine("# Amount of power on \"empty\" batteries/reactors, in minutes.");
-	sb.AppendLine("# Can be a positive number, zero for automatic.");
+	key = CONFIGSTR_POWER_WATERMARKS;
+	sb.AppendLine("# Amount of power on batteries/reactors, in minutes.");
+	sb.AppendLine("# Can be \"auto\", or two non-negative numbers separated\n# by slash (for example, \"30 / 60\").");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_OXYGEN_THRESHOLD;
@@ -3472,11 +3483,19 @@ void parseLine(string line) {
 		}
 		return;
 	}
-	if (str == "reactor low watermark") {
-		str = CONFIGSTR_POWER_LOW_WATERMARK;
+	if (str == "reactor low watermark" || str == "power low watermark") {
+		if (Decimal.TryParse(strval, out power_low_watermark)) {
+			return;
+		} else {
+			throw new BarabasException("Invalid config value: " + strval);
+		}
 	}
-	if (str == "reactor high watermark") {
-		str = CONFIGSTR_POWER_HIGH_WATERMARK;
+	if (str == "reactor high watermark" || str == "power high watermark") {
+		if (Decimal.TryParse(strval, out power_high_watermark)) {
+			return;
+		} else {
+			throw new BarabasException("Invalid config value: " + strval);
+		}
 	}
 	if (!config_options.ContainsKey(str)) {
 		throw new BarabasException("Invalid config option: " + str);
@@ -3525,16 +3544,11 @@ void parseLine(string line) {
 		} else {
 			fail = true;
 		}
-	} else if (clStrCompare(str, CONFIGSTR_POWER_HIGH_WATERMARK)) {
-		if (fparse && fval >= 0) {
-			power_high_watermark = fval;
-		} else {
-			fail = true;
-		}
-	} else if (clStrCompare(str, CONFIGSTR_POWER_LOW_WATERMARK)) {
-		if (fparse && fval >= 0) {
-			power_low_watermark = fval;
-		} else {
+	} else if (clStrCompare(str, CONFIGSTR_POWER_WATERMARKS)) {
+		if (clStrCompare(str, "auto") {
+			power_low_watermark = 0;
+			power_high_watermark = 0;
+		} else if (!parseWatermarkStr(strval, out power_low_watermark, out power_high_watermark)) {
 			fail = true;
 		}
 	} else if (clStrCompare(str, CONFIGSTR_KEEP_STONE)) {
