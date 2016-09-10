@@ -3380,7 +3380,10 @@ string generateConfiguration() {
 	sb.AppendLine();
 	key = CONFIGSTR_POWER_WATERMARKS;
 	sb.AppendLine("# Amount of power on batteries/reactors, in minutes.");
-	sb.AppendLine("# Can be \"auto\", or two non-negative numbers separated\n# by slash (for example, \"30 / 60\").");
+	sb.AppendLine("# Can be \"auto\", or two non-negative numbers separated");
+	sb.AppendLine("# by slash (for example, \"30 / 60\").");
+	sb.AppendLine("# First number is when to sound an alarm.");
+	sb.AppendLine("# Second number is when to stop refueling.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_OXYGEN_THRESHOLD;
