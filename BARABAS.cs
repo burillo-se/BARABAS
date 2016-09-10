@@ -1387,6 +1387,17 @@ List < ItemHelper > getAllStorageIngots(string name = null) {
 	return list;
 }
 
+// get all ingots residing in storage
+List < ItemHelper > getAllStorageOre(string name = null) {
+	List < ItemHelper > list = new List < ItemHelper > ();
+	var blocks = getStorage();
+	foreach (var block in blocks) {
+		var inv = block.GetInventory(0);
+		getAllOre(inv, name, list);
+	}
+	return list;
+}
+
 bool isOre(IMyInventoryItem item) {
 	if (item.Content.SubtypeName == "Scrap") {
 		return true;
@@ -2557,7 +2568,7 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
 		}
 	}
 
-	var entries = getAllOre(name);
+	var entries = getAllStorageOre(name);
 	foreach (var entry in entries) {
 		var item = entry.Item;
 		var srcInv = entry.Inventory;
@@ -2569,9 +2580,6 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
 				continue;
 			}
 			var connector_inv = connector.GetInventory(0);
-			if (srcInv == connector_inv || connectors.Contains(srcInv.Owner as IMyTerminalBlock)) {
-				continue;
-			}
 			amount /= getTrashConnectors().Count;
 
 			// send it to connector
