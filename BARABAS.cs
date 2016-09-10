@@ -3417,7 +3417,7 @@ string generateConfiguration() {
 	sb.AppendLine("# second number is when to stop refining ice.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = CONFIGSTR_OXYGEN_WATERMARKS;
+	key = CONFIGSTR_HYDROGEN_WATERMARKS;
 	sb.AppendLine("# Percentage of hydrogen to keep.");
 	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100");
 	sb.AppendLine("# separated by slash (for example, \"15 / 30\").");
