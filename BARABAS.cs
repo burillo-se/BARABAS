@@ -3326,13 +3326,19 @@ bool clStrCompare(string str1, string str2) {
 }
 
 string getWatermarkStr(Decimal low, Decimal high) {
-	return String.Format("{0:0} / {1:0}", low, high);
+	return String.Format("{0:0} {1:0}", low, high);
 }
 
 bool parseWatermarkStr(string val, out Decimal low, out Decimal high) {
 	low = 0;
 	high = 0;
-	string[] strs = val.Split('/');
+
+	// trim all multiple spaces
+	var opt = System.Text.RegularExpressions.RegexOptions.None;
+	var regex = new System.Text.RegularExpressions.Regex("\\s{2,}", opt);
+	val = regex.Replace(val, " ");
+
+	string[] strs = val.Split(' ');
 	if (strs.Length != 2) {
 		return false;
 	}
@@ -3403,24 +3409,21 @@ string generateConfiguration() {
 	sb.AppendLine();
 	key = CONFIGSTR_POWER_WATERMARKS;
 	sb.AppendLine("# Amount of power on batteries/reactors, in minutes.");
-	sb.AppendLine("# Can be \"auto\", or two non-negative numbers separated");
-	sb.AppendLine("# by slash (for example, \"30 / 60\").");
+	sb.AppendLine("# Can be \"auto\", or two positive numbers.");
 	sb.AppendLine("# First number is when to sound an alarm.");
 	sb.AppendLine("# Second number is when to stop refueling.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_OXYGEN_WATERMARKS;
 	sb.AppendLine("# Percentage of oxygen to keep.");
-	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100");
-	sb.AppendLine("# separated by slash (for example, \"15 / 30\").");
+	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100.");
 	sb.AppendLine("# First number is when to sound an alarm.");
 	sb.AppendLine("# second number is when to stop refining ice.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_HYDROGEN_WATERMARKS;
 	sb.AppendLine("# Percentage of hydrogen to keep.");
-	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100");
-	sb.AppendLine("# separated by slash (for example, \"15 / 30\").");
+	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100.");
 	sb.AppendLine("# First number is when to sound an alarm.");
 	sb.AppendLine("# second number is when to stop refining ice.");
 	sb.AppendLine(key + " = " + config_options[key]);
