@@ -3352,8 +3352,8 @@ string generateConfiguration() {
 	}
 
 	// currently selected operation mode
-	sb.AppendLine("# Operation mode");
-	sb.AppendLine("# Can be auto, base, ship, tug, drill, welder or grinder");
+	sb.AppendLine("# Operation mode.");
+	sb.AppendLine("# Can be auto, base, ship, tug, drill, welder or grinder.");
 	var key = CONFIGSTR_OP_MODE;
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
@@ -3389,7 +3389,7 @@ string generateConfiguration() {
 	sb.AppendLine();
 	key = CONFIGSTR_SORT_STORAGE;
 	sb.AppendLine("# Automatically sort items in storage containers.");
-	sb.AppendLine("# Can be True or False");
+	sb.AppendLine("# Can be True or False.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	sb.AppendLine("#");
@@ -3398,39 +3398,39 @@ string generateConfiguration() {
 	sb.AppendLine("#");
 	sb.AppendLine();
 	key = CONFIGSTR_PUSH_ORE;
-	sb.AppendLine("# Push ore to base storage");
-	sb.AppendLine("# In tug mode, also pull ore from ships");
-	sb.AppendLine("# Can be True or False");
+	sb.AppendLine("# Push ore to base storage.");
+	sb.AppendLine("# In tug mode, also pull ore from ships.");
+	sb.AppendLine("# Can be True or False.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_PUSH_INGOTS;
-	sb.AppendLine("# Push ingots to base storage");
-	sb.AppendLine("# In tug mode, also pull ingots from ships");
-	sb.AppendLine("# Can be True or False");
+	sb.AppendLine("# Push ingots to base storage.");
+	sb.AppendLine("# In tug mode, also pull ingots from ships.");
+	sb.AppendLine("# Can be True or False.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_PUSH_COMPONENTS;
-	sb.AppendLine("# Push components to base storage");
-	sb.AppendLine("# In tug mode, also pull components from ships");
-	sb.AppendLine("# Can be True or False");
+	sb.AppendLine("# Push components to base storage.");
+	sb.AppendLine("# In tug mode, also pull components from ships.");
+	sb.AppendLine("# Can be True or False.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_PULL_ORE;
-	sb.AppendLine("# Pull ore from base storage");
-	sb.AppendLine("# In tug mode, also push ore to ships");
-	sb.AppendLine("# Can be True or False");
+	sb.AppendLine("# Pull ore from base storage.");
+	sb.AppendLine("# In tug mode, also push ore to ships.");
+	sb.AppendLine("# Can be True or False.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_PULL_INGOTS;
-	sb.AppendLine("# Pull ingots from base storage");
-	sb.AppendLine("# In tug mode, also push ingots to ships");
-	sb.AppendLine("# Can be True or False");
+	sb.AppendLine("# Pull ingots from base storage.");
+	sb.AppendLine("# In tug mode, also push ingots to ships.");
+	sb.AppendLine("# Can be True or False.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_PULL_COMPONENTS;
-	sb.AppendLine("# Pull components from base storage");
-	sb.AppendLine("# In tug mode, also push components to ships");
-	sb.AppendLine("# Can be True or False");
+	sb.AppendLine("# Pull components from base storage.");
+	sb.AppendLine("# In tug mode, also push components to ships.");
+	sb.AppendLine("# Can be True or False.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 
