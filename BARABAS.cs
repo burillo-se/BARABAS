@@ -273,6 +273,7 @@ List < IMyTerminalBlock > local_refineries = null;
 List < IMyTerminalBlock > local_refineries_subset = null;
 List < IMyTerminalBlock > local_arc_furnaces = null;
 List < IMyTerminalBlock > local_arc_furnaces_subset = null;
+List < IMyTerminalBlock > local_all_refineries = null;
 List < IMyTerminalBlock > local_assemblers = null;
 List < IMyTerminalBlock > local_connectors = null;
 List < IMyTerminalBlock > local_storage = null;
@@ -691,10 +692,15 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 }
 
 List < IMyTerminalBlock > getAllRefineries() {
-	var list = new List < IMyTerminalBlock > ();
-	list.AddRange(getRefineries());
-	list.AddRange(getArcFurnaces());
-	return list;
+	if (local_all_refineries == null) {
+		local_all_refineries = new List < IMyTerminalBlock > ();
+	}
+	if (!null_list.Contains(local_all_refineries)) {
+		local_all_refineries.Clear();
+		local_all_refineries.AddRange(getRefineries());
+		local_all_refineries.AddRange(getArcFurnaces());
+	}
+	return removeNulls(local_all_refineries, 2);
 }
 
 List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
