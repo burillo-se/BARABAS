@@ -273,7 +273,6 @@ List < IMyTerminalBlock > local_refineries = null;
 List < IMyTerminalBlock > local_refineries_subset = null;
 List < IMyTerminalBlock > local_arc_furnaces = null;
 List < IMyTerminalBlock > local_arc_furnaces_subset = null;
-List < IMyTerminalBlock > local_all_refineries = null;
 List < IMyTerminalBlock > local_assemblers = null;
 List < IMyTerminalBlock > local_connectors = null;
 List < IMyTerminalBlock > local_storage = null;
@@ -542,13 +541,12 @@ IMyTerminalBlock findBlockById(IMyTerminalBlock block, List<IMyTerminalBlock> bl
 }
 
 List<IMyTerminalBlock> randomSubset(List<IMyTerminalBlock> list, int limit) {
-	int count = Math.Min(list.Count, limit);
-	var random_idx = new List<int>();
-	var result = new List<IMyTerminalBlock>();
+	var random_idx = new List<int>(list.Count);
+	var result = new List<IMyTerminalBlock>(Math.Min(list.Count, limit));
 
 	// initialize the index list
-	for (int i = 0; i < list.Count; i++) {
-		random_idx.Add(i);
+	for (int i = 0; i < random_idx.Count; i++) {
+		random_idx[i] = i;
 	}
 
 	// randomize the list
@@ -558,8 +556,8 @@ List<IMyTerminalBlock> randomSubset(List<IMyTerminalBlock> list, int limit) {
 	}
 
 	// now, pick out the random subset
-	for (int i = 0; i < count; i++) {
-		result.Add(list[random_idx[i]]);
+	for (int i = 0; i < result.Count; i++) {
+		result[i] = list[random_idx[i]];
 	}
 
 	return result;
@@ -662,7 +660,6 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
 		}
 		displayBlockAlerts(refinery);
 	}
-	local_all_refineries = null;
 	return local_refineries;
 }
 
@@ -690,17 +687,14 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
 		}
 		displayBlockAlerts(furnace);
 	}
-	local_all_refineries = null;
 	return local_arc_furnaces;
 }
 
 List < IMyTerminalBlock > getAllRefineries() {
-	if (local_all_refineries == null) {
-		local_all_refineries = new List<IMyTerminalBlock>();
-		local_all_refineries.AddRange(getRefineries());
-		local_all_refineries.AddRange(getArcFurnaces());
-	}
-	return local_all_refineries;
+	var list = new List < IMyTerminalBlock > ();
+	list.AddRange(getRefineries());
+	list.AddRange(getArcFurnaces());
+	return list;
 }
 
 List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
@@ -4232,10 +4226,8 @@ public void Main() {
 	cur_cycle_count = 0;
 	cur_fn_count = 0;
 
-	// clear per-iteration data
+	// clear set of lists we have refreshed during this iteration
 	null_list = new HashSet<List<IMyTerminalBlock>>();
-	local_all_refineries = null;
-
 	do {
 		states[current_state]();
 		num_states++;
