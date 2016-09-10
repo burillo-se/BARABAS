@@ -286,11 +286,11 @@ List < IMyTerminalBlock > local_air_vents = null;
 List < IMyTerminalBlock > local_oxygen_tanks = null;
 List < IMyTerminalBlock > local_hydrogen_tanks = null;
 List < IMyTerminalBlock > local_oxygen_generators = null;
+List < IMyTerminalBlock > local_trash_connectors = null;
+List < IMyTerminalBlock > local_trash_sensors = null;
 List < IMyTerminalBlock > local_antennas = null;
 List < IMyTerminalBlock > remote_storage = null;
 List < IMyTerminalBlock > remote_ship_storage = null;
-IMyShipConnector trash_connector = null;
-IMySensorBlock trash_sensor = null;
 IMyTextPanel config_block = null;
 List < IMyCubeGrid > local_grids = null;
 List < IMyCubeGrid > remote_base_grids = null;
@@ -385,8 +385,6 @@ bool has_grinders;
 bool has_connectors;
 bool has_oxygen_tanks;
 bool has_hydrogen_tanks;
-bool has_single_connector;
-bool has_trash_sensor;
 bool has_refineries;
 bool has_arc_furnaces;
 bool connected;
@@ -750,8 +748,16 @@ List < IMyTerminalBlock > getConnectors(bool force_update = false) {
 	}
 	local_connectors = new List < IMyTerminalBlock > (getBlocks());
 	filterBlocks < IMyShipConnector > (local_connectors);
-	foreach (var connector in local_connectors) {
+	foreach (IMyShipConnector connector in local_connectors) {
 		consolidate(connector.GetInventory(0));
+		// prepare the connector
+		// at this point, we have already turned off the conveyors,
+		// so now just check if we aren't throwing anything already and
+		// if we aren't in "collect all" mode
+		if (connector.CollectAll) {
+			// disable collect all
+			connector.ApplyAction("CollectAll");
+		}
 	}
 	return local_connectors;
 }
@@ -1180,58 +1186,80 @@ List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
 }
 
 // get local trash disposal connector
-IMyShipConnector getTrashConnector(bool force_update = false) {
-	if (!force_update && trash_connector != null) {
-		return trash_connector;
+List<IMyTerminalBlock> getTrashConnectors(bool force_update = false) {
+	if (local_trash_connectors != null && !force_update) {
+		return removeNulls(local_trash_connectors, 1);
 	}
-	var blocks = getConnectors();
+
+	// find our group
+	local_trash_connectors = new List < IMyTerminalBlock > ();
+	var groups = new List<IMyBlockGroup>();
+	GridTerminalSystem.GetBlockGroups(groups);
+	foreach (var group in groups) {
+		// skip groups we don't want
+		if (group.Name != "BARABAS Trash") {
+			continue;
+		}
+		group.GetBlocks(local_trash_connectors);
+
+		// we may find multiple Trash groups, as we may have a BARABAS-driven
+		// ships connected, so let's filter connectors
+		filterLocalGrid < IMyShipConnector > (local_trash_connectors);
+		break;
+	}
+
+	// backwards compatibility: add old-style trash connectors as well
+	var blocks = new List<IMyTerminalBlock>(getConnectors());
 	filterBlocks < IMyShipConnector > (blocks, "BARABAS Trash");
-	trash_connector = null;
-	// if we can't find a dedicated trash connector, use first available
-	if (blocks.Count < 1) {
-		var connectors = getConnectors();
-		if (connectors.Count > 0) {
-			trash_connector = connectors[0] as IMyShipConnector;
+
+	foreach (var block in blocks) {
+		if (!local_trash_connectors.Contains(block)) {
+			local_trash_connectors.Add(block);
 		}
-	} else if (blocks.Count > 1) {
-		Echo("Multiple trash connectors found.");
-		if (trash_connector != null) {
-			// find our previous config block, ignore the rest
-			trash_connector = findBlockById(trash_connector, blocks) as IMyShipConnector;
-		}
-		if (trash_connector == null) {
-			// if we didn't find our config block, just use the first one
-			trash_connector = blocks[0] as IMyShipConnector;
-		}
-	} else {
-		trash_connector = blocks[0] as IMyShipConnector;
 	}
-	return trash_connector;
+
+	// if we still have no trash connectors, use the first one available
+	if (local_trash_connectors.Count == 0 && getConnectors().Count > 0) {
+		local_trash_connectors.Add(local_connectors[0]);
+	}
+
+	return local_trash_connectors;
 }
 
-// get local trash disposal connector sensor
-IMySensorBlock getTrashSensor(bool force_update = false) {
-	if (!force_update && trash_sensor != null) {
-		return trash_sensor;
+// get local trash disposal sensors
+List<IMyTerminalBlock> getTrashSensors(bool force_update = false) {
+	if (local_trash_sensors != null && !force_update) {
+		return removeNulls(local_trash_sensors, 1);
 	}
-	var blocks = new List < IMyTerminalBlock> (getBlocks());
+
+	// find our group
+	local_trash_sensors = new List < IMyTerminalBlock > ();
+	var groups = new List<IMyBlockGroup>();
+	GridTerminalSystem.GetBlockGroups(groups);
+	foreach (var group in groups) {
+		// skip groups we don't want
+		if (group.Name != "BARABAS Trash") {
+			continue;
+		}
+		group.GetBlocks(local_trash_sensors);
+
+		// we may find multiple Trash groups, as we may have a BARABAS-driven
+		// ships connected, so let's filter sensors
+		filterLocalGrid < IMySensorBlock > (local_trash_sensors);
+		break;
+	}
+
+	// backwards compatibility: add old-style BARABAS trash sensors as well
+	var blocks = new List<IMyTerminalBlock>(getBlocks());
 	filterBlocks < IMySensorBlock > (blocks, "BARABAS Trash Sensor");
-	if (blocks.Count < 1) {
-		trash_sensor = null;
-	} else if (blocks.Count > 1) {
-		Echo("Multiple trash sensors found.");
-		if (trash_sensor != null) {
-			// find our previous config block, ignore the rest
-			trash_sensor = findBlockById(trash_sensor, blocks) as IMySensorBlock;
+
+	foreach (var block in blocks) {
+		if (!local_trash_sensors.Contains(block)) {
+			local_trash_sensors.Add(block);
 		}
-		if (trash_sensor == null) {
-			// if we didn't find our config block, just use the first one
-			trash_sensor = blocks[0] as IMySensorBlock;
-		}
-	} else {
-		trash_sensor = blocks[0] as IMySensorBlock;
 	}
-	return trash_sensor;
+
+	return local_trash_sensors;
 }
 
 IMyTextPanel getConfigBlock(bool force_update = false) {
@@ -1449,13 +1477,11 @@ void rebalance(IMyInventory inv) {
 	}
 }
 
-bool Transfer(IMyInventory src_inv, IMyInventory dst_inv, int srcIndex,
+Decimal TryTransfer(IMyInventory src_inv, IMyInventory dst_inv, int srcIndex,
 Nullable < int > dstIndex, Nullable < bool > stack, Nullable < VRage.MyFixedPoint > amount) {
-	if (dst_inv == src_inv) {
-		return true;
-	}
-
-	var curVolume = dst_inv.CurrentVolume;
+	var src_items = src_inv.GetItems();
+	var src_count = src_items.Count;
+	var src_amount = src_items[srcIndex].Amount;
 
 	if (!src_inv.TransferItemTo(dst_inv, srcIndex, dstIndex, stack, amount)) {
 		var sb = new StringBuilder();
@@ -1465,11 +1491,28 @@ Nullable < int > dstIndex, Nullable < bool > stack, Nullable < VRage.MyFixedPoin
 		sb.Append((dst_inv.Owner as IMyTerminalBlock).CustomName);
 		Echo(sb.ToString());
 		Echo("Check conveyors for missing/damage and\nblock ownership");
-		return false;
+		return -1;
 	}
 
-	// now, check if we actually transferred anything
-	return dst_inv.CurrentVolume != curVolume;
+	src_items = src_inv.GetItems();
+
+	// if count changed, we transferred all of it
+	if (src_count != src_items.Count) {
+		return (Decimal) src_amount;
+	}
+
+	// if count didn't change, return the difference between src and cur amount
+	var cur_amount = src_items[srcIndex].Amount;
+
+	return (Decimal) (src_amount - cur_amount);
+}
+
+bool Transfer(IMyInventory src_inv, IMyInventory dst_inv, int srcIndex,
+Nullable < int > dstIndex, Nullable < bool > stack, Nullable < VRage.MyFixedPoint > amount) {
+	if (dst_inv == src_inv) {
+		return true;
+	}
+	return TryTransfer(src_inv, dst_inv, srcIndex, dstIndex, stack, amount) > 0;
 }
 
 void pushBack(IMyInventory src, int srcIndex, Nullable < VRage.MyFixedPoint > amount) {
@@ -1652,6 +1695,7 @@ void checkStorageLoad() {
 		// if we're a base, enter crisis mode
 		if (op_mode == OP_MODE_BASE && has_refineries && refineriesClogged()) {
 			if (tried_throwing) {
+				storeTrash(true);
 				crisis_mode = CRISIS_MODE_LOCKUP;
 			} else {
 				crisis_mode = CRISIS_MODE_THROW_ORE;
@@ -1666,15 +1710,15 @@ void checkStorageLoad() {
 		// have just thrown out ore - if we end up in a crisis again, we'll
 		// go lockup instead of throwing ore
 		crisis_mode = CRISIS_MODE_NONE;
+		storeTrash(true);
 	}
 	if (storageLoad >= 0.75M && storageLoad < 0.98M) {
+		storeTrash();
 		addAlert(YELLOW_ALERT);
 	} else if (storageLoad < 0.75M) {
 		removeAlert(YELLOW_ALERT);
+		storeTrash();
 		if (storageLoad < 0.98M && op_mode == OP_MODE_BASE) {
-			if (trashHasUsefulItems()) {
-				storeTrash();
-			}
 			tried_throwing = false;
 		}
 	}
@@ -2418,39 +2462,34 @@ void pushSpareUraniumToStorage() {
 /**
  * Trash
  */
-bool startThrowing() {
-	var connector = getTrashConnector();
-	if (connector == null) {
-		return false;
-	}
-
-	// prepare the connector
-	// at this point, we have already turned off the conveyors,
-	// so now just check if we aren't throwing anything already and
-	// if we aren't in "collect all" mode
-	if (connector.CollectAll) {
-		// disable collect all
-		connector.ApplyAction("CollectAll");
-	}
-
+bool startThrowing(IMyShipConnector connector, bool force = false) {
 	// if connector is locked, it's in use, so don't do anything
 	if (connector.IsLocked) {
 		return false;
 	}
-	if (trashSensorActive()) {
+	if (!force && hasUsefulItems(connector)) {
 		return false;
 	}
 	if (!connector.ThrowOut) {
 		connector.ApplyAction("ThrowOut");
 	}
+
 	return true;
 }
 
-void stopThrowing() {
-	var connector = getTrashConnector();
-	if (connector == null) {
-		return;
+void startThrowing(bool force = false) {
+	foreach (IMyShipConnector connector in getTrashConnectors()) {
+		startThrowing(connector, force);
 	}
+}
+
+void stopThrowing() {
+	foreach (IMyShipConnector connector in getTrashConnectors()) {
+		stopThrowing(connector);
+	}
+}
+
+void stopThrowing(IMyShipConnector connector) {
 	// at this point, we have already turned off the conveyors,
 	// so now just check if we are throwing and if we are in
 	// "collect all" mode
@@ -2464,38 +2503,59 @@ void stopThrowing() {
 	}
 }
 
-bool trashHasUsefulItems() {
-	// check if we have anything other than stone in the connector
-	if (getTrashConnector() != null) {
-		List < ItemHelper > list = new List < ItemHelper > ();
-		var inv = getTrashConnector().GetInventory(0);
-		getAllItems(inv, list);
-		foreach (var item in list) {
-			bool isStone = item.Item.Content.SubtypeName == STONE;
-			if (!throw_out_stone || !isStone) {
-				return true;
-			}
+bool isUseful(IMyInventoryItem item) {
+	if (!isOre(item)) {
+		return true;
+	}
+	return !throw_out_stone || item.Content.SubtypeName != STONE;
+}
+
+bool hasUsefulItems(IMyShipConnector connector) {
+	var inv = connector.GetInventory(0);
+	foreach (var item in inv.GetItems()) {
+		if (isUseful(item)) {
+			return true;
 		}
 	}
 	return false;
 }
 
-bool trashSensorActive() {
-	var sensor = getTrashSensor();
-	if (sensor == null) {
-		return false;
+bool trashHasUsefulItems() {
+	foreach (IMyShipConnector connector in getTrashConnectors()) {
+		if (hasUsefulItems(connector)) {
+			return true;
+		}
 	}
-	return sensor.IsActive;
+	return false;
 }
 
-bool throwOutOre(string name) {
-	var connector = getTrashConnector();
-	if (connector == null) {
+bool trashSensorsActive() {
+	var sensors = getTrashSensors();
+	foreach (IMySensorBlock sensor in sensors) {
+		if (sensor.IsActive) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
+	var connectors = getTrashConnectors();
+	var skip_list = new List<IMyTerminalBlock>();
+
+	if (connectors.Count == 0) {
 		return false;
 	}
-	var connector_inv = connector.GetInventory(0);
-	Decimal orig_target = 5 * CHUNK_SIZE;
+	Decimal orig_target = ore_amount == 0 ? 5 * CHUNK_SIZE : ore_amount;
 	Decimal target_amount = orig_target;
+
+	// first, go through list of connectors and enable throw
+	foreach (IMyShipConnector connector in connectors) {
+		if (!startThrowing(connector, force)) {
+			skip_list.Add(connector);
+			continue;
+		}
+	}
 
 	var entries = getAllOre(name);
 	foreach (var entry in entries) {
@@ -2503,28 +2563,49 @@ bool throwOutOre(string name) {
 		var srcInv = entry.Inventory;
 		var index = entry.Index;
 		var amount = Math.Min(target_amount, (Decimal) entry.Item.Amount);
-		// send it to connector
-		if (Transfer(srcInv, connector_inv, index, null, true, (VRage.MyFixedPoint) amount)) {
-			target_amount -= amount;
-			if (target_amount == 0) {
-				return true;
+
+		foreach (IMyShipConnector connector in connectors) {
+			if (skip_list.Contains(connector)) {
+				continue;
+			}
+			var connector_inv = connector.GetInventory(0);
+			if (srcInv == connector_inv || connectors.Contains(srcInv.Owner as IMyTerminalBlock)) {
+				continue;
+			}
+			amount /= getTrashConnectors().Count;
+
+			// send it to connector
+			amount = TryTransfer(srcInv, connector_inv, index, null, true,
+			                     (VRage.MyFixedPoint) amount);
+			if (amount > 0) {
+				target_amount -= amount;
+				if (target_amount == 0) {
+					return true;
+				}
 			}
 		}
 	}
 	return target_amount != orig_target || entries.Count == 0;
 }
 
-void storeTrash() {
-	var connector = getTrashConnector();
-
-	if (connector != null) {
+void storeTrash(bool store_all = false) {
+	int count = 0;
+	if (store_all || trashHasUsefulItems()) {
+		stopThrowing();
+	}
+	var connectors = getTrashConnectors();
+	foreach (var connector in connectors) {
 		var inv = connector.GetInventory(0);
 		consolidate(inv);
 		var items = inv.GetItems();
 		for (int i = items.Count - 1; i >= 0; i--) {
 			var item = items[i];
-			if (pushToStorage(inv, i, null)) {
-				break;
+			if (!store_all && !isUseful(item)) {
+				continue;
+			}
+			// do this ten times
+			if (pushToStorage(inv, i, null) && ++count == 10) {
+				return;
 			}
 		}
 	}
@@ -3723,46 +3804,43 @@ void s_refreshTools() {
 }
 
 void s_refreshMisc() {
- has_connectors = getConnectors(true).Count > 0;
- has_single_connector = getConnectors().Count == 1;
- has_trash_sensor = getTrashSensor(true) != null;
- has_status_panels = getTextPanels(true).Count > 0;
- getTrashConnector(true);
- getLights(true);
- getAntennas(true);
- if (!has_single_connector) {
-	 startThrowing();
- }
+	has_connectors = getConnectors(true).Count > 0;
+	has_status_panels = getTextPanels(true).Count > 0;
+	spreadLoad(getTrashConnectors(true));
+	getTrashSensors(true);
+	getLights(true);
+	getAntennas(true);
+	startThrowing();
 }
 
 void s_refreshConfig() {
- // configure BARABAS
- getConfigBlock(true);
- parseConfiguration();
- if (op_mode == OP_MODE_AUTO) {
+	// configure BARABAS
+	getConfigBlock(true);
+	parseConfiguration();
+	if (op_mode == OP_MODE_AUTO) {
 	 selectOperationMode();
 	 autoConfigure();
- }
- if ((op_mode & OP_MODE_SHIP) > 0) {
+	}
+	if ((op_mode & OP_MODE_SHIP) > 0) {
 	 Me.SetCustomName("BARABAS Ship CPU");
- } else {
+	} else {
 	 Me.SetCustomName("BARABAS Base CPU");
- }
- configureWatermarks();
- rebuildConfiguration();
+	}
+	configureWatermarks();
+	rebuildConfiguration();
 
- if (pull_ingots_from_base && push_ingots_to_base) {
+	if (pull_ingots_from_base && push_ingots_to_base) {
 	 throw new BarabasException("Invalid configuration - " +
 		 "pull_ingots_from_base and push_ingots_to_base both set to \"true\"");
- }
- if (pull_ore_from_base && push_ore_to_base) {
+	}
+	if (pull_ore_from_base && push_ore_to_base) {
 	 throw new BarabasException("Invalid configuration - " +
 		 "pull_ore_from_base and push_ore_to_base both set to \"true\"");
- }
- if (pull_components_from_base && push_components_to_base) {
+	}
+	if (pull_components_from_base && push_components_to_base) {
 	 throw new BarabasException("Invalid configuration - " +
 		 "pull_components_from_base and push_components_to_base both set to \"true\"");
- }
+	}
 }
 
 void s_refreshRemote() {
@@ -3877,31 +3955,21 @@ void s_materialsRebalance() {
 void s_materialsCrisis() {
 	if (crisis_mode == CRISIS_MODE_NONE && throw_out_stone) {
 		// check if we want to throw out extra stone
-		if (ore_status[STONE] > 0) {
-			if (has_refineries) {
-				bool haveEnoughStone = (ingot_status[STONE] + storage_ore_status[STONE] * ore_to_ingot_ratios[STONE]) > (material_thresholds[STONE] * 5);
-				if (haveEnoughStone) {
-					// prevent us from throwing out something of value
-					if (!trashHasUsefulItems() && startThrowing()) {
-						throwOutOre(STONE);
-					}
-				}
+		if (storage_ore_status[STONE] > 0) {
+			Decimal excessStone = storage_ingot_status[STONE] + storage_ore_status[STONE] * ore_to_ingot_ratios[STONE] - material_thresholds[STONE] * 5;
+			excessStone = Math.Min(excessStone / ore_to_ingot_ratios[STONE], storage_ore_status[STONE]);
+			if (excessStone > 0) {
+				throwOutOre(STONE, excessStone);
 			} else {
-				if (ore_status[STONE] > material_thresholds[STONE] * 5) {
-					if (startThrowing()) {
-						throwOutOre(STONE);
-					}
-				} else {
-					storeTrash();
-				}
+				storeTrash();
 			}
 		}
 	} else if (crisis_mode == CRISIS_MODE_THROW_ORE) {
 		tried_throwing = true;
 		// if we can't even throw out ore, well, all bets are off
 		string ore = getBiggestOre();
-		if ((ore != null && startThrowing() && !throwOutOre(ore)) || ore == null) {
-			stopThrowing();
+		if ((ore != null && !throwOutOre(ore, 0, true)) || ore == null) {
+			storeTrash(true);
 			crisis_mode = CRISIS_MODE_LOCKUP;
 		}
 	}
@@ -4241,9 +4309,8 @@ public void Main() {
 		num_states++;
 	} while (canContinue() && num_states < states.Length);
 
-	if (has_single_connector && trashSensorActive()) {
-		stopThrowing();
-		storeTrash();
+	if (trashSensorsActive()) {
+		storeTrash(true);
 	}
 
 	// check storage load at each iteration
