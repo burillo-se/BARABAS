@@ -542,12 +542,13 @@ IMyTerminalBlock findBlockById(IMyTerminalBlock block, List<IMyTerminalBlock> bl
 }
 
 List<IMyTerminalBlock> randomSubset(List<IMyTerminalBlock> list, int limit) {
-	var random_idx = new List<int>(list.Count);
-	var result = new List<IMyTerminalBlock>(Math.Min(list.Count, limit));
+	int len = Math.Min(list.Count, limit);
+	var random_idx = new List<int>();
+	var result = new List<IMyTerminalBlock>();
 
 	// initialize the index list
-	for (int i = 0; i < random_idx.Count; i++) {
-		random_idx[i] = i;
+	for (int i = 0; i < list.Count; i++) {
+		random_idx.Add(i);
 	}
 
 	// randomize the list
@@ -557,8 +558,8 @@ List<IMyTerminalBlock> randomSubset(List<IMyTerminalBlock> list, int limit) {
 	}
 
 	// now, pick out the random subset
-	for (int i = 0; i < result.Count; i++) {
-		result[i] = list[random_idx[i]];
+	for (int i = 0; i < len; i++) {
+		result.Add(list[random_idx[i]]);
 	}
 
 	return result;
