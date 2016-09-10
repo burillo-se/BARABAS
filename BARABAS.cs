@@ -3522,9 +3522,11 @@ void parseLine(string line) {
 		if (strval == "none") {
 			oxygen_low_watermark = -1;
 			oxygen_high_watermark = -1;
+			return;
 		} else if (Decimal.TryParse(strval, out tmp) && tmp > 0 && tmp <= 100) {
 				oxygen_low_watermark = tmp;
 				oxygen_high_watermark = 100;
+				return;
 		} else {
 			throw new BarabasException("Invalid config value: " + strval);
 		}
