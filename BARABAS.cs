@@ -98,7 +98,7 @@ const string CONFIGSTR_KEEP_STONE = "keep stone";
 const string CONFIGSTR_SORT_STORAGE = "sort storage";
 const string CONFIGSTR_HUD_NOTIFICATIONS = "HUD notifications";
 const string CONFIGSTR_OXYGEN_WATERMARKS = "oxygen watermarks";
-const string CONFIGSTR_HYDROGEN_THRESHOLD = "hydrogen threshold";
+const string CONFIGSTR_HYDROGEN_WATERMARKS = "hydrogen watermarks";
 
 // ore_volume
 const Decimal VOLUME_ORE = 0.37M;
@@ -139,7 +139,7 @@ readonly Dictionary < string, string > config_options = new Dictionary < string,
 	}, {
 		CONFIGSTR_OXYGEN_WATERMARKS, ""
 	}, {
-		CONFIGSTR_HYDROGEN_THRESHOLD, ""
+		CONFIGSTR_HYDROGEN_WATERMARKS, ""
 	}, {
 		CONFIGSTR_PUSH_ORE, ""
 	}, {
@@ -3194,6 +3194,16 @@ void configureWatermarks() {
 			oxygen_low_watermark = 15;
 		}
 	}
+	if (hydrogen_high_watermark == 0 && has_hydrogen_tanks) {
+		hydrogen_high_watermark = 80;
+	}
+	if (hydrogen_low_watermark == 0 && has_hydrogen_tanks) {
+		if (op_mode == OP_MODE_BASE) {
+			hydrogen_low_watermark = 10;
+		} else {
+			hydrogen_low_watermark = 30;
+		}
+	}
 }
 
 // select operation mode, unless already set in config
@@ -3374,10 +3384,10 @@ string generateConfiguration() {
 	} else {
 		config_options[CONFIGSTR_OXYGEN_WATERMARKS] = "none";
 	}
-	if (hydrogen_low_watermark != 0M) {
-		config_options[CONFIGSTR_HYDROGEN_THRESHOLD] = Convert.ToString(hydrogen_low_watermark);
+	if (oxygen_low_watermark > 0) {
+		config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark);
 	} else {
-		config_options[CONFIGSTR_HYDROGEN_THRESHOLD] = "none";
+		config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = "none";
 	}
 
 	// currently selected operation mode
@@ -3407,9 +3417,12 @@ string generateConfiguration() {
 	sb.AppendLine("# second number is when to stop refining ice.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
-	key = CONFIGSTR_HYDROGEN_THRESHOLD;
-	sb.AppendLine("# Percentage of hydrogen to be considered \"enough\".");
-	sb.AppendLine("# Can be a number between 0 and 100, or \"none\" to disable.");
+	key = CONFIGSTR_OXYGEN_WATERMARKS;
+	sb.AppendLine("# Percentage of hydrogen to keep.");
+	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100");
+	sb.AppendLine("# separated by slash (for example, \"15 / 30\").");
+	sb.AppendLine("# First number is when to sound an alarm.");
+	sb.AppendLine("# second number is when to stop refining ice.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_KEEP_STONE;
@@ -3530,6 +3543,20 @@ void parseLine(string line) {
 			throw new BarabasException("Invalid config value: " + strval);
 		}
 	}
+	if (str == "hydrogen threshold") {
+		Decimal tmp;
+		if (strval == "none") {
+			hydrogen_low_watermark = -1;
+			hydrogen_high_watermark = -1;
+			return;
+		} else if (Decimal.TryParse(strval, out tmp) && tmp > 0 && tmp <= 100) {
+				hydrogen_low_watermark = tmp;
+				hydrogen_high_watermark = Math.Min(tmp * 2, 100);
+				return;
+		} else {
+			throw new BarabasException("Invalid config value: " + strval);
+		}
+	}
 	if (!config_options.ContainsKey(str)) {
 		throw new BarabasException("Invalid config option: " + str);
 	}
@@ -3634,11 +3661,25 @@ void parseLine(string line) {
 		} else {
 			fail = true;
 		}
-	} else if (clStrCompare(str, CONFIGSTR_HYDROGEN_THRESHOLD)) {
-		if (fparse && fval >= 0 && fval <= 100) {
-			hydrogen_low_watermark = fval;
-		} else if (strval == "none") {
+	} else if (clStrCompare(str, CONFIGSTR_HYDROGEN_WATERMARKS)) {
+		Decimal low, high;
+		if (strval == "auto") {
 			hydrogen_low_watermark = 0;
+			hydrogen_high_watermark = 0;
+		} else if (strval == "none") {
+			hydrogen_low_watermark = -1;
+			hydrogen_high_watermark = -1;
+		} else if (parseWatermarkStr(strval, out low, out high)) {
+			if (low > 0 && low <= 100) {
+				hydrogen_low_watermark = low;
+			} else {
+				fail = true;
+			}
+			if (high > 0 && high <= 100 && low <= high) {
+				hydrogen_high_watermark = high;
+			} else {
+				fail = true;
+			}
 		} else {
 			fail = true;
 		}
