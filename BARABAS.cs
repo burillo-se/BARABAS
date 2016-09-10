@@ -2674,10 +2674,11 @@ void refineOre() {
 		}
 		if (ore == ICE) {
 			refineries = getOxygenGenerators();
-			if (refineries.Count == 0 && refine_ice) {
+			if (refineries.Count == 0) {
+				if (!refine_ice) {
+					continue;
+				}
 				refineries = getRefineries();
-			} else {
-				continue;
 			}
 		} else if (arc_furnace_ores.Contains(ore)) {
 			refineries = getAllRefineries();
