@@ -321,7 +321,7 @@ readonly List < Alert > text_alerts = new List < Alert > {
 	new Alert(Color.Red, "Very low storage"),
 	new Alert(Color.Yellow, "Low storage"),
 	new Alert(Color.Blue, "Low power"),
-	new Alert(Color.Cyan, "Gas shortage"),
+	new Alert(Color.Cyan, "Ice shortage"),
 	new Alert(Color.DarkMagenta, "Clogged"),
 	new Alert(Color.White, "Material shortage"),
 	new Alert(Color.HotPink, "Damaged blocks"),
@@ -4341,7 +4341,7 @@ void s_updateMaterialStats() {
 		} else {
 			removeAntennaAlert(ALERT_LOW_OXYGEN);
 		}
-		if (hydrogen_low_watermark > 0 && cur_hydrogen_level < hydrogen_low_watermark && ore_status[ICE] == 0) {
+		if (has_hydrogen_tanks && hydrogen_low_watermark > 0 && cur_hydrogen_level < hydrogen_low_watermark && ore_status[ICE] == 0) {
 			alert = true;
 			addAntennaAlert(ALERT_LOW_HYDROGEN);
 		} else {
@@ -4356,6 +4356,11 @@ void s_updateMaterialStats() {
 					oxy_str, hydro_str);
 			removeAlert(CYAN_ALERT);
 		}
+	} else {
+		removeAntennaAlert(ALERT_LOW_OXYGEN);
+		removeAntennaAlert(ALERT_LOW_HYDROGEN);
+		status_report[STATUS_OXYHYDRO_LEVEL] = "";
+		removeAlert(CYAN_ALERT);
 	}
 }
 
