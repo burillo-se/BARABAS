@@ -1305,38 +1305,6 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
 /**
  * Inventory access functions
  */
-List < ItemHelper > getAllInventories() {
-	List < ItemHelper > list = new List < ItemHelper > ();
-	var blocks = getBlocks();
-	foreach (var block in blocks) {
-		// skip blocks that don't have inventory
-		if (!block.HasInventory()) {
-			continue;
-		}
-		int invCount = block.GetInventoryCount();
-		for (int ci = 0; ci < invCount; ci++) {
-			var inv = block.GetInventory(ci);
-			ItemHelper ih = new ItemHelper();
-			ih.Inventory = inv;
-			list.Add(ih);
-		}
-	}
-	return list;
-}
-
-// get everything in a particular inventory
-void getAllItems(IMyInventory inv, List < ItemHelper > list) {
-	var items = inv.GetItems();
-	for (int i = items.Count - 1; i >= 0; i--) {
-		var item = items[i];
-		ItemHelper ih = new ItemHelper();
-		ih.Inventory = inv;
-		ih.Item = item;
-		ih.Index = i;
-		list.Add(ih);
-	}
-}
-
 // get all ingots of a certain type from a particular inventory
 void getAllIngots(IMyInventory inv, string name, List < ItemHelper > list) {
 	var items = inv.GetItems();
@@ -1373,42 +1341,6 @@ void getAllOre(IMyInventory inv, string name, List < ItemHelper > list) {
 		ih.Index = i;
 		list.Add(ih);
 	}
-}
-
-// get all local ingots of a certain type
-List < ItemHelper > getAllIngots(string name) {
-	List < ItemHelper > list = new List < ItemHelper > ();
-	var inventories = getAllInventories();
-	foreach (var item in inventories) {
-		var inv = item.Inventory;
-		getAllIngots(inv, name, list);
-	}
-	return list;
-}
-
-// get all local ore of a certain type
-List < ItemHelper > getAllOre(string name) {
-	List < ItemHelper > list = new List < ItemHelper > ();
-	var inventories = getAllInventories();
-	foreach (var entry in inventories) {
-		var inv = entry.Inventory;
-		var items = inv.GetItems();
-		for (int i = items.Count - 1; i >= 0; i--) {
-			var item = items[i];
-			if (!isOre(item)) {
-				continue;
-			}
-			if (name != null && item.Content.SubtypeName != name) {
-				continue;
-			}
-			ItemHelper ih = new ItemHelper();
-			ih.Inventory = inv;
-			ih.Item = item;
-			ih.Index = i;
-			list.Add(ih);
-		}
-	}
-	return list;
 }
 
 // get all ingots residing in storage
