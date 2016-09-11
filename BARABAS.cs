@@ -378,6 +378,7 @@ bool refine_ice = true;
 bool can_use_ingots;
 bool can_use_oxygen;
 bool can_refine;
+bool large_grid;
 bool has_air_vents;
 bool has_status_panels;
 bool has_reactors;
@@ -4486,6 +4487,10 @@ public Program() {
 	// load grids from storage
 	local_grids = new List < IMyCubeGrid > ();
 	loadLocalGrids(local_grids);
+
+	// determine grid size
+	var id = Me.BlockDefinition.ToString();
+	large_grid = id.Contains("Large");
 }
 
 public void Main() {
