@@ -420,7 +420,19 @@ public struct ItemHelper {
 
 // just have a method to indicate that this exception comes from BARABAS
 class BarabasException: Exception {
-	public BarabasException(string msg): base("BARABAS: " + msg) {}
+	public BarabasException(string msg, Program p): base("BARABAS: " + msg) {
+		var panels = p.getTextPanels();
+		if (panels != null && panels.Count > 0) {
+			foreach (IMyTextPanel panel in panels) {
+				panel.WritePublicText("BARABAS EXCEPTION:\n" + msg);
+				panel.ShowTextureOnScreen();
+				panel.ShowPublicTextOnScreen();
+			}
+		}
+		p.Me.SetCustomName("BARABAS Exception: " + msg);
+		p.showOnHud(p.Me);
+		p.showAlertColor(Color.Red);
+	}
 }
 
 /**
@@ -812,7 +824,7 @@ List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
 		// notify him immediately
 		if (local_text_panels.Contains(getConfigBlock() as IMyTerminalBlock)) {
 			throw new BarabasException("Configuration text panel should not " +
-				"be part of BARABAS Notify group");
+				"be part of BARABAS Notify group", this);
 		}
 		break;
 	}
@@ -943,7 +955,7 @@ string getGridId(string val) {
 	var regex = new System.Text.RegularExpressions.Regex("\\{([\\dA-F]+)\\}");
 	var match = regex.Match(val);
 	if (!match.Success || !match.Groups[1].Success) {
-		throw new BarabasException("Unknown grid id format");
+		throw new BarabasException("Unknown grid id format", this);
 	}
 	return match.Groups[1].Value;
 }
@@ -1139,7 +1151,7 @@ void findRemoteGrids() {
 
 	// having multiple bases is not supported
 	if ((isBaseMode() && base_grids.Count != 0) || base_grids.Count > 1) {
-		throw new BarabasException("Connecting to multiple bases is not supported!");
+		throw new BarabasException("Connecting to multiple bases is not supported!", this);
 	}
 	remote_base_grids = base_grids;
 	remote_ship_grids = ship_grids;
@@ -1585,7 +1597,7 @@ Decimal getTotalStorageLoad() {
 	} else if (isWelderMode()) {
 		storage = getWelders();
 	} else {
-		throw new BarabasException("Unknown mode");
+		throw new BarabasException("Unknown mode", this);
 	}
 	Decimal maxLoad = 0M;
 	foreach (var container in storage) {
@@ -1621,7 +1633,7 @@ Decimal getTotalStorageMass() {
 	} else if (isWelderMode()) {
 		storage = getWelders();
 	} else {
-		throw new BarabasException("Unknown mode");
+		throw new BarabasException("Unknown mode", this);
 	}
 	foreach (var container in storage) {
 		var inv = container.GetInventory(0);
@@ -2266,7 +2278,7 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 			} else {
 				thrust_draw = getBlockPowerUse(block);
 				if (thrust_draw == 0) {
-					throw new BarabasException("Unknown thrust type");
+					throw new BarabasException("Unknown thrust type", this);
 				} else {
 					power_draw += thrust_draw;
 				}
@@ -2303,7 +2315,7 @@ Decimal getBlockPowerOutput(IMyTerminalBlock block) {
 	if (cur_match.Groups[1].Success && cur_match.Groups[2].Success) {
 		bool result = Decimal.TryParse(cur_match.Groups[1].Value, out cur);
 		if (!result) {
-			throw new BarabasException("Invalid detailed info format!");
+			throw new BarabasException("Invalid detailed info format!", this);
 		}
 		cur *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
 	}
@@ -2311,7 +2323,7 @@ Decimal getBlockPowerOutput(IMyTerminalBlock block) {
 	if (inp_match.Groups[1].Success && inp_match.Groups[2].Success) {
 		bool result = Decimal.TryParse(inp_match.Groups[1].Value, out inp);
 		if (!result) {
-			throw new BarabasException("Invalid detailed info format!");
+			throw new BarabasException("Invalid detailed info format!", this);
 		}
 		inp *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(inp_match.Groups[2].Value) - 1);
 	}
@@ -2336,14 +2348,14 @@ Decimal getBlockPowerUse(IMyTerminalBlock block) {
 	if (power_match.Groups[1].Success && power_match.Groups[2].Success) {
 		bool result = Decimal.TryParse(power_match.Groups[1].Value, out max);
 		if (!result) {
-			throw new BarabasException("Invalid detailed info format!");
+			throw new BarabasException("Invalid detailed info format!", this);
 		}
 		max *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(power_match.Groups[2].Value) - 1);
 	}
 	if (cur_match.Groups[1].Success && cur_match.Groups[2].Success) {
 		bool result = Decimal.TryParse(cur_match.Groups[1].Value, out cur);
 		if (!result) {
-			throw new BarabasException("Invalid detailed info format!");
+			throw new BarabasException("Invalid detailed info format!", this);
 		}
 		cur *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
 	}
@@ -2354,12 +2366,12 @@ Decimal getMaxOutput(IMyTerminalBlock reactor) {
 	System.Text.RegularExpressions.Regex power_regex = new System.Text.RegularExpressions.Regex("Max Output: ([\\d\\.]+) (\\w?)W");
 	System.Text.RegularExpressions.Match match = power_regex.Match(reactor.DetailedInfo);
 	if (!match.Success) {
-		throw new BarabasException("Unknown reactor info format");
+		throw new BarabasException("Unknown reactor info format", this);
 	}
 
 	Decimal power;
 	if (!Decimal.TryParse(match.Groups[1].Value, out power)) {
-		throw new BarabasException("Unknown reactor info format");
+		throw new BarabasException("Unknown reactor info format", this);
 	}
 	if (match.Groups[1].Success) {
 		power *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(match.Groups[2].Value) - 1);
@@ -3174,7 +3186,7 @@ void setMode(int mode) {
 			mode |= OP_MODE_SHIP;
 			break;
 		default:
-			throw new BarabasException("Invalid operation mode specified");
+			throw new BarabasException("Invalid operation mode specified", this);
 	}
 	op_mode = mode;
 }
@@ -3553,7 +3565,7 @@ void rebuildConfiguration() {
 void parseLine(string line) {
 	string[] strs = line.Split('=');
 	if (strs.Length != 2) {
-		throw new BarabasException("Invalid number of tokens: " + line);
+		throw new BarabasException("Invalid number of tokens: " + line, this);
 	}
 	var str = strs[0].ToLower().Trim();
 	var strval = strs[1].ToLower().Trim();
@@ -3575,14 +3587,14 @@ void parseLine(string line) {
 		if (Decimal.TryParse(strval, out power_low_watermark)) {
 			return;
 		} else {
-			throw new BarabasException("Invalid config value: " + strval);
+			throw new BarabasException("Invalid config value: " + strval, this);
 		}
 	}
 	if (str == "reactor high watermark" || str == "power high watermark") {
 		if (Decimal.TryParse(strval, out power_high_watermark)) {
 			return;
 		} else {
-			throw new BarabasException("Invalid config value: " + strval);
+			throw new BarabasException("Invalid config value: " + strval, this);
 		}
 	}
 	if (str == "oxygen threshold") {
@@ -3596,7 +3608,7 @@ void parseLine(string line) {
 				oxygen_high_watermark = Math.Min(tmp * 2, 100);
 				return;
 		} else {
-			throw new BarabasException("Invalid config value: " + strval);
+			throw new BarabasException("Invalid config value: " + strval, this);
 		}
 	}
 	if (str == "hydrogen threshold") {
@@ -3610,11 +3622,11 @@ void parseLine(string line) {
 				hydrogen_high_watermark = Math.Min(tmp * 2, 100);
 				return;
 		} else {
-			throw new BarabasException("Invalid config value: " + strval);
+			throw new BarabasException("Invalid config value: " + strval, this);
 		}
 	}
 	if (!config_options.ContainsKey(str)) {
-		throw new BarabasException("Invalid config option: " + str);
+		throw new BarabasException("Invalid config option: " + str, this);
 	}
 	// now, try to parse it
 	bool fail = false;
@@ -3763,7 +3775,7 @@ void parseLine(string line) {
 		fail = true;
 	}
 	if (fail) {
-		throw new BarabasException("Invalid config value: " + strval);
+		throw new BarabasException("Invalid config value: " + strval, this);
 	}
 }
 
@@ -4072,15 +4084,15 @@ void s_refreshConfig() {
 
 	if (pull_ingots_from_base && push_ingots_to_base) {
 	 throw new BarabasException("Invalid configuration - " +
-		 "pull_ingots_from_base and push_ingots_to_base both set to \"true\"");
+		 "pull_ingots_from_base and push_ingots_to_base both set to \"true\"", this);
 	}
 	if (pull_ore_from_base && push_ore_to_base) {
 	 throw new BarabasException("Invalid configuration - " +
-		 "pull_ore_from_base and push_ore_to_base both set to \"true\"");
+		 "pull_ore_from_base and push_ore_to_base both set to \"true\"", this);
 	}
 	if (pull_components_from_base && push_components_to_base) {
 	 throw new BarabasException("Invalid configuration - " +
-		 "pull_components_from_base and push_components_to_base both set to \"true\"");
+		 "pull_components_from_base and push_components_to_base both set to \"true\"", this);
 	}
 }
 
