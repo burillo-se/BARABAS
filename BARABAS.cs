@@ -3625,8 +3625,8 @@ void parseLine(string line) {
 	// op mode
 	if (clStrCompare(str, CONFIGSTR_OP_MODE)) {
 		if (strval == "base") {
-			if (op_mode != OP_MODE_BASE) {
-				op_mode = OP_MODE_BASE;
+			if (!isBaseMode()) {
+				setMode(OP_MODE_BASE);
 				crisis_mode = CRISIS_MODE_NONE;
 			}
 		} else if (strval == "ship") {
