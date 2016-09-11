@@ -3484,14 +3484,14 @@ string generateConfiguration() {
 	sb.AppendLine("# Percentage of oxygen to keep.");
 	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100.");
 	sb.AppendLine("# First number is when to sound an alarm.");
-	sb.AppendLine("# second number is when to stop refining ice.");
+	sb.AppendLine("# Second number is when to stop refining ice.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_HYDROGEN_WATERMARKS;
 	sb.AppendLine("# Percentage of hydrogen to keep.");
 	sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 1 and 100.");
 	sb.AppendLine("# First number is when to sound an alarm.");
-	sb.AppendLine("# second number is when to stop refining ice.");
+	sb.AppendLine("# Second number is when to stop refining ice.");
 	sb.AppendLine(key + " = " + config_options[key]);
 	sb.AppendLine();
 	key = CONFIGSTR_KEEP_STONE;
