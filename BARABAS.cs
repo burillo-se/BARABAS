@@ -46,10 +46,10 @@
 // configuration
 const int OP_MODE_AUTO = 0x0;
 const int OP_MODE_SHIP = 0x1;
-const int OP_MODE_DRILL = 0x2 | OP_MODE_SHIP;
-const int OP_MODE_GRINDER = 0x4 | OP_MODE_SHIP;
-const int OP_MODE_WELDER = 0x8 | OP_MODE_SHIP;
-const int OP_MODE_TUG = 0x10 | OP_MODE_SHIP;
+const int OP_MODE_DRILL = 0x2;
+const int OP_MODE_GRINDER = 0x4;
+const int OP_MODE_WELDER = 0x8;
+const int OP_MODE_TUG = 0x10;
 const int OP_MODE_BASE = 0x100;
 
 int op_mode = OP_MODE_AUTO;
@@ -1138,7 +1138,7 @@ void findRemoteGrids() {
 	}
 
 	// having multiple bases is not supported
-	if ((op_mode == OP_MODE_BASE && base_grids.Count != 0) || base_grids.Count > 1) {
+	if ((isBaseMode() && base_grids.Count != 0) || base_grids.Count > 1) {
 		throw new BarabasException("Connecting to multiple bases is not supported!");
 	}
 	remote_base_grids = base_grids;
@@ -1157,7 +1157,7 @@ List < IMyCubeGrid > getShipGrids() {
 }
 
 List < IMyCubeGrid > getRemoteGrids() {
-	if (op_mode == OP_MODE_BASE) {
+	if (isBaseMode()) {
 		return remote_ship_grids;
 	} else {
 		return remote_base_grids;
@@ -1572,19 +1572,17 @@ Decimal getTotalStorageLoad() {
 	}
 	ratio = Math.Round(cur_volume / max_volume, 2);
 
-	bool isSpecialized = (op_mode & (OP_MODE_DRILL | OP_MODE_WELDER | OP_MODE_GRINDER)) != 0;
-
-	if (isSpecialized) {
+	if (isSpecializedShipMode()) {
 		ratio = Math.Round(ratio * 0.75M, 4);
 	} else {
 		return ratio;
 	}
 	// if we're a drill ship or a grinder, also look for block with the biggest load
-	if (op_mode == OP_MODE_DRILL) {
+	if (isDrillMode()) {
 		storage = getDrills();
-	} else if (op_mode == OP_MODE_GRINDER) {
+	} else if (isGrinderMode()) {
 		storage = getGrinders();
-	} else if (op_mode == OP_MODE_WELDER) {
+	} else if (isWelderMode()) {
 		storage = getWelders();
 	} else {
 		throw new BarabasException("Unknown mode");
@@ -1612,16 +1610,15 @@ Decimal getTotalStorageMass() {
  foreach (var container in storage) {
 		cur_mass += (Decimal) container.GetInventory(0).CurrentMass;
 	}
-	bool isSpecialized = (op_mode & (OP_MODE_DRILL | OP_MODE_WELDER | OP_MODE_GRINDER)) != 0;
-	if (!isSpecialized) {
+	if (!isSpecializedShipMode()) {
 		return cur_mass;
 	}
 	// if we're a drill ship or a grinder, also look for block with the biggest load
-	if (op_mode == OP_MODE_DRILL) {
+	if (isDrillMode()) {
 		storage = getDrills();
-	} else if (op_mode == OP_MODE_GRINDER) {
+	} else if (isGrinderMode()) {
 		storage = getGrinders();
-	} else if (op_mode == OP_MODE_WELDER) {
+	} else if (isWelderMode()) {
 		storage = getWelders();
 	} else {
 		throw new BarabasException("Unknown mode");
@@ -1726,7 +1723,7 @@ void checkStorageLoad() {
 		addAlert(RED_ALERT);
 		removeAlert(YELLOW_ALERT);
 		// if we're a base, enter crisis mode
-		if (op_mode == OP_MODE_BASE && has_refineries && refineriesClogged()) {
+		if (isBaseMode() && has_refineries && refineriesClogged()) {
 			if (tried_throwing) {
 				storeTrash(true);
 				crisis_mode = CRISIS_MODE_LOCKUP;
@@ -1751,7 +1748,7 @@ void checkStorageLoad() {
 	} else if (storageLoad < 0.75M) {
 		removeAlert(YELLOW_ALERT);
 		storeTrash();
-		if (storageLoad < 0.98M && op_mode == OP_MODE_BASE) {
+		if (storageLoad < 0.98M && isBaseMode()) {
 			tried_throwing = false;
 		}
 	}
@@ -2047,7 +2044,7 @@ void pushToRemoteShipStorage() {
 }
 
 void pullFromRemoteStorage() {
-	if (op_mode == OP_MODE_BASE) {
+	if (isBaseMode()) {
 		return;
 	}
 	var storage = getRemoteStorage();
@@ -2384,7 +2381,7 @@ bool powerAboveHighWatermark() {
 	// check if we have enough uranium ingots to fill all local reactors and
 	// have a few spare ones
 	Decimal power_draw;
-	if ((op_mode & OP_MODE_SHIP) != 0 && connected_to_base) {
+	if (isShipMode() && connected_to_base) {
 		power_draw = getMaxPowerDraw();
 	} else {
 		power_draw = getCurPowerDraw();
@@ -2412,7 +2409,7 @@ bool powerAboveHighWatermark() {
 
 bool powerAboveLowWatermark() {
 	Decimal power_draw;
-	if ((op_mode & OP_MODE_SHIP) != 0 && connected_to_base) {
+	if (isShipMode() && connected_to_base) {
 		power_draw = getMaxPowerDraw();
 	} else {
 		power_draw = getCurPowerDraw();
@@ -3127,6 +3124,61 @@ bool iceAboveHighWatermark() {
 /**
  * Functions pertaining to BARABAS's operation
  */
+bool isShipMode() {
+	return (op_mode & OP_MODE_SHIP) != 0;
+}
+
+bool isGenericShipMode() {
+	return op_mode == OP_MODE_SHIP;
+}
+
+// tug is not considered a specialized ship
+bool isSpecializedShipMode() {
+	return (op_mode & (OP_MODE_DRILL | OP_MODE_WELDER | OP_MODE_GRINDER)) != 0;
+}
+
+bool isBaseMode() {
+	return op_mode == OP_MODE_BASE;
+}
+
+bool isDrillMode() {
+	return (op_mode & OP_MODE_DRILL) != 0;
+}
+
+bool isWelderMode() {
+	return (op_mode & OP_MODE_WELDER) != 0;
+}
+
+bool isGrinderMode() {
+	return (op_mode & OP_MODE_GRINDER) != 0;
+}
+
+bool isTugMode() {
+	return (op_mode & OP_MODE_TUG) != 0;
+}
+
+bool isAutoMode() {
+	return op_mode == OP_MODE_AUTO;
+}
+
+void setMode(int mode) {
+	switch (mode) {
+		case OP_MODE_AUTO:
+		case OP_MODE_BASE:
+		case OP_MODE_SHIP:
+			break;
+		case OP_MODE_DRILL:
+		case OP_MODE_WELDER:
+		case OP_MODE_GRINDER:
+		case OP_MODE_TUG:
+			mode |= OP_MODE_SHIP;
+			break;
+		default:
+			throw new BarabasException("Invalid operation mode specified");
+	}
+	op_mode = mode;
+}
+
 void resetConfig() {
 	hud_notifications = true;
 	sort_storage = false;
@@ -3149,14 +3201,14 @@ void resetConfig() {
 // update defaults based on auto configured values
 void autoConfigure() {
 	resetConfig();
-	if (op_mode == OP_MODE_BASE) {
+	if (isBaseMode()) {
 		sort_storage = true;
-	} else if (op_mode == OP_MODE_DRILL) {
+	} else if (isDrillMode()) {
 		push_ore_to_base = true;
 		if (can_refine) {
 			push_ingots_to_base = true;
 		}
-	} else if (op_mode == OP_MODE_GRINDER) {
+	} else if (isGrinderMode()) {
 		push_components_to_base = true;
 	}
 }
@@ -3168,28 +3220,28 @@ void configureWatermarks() {
 		auto_refuel_ship = true;
 	}
 	if (power_low_watermark == 0) {
-		if (op_mode == OP_MODE_BASE) {
+		if (isBaseMode()) {
 			power_low_watermark = 60;
 		} else {
 			power_low_watermark = 15;
 		}
 	}
 	if (power_high_watermark == 0) {
-		if (op_mode == OP_MODE_BASE) {
+		if (isBaseMode()) {
 			power_high_watermark = 480;
 		} else {
 			power_high_watermark = 120;
 		}
 	}
 	if (oxygen_high_watermark == 0 && has_oxygen_tanks) {
-		if (op_mode == OP_MODE_BASE) {
+		if (isBaseMode()) {
 			oxygen_high_watermark = 30;
 		} else {
 			oxygen_high_watermark = 60;
 		}
 	}
 	if (oxygen_low_watermark == 0 && has_oxygen_tanks) {
-		if (op_mode == OP_MODE_BASE) {
+		if (isBaseMode()) {
 			oxygen_low_watermark = 10;
 		} else {
 			oxygen_low_watermark = 15;
@@ -3199,7 +3251,7 @@ void configureWatermarks() {
 		hydrogen_high_watermark = 80;
 	}
 	if (hydrogen_low_watermark == 0 && has_hydrogen_tanks) {
-		if (op_mode == OP_MODE_BASE) {
+		if (isBaseMode()) {
 			hydrogen_low_watermark = 10;
 		} else {
 			hydrogen_low_watermark = 30;
@@ -3207,7 +3259,7 @@ void configureWatermarks() {
 	}
 }
 
-// select operation mode, unless already set in config
+// select operation mode
 void selectOperationMode() {
 	var list = new List < IMyTerminalBlock > ();
 	var wlist = new List < IMyTerminalBlock > ();
@@ -3218,22 +3270,22 @@ void selectOperationMode() {
 	if (list.Count > 0 || wlist.Count > 0) {
 		// this is likely a drill ship
 		if (has_drills && !has_welders && !has_grinders) {
-			op_mode = OP_MODE_DRILL;
+			setMode(OP_MODE_DRILL);
 		}
 		// this is likely a welder ship
 		else if (has_welders && !has_drills && !has_grinders) {
-			op_mode = OP_MODE_WELDER;
+			setMode(OP_MODE_WELDER);
 		}
 		// this is likely a grinder ship
 		else if (has_grinders && !has_drills && !has_welders) {
-			op_mode = OP_MODE_GRINDER;
+			setMode(OP_MODE_GRINDER);
 		}
 		// we don't know what the hell this is, so don't adjust the defaults
 		else {
-			op_mode = OP_MODE_SHIP;
+			setMode(OP_MODE_SHIP);
 		}
 	} else {
-		op_mode = OP_MODE_BASE;
+		setMode(OP_MODE_BASE);
 	}
 }
 
@@ -3355,17 +3407,16 @@ bool parseWatermarkStr(string val, out Decimal low, out Decimal high) {
 string generateConfiguration() {
 	StringBuilder sb = new StringBuilder();
 
-	if (op_mode == OP_MODE_BASE) {
+	if (isBaseMode()) {
 		config_options[CONFIGSTR_OP_MODE] = "base";
-	} else if (op_mode == OP_MODE_SHIP) {
 		config_options[CONFIGSTR_OP_MODE] = "ship";
-	} else if (op_mode == OP_MODE_DRILL) {
+	} else if (isDrillMode()) {
 		config_options[CONFIGSTR_OP_MODE] = "drill";
-	} else if (op_mode == OP_MODE_WELDER) {
+	} else if (isWelderMode()) {
 		config_options[CONFIGSTR_OP_MODE] = "welder";
-	} else if (op_mode == OP_MODE_GRINDER) {
+	} else if (isGrinderMode()) {
 		config_options[CONFIGSTR_OP_MODE] = "grinder";
-	} else if (op_mode == OP_MODE_TUG) {
+	} else if (isTugMode()) {
 		config_options[CONFIGSTR_OP_MODE] = "tug";
 	}
 	config_options[CONFIGSTR_HUD_NOTIFICATIONS] = Convert.ToString(hud_notifications);
@@ -3578,32 +3629,32 @@ void parseLine(string line) {
 				crisis_mode = CRISIS_MODE_NONE;
 			}
 		} else if (strval == "ship") {
-			if (op_mode != OP_MODE_SHIP) {
-				op_mode = OP_MODE_SHIP;
+			if (!isGenericShipMode()) {
+				setMode(OP_MODE_SHIP);
 				crisis_mode = CRISIS_MODE_NONE;
 			}
 		} else if (strval == "drill") {
-			if (op_mode != OP_MODE_DRILL) {
-				op_mode = OP_MODE_DRILL;
+			if (!isDrillMode()) {
+				setMode(OP_MODE_DRILL);
 				crisis_mode = CRISIS_MODE_NONE;
 			}
 		} else if (strval == "welder") {
-			if (op_mode != OP_MODE_WELDER) {
-				op_mode = OP_MODE_WELDER;
+			if (!isWelderMode()) {
+				setMode(OP_MODE_WELDER);
 				crisis_mode = CRISIS_MODE_NONE;
 			}
 		} else if (strval == "grinder") {
-			if (op_mode != OP_MODE_GRINDER) {
-				op_mode = OP_MODE_GRINDER;
+			if (!isGrinderMode()) {
+				setMode(OP_MODE_GRINDER);
 				crisis_mode = CRISIS_MODE_NONE;
 			}
 		} else if (strval == "tug") {
-			if (op_mode != OP_MODE_TUG) {
-				op_mode = OP_MODE_TUG;
+			if (!isTugMode()) {
+				setMode(OP_MODE_TUG);
 				crisis_mode = CRISIS_MODE_NONE;
 			}
 		} else if (strval == "auto") {
-			op_mode = OP_MODE_AUTO;
+			setMode(OP_MODE_AUTO);
 			crisis_mode = CRISIS_MODE_NONE;
 		} else {
 			fail = true;
@@ -4006,11 +4057,11 @@ void s_refreshConfig() {
 	// configure BARABAS
 	getConfigBlock(true);
 	parseConfiguration();
-	if (op_mode == OP_MODE_AUTO) {
+	if (isAutoMode()) {
 	 selectOperationMode();
 	 autoConfigure();
 	}
-	if ((op_mode & OP_MODE_SHIP) > 0) {
+	if (isShipMode()) {
 	 Me.SetCustomName("BARABAS Ship CPU");
 	} else {
 	 Me.SetCustomName("BARABAS Base CPU");
@@ -4080,7 +4131,7 @@ void s_power() {
 		prev_pwr_draw = cur_pwr_draw;
 		Decimal time;
 		string time_str;
-		if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
+		if (isShipMode() && connected_to_base) {
 			time = Math.Round(stored_power / max_pwr_draw, 0);
 		} else {
 			time = Math.Round(stored_power / adjusted_pwr_draw, 0);
@@ -4106,7 +4157,7 @@ void s_power() {
 	}
 
 	if (crisis_mode == CRISIS_MODE_NONE) {
-		bool can_refuel = (op_mode & OP_MODE_SHIP) > 0 && connected_to_base;
+		bool can_refuel = isShipMode() && connected_to_base;
 		if (refillReactors()) {
 			pushSpareUraniumToStorage();
 		}
@@ -4120,7 +4171,7 @@ void s_power() {
 void s_refineries() {
 	if (crisis_mode == CRISIS_MODE_NONE && can_refine) {
 		// if we're a ship and we're connected, push ore to storage
-		if ((op_mode & OP_MODE_SHIP) > 0 && push_ore_to_base && connected_to_base) {
+		if (isShipMode() && push_ore_to_base && connected_to_base) {
 			pushOreToStorage();
 		} else {
 			refineOre();
@@ -4189,7 +4240,7 @@ void s_toolsGrinders() {
 }
 
 void s_toolsWelders() {
-	if (has_welders && op_mode == OP_MODE_WELDER) {
+	if (has_welders && isWelderMode()) {
 		fillWelders();
 	}
 }
@@ -4213,13 +4264,13 @@ void s_localStorage() {
 }
 
 void s_remoteStorage() {
-	if ((op_mode & OP_MODE_SHIP) > 0 && connected_to_base) {
+	if (isShipMode() && connected_to_base) {
 		pushAllToRemoteStorage();
 		pullFromRemoteStorage();
 	}
 	// tug is a special case as it can push to and pull from ships, but only
 	// when connected to a ship and not to a base
-	else if (op_mode == OP_MODE_TUG && connected_to_ship && !connected_to_base) {
+	else if (isTugMode() && connected_to_ship && !connected_to_base) {
 		pullFromRemoteShipStorage();
 		pushToRemoteShipStorage();
 	}
@@ -4294,7 +4345,7 @@ void s_updateMaterialStats() {
 		}
 
 		if (has_status_panels) {
-			if (op_mode != OP_MODE_BASE && total == 0) {
+			if (isShipMode() && total == 0) {
 				continue;
 			}
 			sb.Append("\n  ");
