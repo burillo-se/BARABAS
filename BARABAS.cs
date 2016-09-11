@@ -1035,7 +1035,7 @@ void findRemoteGrids() {
 	var ship_grids = new List < IMyCubeGrid > ();
 	var skip_grids = new List < IMyCubeGrid > ();
 
-	// first, get all locked remote connectors and all remote storage
+	// first, get all remote storage
 	List < IMyTerminalBlock > list = new List < IMyTerminalBlock > ();
 	GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (list, remoteGridDumbFilter);
 
@@ -1057,7 +1057,7 @@ void findRemoteGrids() {
 	GridTerminalSystem.GetBlocksOfType < IMyMotorSuspension > (wheels, remoteGridDumbFilter);
 	GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (pb, remoteGridDumbFilter);
 
-	// find any thruster grids that also have a connector or storage on the same grid
+	// find any thruster grids that also have storage on the same grid
 	foreach (var thruster in thrusters) {
 		var thruster_grid = thruster.CubeGrid;
 		bool found = false;
