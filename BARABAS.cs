@@ -3409,6 +3409,7 @@ string generateConfiguration() {
 
 	if (isBaseMode()) {
 		config_options[CONFIGSTR_OP_MODE] = "base";
+	} else if (isGenericShipMode()) {
 		config_options[CONFIGSTR_OP_MODE] = "ship";
 	} else if (isDrillMode()) {
 		config_options[CONFIGSTR_OP_MODE] = "drill";
