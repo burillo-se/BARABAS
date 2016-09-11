@@ -3384,7 +3384,7 @@ string generateConfiguration() {
 	} else {
 		config_options[CONFIGSTR_OXYGEN_WATERMARKS] = "none";
 	}
-	if (oxygen_low_watermark > 0) {
+	if (hydrogen_low_watermark > 0) {
 		config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark);
 	} else {
 		config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = "none";
