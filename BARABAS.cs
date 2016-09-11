@@ -1344,17 +1344,6 @@ void getAllOre(IMyInventory inv, string name, List < ItemHelper > list) {
 }
 
 // get all ingots residing in storage
-List < ItemHelper > getAllStorageIngots(string name = null) {
-	List < ItemHelper > list = new List < ItemHelper > ();
-	var blocks = getStorage();
-	foreach (var block in blocks) {
-		var inv = block.GetInventory(0);
-		getAllIngots(inv, name, list);
-	}
-	return list;
-}
-
-// get all ingots residing in storage
 List < ItemHelper > getAllStorageOre(string name = null) {
 	List < ItemHelper > list = new List < ItemHelper > ();
 	var blocks = getStorage();
