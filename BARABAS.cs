@@ -2407,7 +2407,8 @@ bool refillReactors(bool force = false) {
 				rinv.TransferItemFrom(ingot.Value.Inventory, ingot.Value.Index, null, true, null);
 				ingot = null;
 			} else {
-				if (Transfer(ingot.Value.Inventory, rinv, ingot.Value.Index, null, true, (VRage.MyFixedPoint) amount)) {
+				amount = TryTransfer(ingot.Value.Inventory, rinv, ingot.Value.Index, null, true, (VRage.MyFixedPoint) amount);
+				if (amount > 0) {
 					cur_amount -= amount;
 				}
 			}
@@ -2802,7 +2803,8 @@ bool spreadOre(IMyInventory src_inv, IMyInventory dst_inv) {
 			tmp = null;
 			amount = (Decimal) items[i].Amount;
 		}
-		if (Transfer(src_inv, dst_inv, i, null, true, tmp)) {
+		amount = TryTransfer(src_inv, dst_inv, i, null, true, tmp);
+		if (amount > 0) {
 			success = true;
 			target_volume -= amount * volume;
 			if (target_volume <= 0) {
