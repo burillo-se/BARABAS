@@ -1108,12 +1108,13 @@ void findRemoteGrids() {
 		}
 	}
 
-	// anything that wasn't filtered out previously, is a base grid. at least
-	// we hope it is.
+	// if we're a ship, anything that wasn't filtered out previously, is a base
+	// grid, otherwise assume it's a ship.
+	var add_list = isShipMode() ? base_grids : ship_grids;
 	foreach (var block in list) {
 		var grid = block.CubeGrid;
-		if (!base_grids.Contains(grid)) {
-			base_grids.Add(grid);
+		if (!add_list.Contains(grid)) {
+			add_list.Add(grid);
 		}
 	}
 
