@@ -378,6 +378,7 @@ bool refine_ice = true;
 bool can_use_ingots;
 bool can_use_oxygen;
 bool can_refine;
+bool can_refine_ice;
 bool large_grid;
 bool has_air_vents;
 bool has_status_panels;
@@ -3062,6 +3063,32 @@ bool iceAboveHighWatermark() {
 	return result;
 }
 
+Decimal getStoredOxygen() {
+	if (!can_refine_ice) {
+		return 0M;
+	}
+	int n_oxygen_tanks = getOxygenTanks().Count;
+	Decimal capacity = large_grid ? 100000M : 50000M;
+	Decimal total_capacity = n_oxygen_tanks * capacity;
+	Decimal ice_to_oxygen_ratio = 9M;
+	ice_to_oxygen_ratio /= (has_hydrogen_tanks && cur_hydrogen_level < 100M) ? 2 : 1;
+	Decimal stored_oxygen = ore_status[ICE] * ice_to_oxygen_ratio;
+	return stored_oxygen / total_capacity * 100M;
+}
+
+Decimal getStoredHydrogen() {
+	if (!can_refine_ice) {
+		return 0M;
+	}
+	int n_hydrogen_tanks = getHydrogenTanks().Count;
+	Decimal capacity = large_grid ? 2500000M : 40000M;
+	Decimal total_capacity = n_hydrogen_tanks * capacity;
+	Decimal ice_to_hydrogen_ratio = large_grid ? 9M : 4M;
+	ice_to_hydrogen_ratio /= (has_oxygen_tanks && cur_oxygen_level < 100M) ? 2 : 1;
+	Decimal stored_hydrogen = ore_status[ICE] * ice_to_hydrogen_ratio;
+	return stored_hydrogen / total_capacity * 100M;
+}
+
 /**
  * Functions pertaining to BARABAS's operation
  */
@@ -3955,6 +3982,7 @@ void s_refreshProduction() {
 	has_refineries = getRefineries(true).Count > 0;
 	has_arc_furnaces = getArcFurnaces(true).Count > 0;
 	can_refine = has_refineries || has_arc_furnaces || (getOxygenGenerators(true).Count > 0);
+	can_refine_ice = has_refineries || (getOxygenGenerators().Count > 0);
 	can_use_ingots = getAssemblers(true).Count > 0;
 	getStorage(true);
 	turnOffConveyors();
@@ -4340,13 +4368,13 @@ void s_updateMaterialStats() {
 		string hydro_str = !has_hydrogen_tanks ? "N/A" : String.Format("{0:0.0}%",
 					cur_hydrogen_level);
 
-		if (has_oxygen_tanks && oxygen_low_watermark > 0 && cur_oxygen_level < oxygen_low_watermark && ore_status[ICE] == 0) {
+		if (has_oxygen_tanks && oxygen_low_watermark > 0 && cur_oxygen_level + getStoredOxygen() < oxygen_low_watermark) {
 			alert = true;
 			addAntennaAlert(ALERT_LOW_OXYGEN);
 		} else {
 			removeAntennaAlert(ALERT_LOW_OXYGEN);
 		}
-		if (has_hydrogen_tanks && hydrogen_low_watermark > 0 && cur_hydrogen_level < hydrogen_low_watermark && ore_status[ICE] == 0) {
+		if (has_hydrogen_tanks && hydrogen_low_watermark > 0 && cur_hydrogen_level + getStoredHydrogen() < hydrogen_low_watermark) {
 			alert = true;
 			addAntennaAlert(ALERT_LOW_HYDROGEN);
 		} else {
