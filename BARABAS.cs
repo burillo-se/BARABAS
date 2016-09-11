@@ -4339,7 +4339,7 @@ void s_updateMaterialStats() {
 		string hydro_str = !has_hydrogen_tanks ? "N/A" : String.Format("{0:0.0}%",
 					cur_hydrogen_level);
 
-		if (oxygen_low_watermark > 0 && cur_oxygen_level < oxygen_low_watermark && ore_status[ICE] == 0) {
+		if (has_oxygen_tanks && oxygen_low_watermark > 0 && cur_oxygen_level < oxygen_low_watermark && ore_status[ICE] == 0) {
 			alert = true;
 			addAntennaAlert(ALERT_LOW_OXYGEN);
 		} else {
