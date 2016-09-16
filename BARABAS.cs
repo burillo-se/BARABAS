@@ -2172,9 +2172,12 @@ Decimal getCurPowerDraw(bool force_update = false) {
 	GridTerminalSystem.GetBlocksOfType < IMyTerminalBlock > (blocks, localGridDumbFilter);
 
 	foreach (var block in blocks) {
-		if (!(block is IMyBatteryBlock) && !(block is IMyReactor))
-			continue;
-		power_draw += getBlockPowerOutput(block);
+		if (block is IMyReactor) {
+			power_draw += (Decimal) (block as IMyReactor).CurrentOutput;
+		} else if (block is IMyBatteryBlock) {
+			var battery = block as IMyBatteryBlock;
+			power_draw += (Decimal) (battery.CurrentOutput - battery.CurrentInput);
+		}
 	}
 
 	cur_power_draw = power_draw;
@@ -2230,40 +2233,7 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 	return max_power_draw;
 }
 
-Decimal getBlockPowerOutput(IMyTerminalBlock block) {
-	var cur_regex = new System.Text.RegularExpressions.Regex("Current Output: ([\\d\\.]+) (\\w?)W");
-	var inp_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+) (\\w?)W");
-	var cur_match = cur_regex.Match(block.DetailedInfo);
-	var inp_match = inp_regex.Match(block.DetailedInfo);
-	if (!cur_match.Success) {
-		return 0;
-	}
-
-	Decimal cur = 0;
-	if (cur_match.Groups[1].Success && cur_match.Groups[2].Success) {
-		bool result = Decimal.TryParse(cur_match.Groups[1].Value, out cur);
-		if (!result) {
-			throw new BarabasException("Invalid detailed info format!", this);
-		}
-		cur *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
-	}
-	Decimal inp = 0;
-	if (inp_match.Groups[1].Success && inp_match.Groups[2].Success) {
-		bool result = Decimal.TryParse(inp_match.Groups[1].Value, out inp);
-		if (!result) {
-			throw new BarabasException("Invalid detailed info format!", this);
-		}
-		inp *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(inp_match.Groups[2].Value) - 1);
-	}
-	return cur - inp;
-}
-
 Decimal getBlockPowerUse(IMyTerminalBlock block) {
-	// Hydrogen thrusters don't use power but still report it
-	string typename = (block as IMyCubeBlock).BlockDefinition.ToString();
-	if (typename.Contains("HydrogenThrust")) {
-		return 0;
-	}
 	var power_regex = new System.Text.RegularExpressions.Regex("Max Required Input: ([\\d\\.]+) (\\w?)W");
 	var cur_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+) (\\w?)W");
 	var power_match = power_regex.Match(block.DetailedInfo);
@@ -3026,9 +2996,7 @@ void checkOxygenLeaks() {
 	var blocks = getAirVents();
 	bool alert = false;
 	foreach (IMyAirVent vent in blocks) {
-		StringBuilder builder = new StringBuilder();
-		vent.GetActionWithName("Depressurize").WriteValue(vent, builder);
-		if (builder.ToString() == "Off" && !vent.CanPressurize) {
+		if (!vent.IsDepressurizing && !vent.CanPressurize) {
 			addBlockAlert(vent, ALERT_OXYGEN_LEAK);
 			alert = true;
 		} else {
@@ -3046,9 +3014,7 @@ void checkOxygenLeaks() {
 void toggleOxygenGenerators(bool val) {
 	var refineries = getOxygenGenerators();
 	foreach (IMyOxygenGenerator refinery in refineries) {
-		if (refinery.Enabled != val) {
-			refinery.ApplyAction(val ? "OnOff_On" : "OnOff_Off");
-		}
+		refinery.RequestEnable(val);
 	}
 }
 
@@ -3847,9 +3813,9 @@ void setBlockName(IMyTerminalBlock antenna, string name, string alert) {
 }
 
 void showOnHud(IMyTerminalBlock block) {
- if (block.GetProperty("ShowOnHUD") != null) {
-	 block.SetValue("ShowOnHUD", true);
- }
+	if (block.GetProperty("ShowOnHUD") != null) {
+		block.SetValue("ShowOnHUD", true);
+	}
 }
 
 void hideFromHud(IMyTerminalBlock block) {
@@ -3896,8 +3862,8 @@ void showAlertColor(Color c) {
 		}
 		light.SetValue("Color", c);
 		// make sure we switch the color of the texture as well
-		light.ApplyAction("OnOff_Off");
-		light.ApplyAction("OnOff_On");
+		light.RequestEnable(false);
+		light.RequestEnable(true);
 	}
 }
 
@@ -3907,7 +3873,7 @@ void hideAlertColor() {
 		if (!light.Enabled) {
 			continue;
 		}
-		light.ApplyAction("OnOff_Off");
+		light.RequestEnable(false);
 	}
 }
 
@@ -3922,7 +3888,8 @@ void turnOffConveyors() {
 			continue;
 		}
 
-		if (block.HasAction("UseConveyor") && block.GetValue<bool>("UseConveyor")) {
+		var prod = block as IMyProductionBlock;
+		if (prod != null && prod.UseConveyorSystem) {
 			block.ApplyAction("UseConveyor");
 		}
 	}
