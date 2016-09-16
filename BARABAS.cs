@@ -996,6 +996,53 @@ void saveLocalGrids(List < IMyCubeGrid > grids) {
 	Storage = sb.ToString();
 }
 
+IMyCubeGrid findGrid(Vector3D world_pos, IMyCubeGrid self, List<IMyCubeGrid> grids) {
+	foreach (var grid in grids) {
+		if (grid == self) {
+			continue;
+		}
+		var pos = grid.WorldToGridInteger(world_pos);
+		if (grid.CubeExists(pos)) {
+			return grid;
+		}
+	}
+	return null;
+}
+
+IMyCubeGrid getConnectedGrid(IMyShipConnector connector) {
+	return connector.IsConnected ? connector.OtherConnector.CubeGrid : null;
+}
+
+IMyCubeGrid getConnectedGrid(IMyMotorBase rotor, List<IMyCubeGrid> grids) {
+	if (!rotor.IsAttached) {
+		return null;
+	}
+	var position = rotor.Position;
+	var orientation = rotor.Orientation;
+	var direction = new Vector3I(0, 1, 0);
+	Matrix matrix;
+	orientation.GetMatrix(out matrix);
+	Vector3I.Transform(ref direction, ref matrix, out direction);
+	var world_pos = rotor.CubeGrid.GridIntegerToWorld(position + direction);
+	return findGrid(world_pos, rotor.CubeGrid, grids);
+}
+
+IMyCubeGrid getConnectedGrid(IMyPistonBase piston, List<IMyCubeGrid> grids) {
+	if (!piston.IsAttached) {
+		return null;
+	}
+	var position = piston.Position;
+	var orientation = piston.Orientation;
+	bool is_large = piston.BlockDefinition.ToString().Contains("Large");
+	var up = (int) Math.Round(piston.CurrentPosition / (is_large ? 2.5 : 0.5));
+	var direction = new Vector3I(0, 2 + up, 0);
+	Matrix matrix;
+	orientation.GetMatrix(out matrix);
+	Vector3I.Transform(ref direction, ref matrix, out direction);
+	var world_pos = piston.CubeGrid.GridIntegerToWorld(position + direction);
+	return findGrid(world_pos, piston.CubeGrid, grids);
+}
+
 // getting local grids is not trivial, we're basically doing some heuristics
 List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 	if (local_grids != null && !force_update) {
