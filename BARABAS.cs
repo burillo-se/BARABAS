@@ -3214,23 +3214,25 @@ void autoConfigure() {
 }
 
 void configureWatermarks() {
-  if (!has_reactors) {
-    auto_refuel_ship = false;
-  } else {
-    auto_refuel_ship = true;
+  if (isShipMode()) {
+    if (!has_reactors) {
+      auto_refuel_ship = false;
+    } else {
+      auto_refuel_ship = true;
+    }
   }
   if (power_low_watermark == 0) {
     if (isBaseMode()) {
       power_low_watermark = 60;
     } else {
-      power_low_watermark = 15;
+      power_low_watermark = 10;
     }
   }
   if (power_high_watermark == 0) {
     if (isBaseMode()) {
       power_high_watermark = 480;
     } else {
-      power_high_watermark = 120;
+      power_high_watermark = 30;
     }
   }
   if (oxygen_high_watermark == 0 && has_oxygen_tanks) {
@@ -3542,7 +3544,9 @@ void rebuildConfiguration() {
 
   // put text back into the text block
   block.WritePrivateText(text);
+  block.WritePublicText("   BARABAS Configuration");
   block.WritePrivateTitle("BARABAS Configuration");
+  block.ShowPublicTextOnScreen();
 }
 
 void parseLine(string line) {
