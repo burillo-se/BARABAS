@@ -1162,9 +1162,6 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
   var connections = graph.getGridConnections();
   var seen = new HashSet<IMyCubeGrid>(local_grids);
 
-  Echo("seen: " + seen.Count);
-  Echo("connections: " + connections.Count);
-
   remote_grid_data = new Dictionary<IMyCubeGrid, GridData>();
 
   foreach (var e in connections) {
