@@ -3291,6 +3291,49 @@ void selectOperationMode() {
  }
 }
 
+void displayAlerts() {
+ removeAntennaAlert(ALERT_LOW_POWER);
+ removeAntennaAlert(ALERT_LOW_STORAGE);
+ removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
+ removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+ displayAntennaAlerts();
+
+ var sb = new StringBuilder();
+
+ Alert first_alert = null;
+ // now, find enabled alerts
+ bool first = true;
+ for (int i = 0; i < text_alerts.Count; i++) {
+  if (text_alerts[i].enabled) {
+   if (i == BLUE_ALERT) {
+    addAntennaAlert(ALERT_LOW_POWER);
+   } else if (i == YELLOW_ALERT) {
+    addAntennaAlert(ALERT_LOW_STORAGE);
+   } else if (i == RED_ALERT) {
+    addAntennaAlert(ALERT_VERY_LOW_STORAGE);
+   } else if (i == WHITE_ALERT) {
+    addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+   }
+   var alert = text_alerts[i];
+   if (first_alert == null) {
+    first_alert = alert;
+   }
+   if (!first) {
+    sb.Append(", ");
+   }
+   first = false;
+   sb.Append(alert.text);
+  }
+ }
+
+ status_report[STATUS_ALERT] = sb.ToString();
+ if (first_alert == null) {
+  hideAlertColor();
+ } else {
+  showAlertColor(first_alert.color);
+ }
+}
+
 void addAlert(int level) {
  var alert = text_alerts[level];
  // this alert is already enabled
@@ -3299,40 +3342,7 @@ void addAlert(int level) {
  }
  alert.enabled = true;
 
- var sb = new StringBuilder();
-
- removeAntennaAlert(ALERT_LOW_POWER);
- removeAntennaAlert(ALERT_LOW_STORAGE);
- removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
- removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
-
- alert = null;
- // now, find enabled alerts
- bool first = true;
- for (int i = 0; i < text_alerts.Count; i++) {
-  if (text_alerts[i].enabled) {
-   if (i == BLUE_ALERT) {
-    addAntennaAlert(ALERT_LOW_POWER);
-   } else if (i == YELLOW_ALERT) {
-    addAntennaAlert(ALERT_LOW_STORAGE);
-   } else if (i == RED_ALERT) {
-    addAntennaAlert(ALERT_VERY_LOW_STORAGE);
-   } else if (i == WHITE_ALERT) {
-    addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
-   }
-   if (alert == null) {
-    alert = text_alerts[i];
-   }
-   if (!first) {
-    sb.Append(", ");
-   }
-   first = false;
-   sb.Append(alert.text);
-  }
- }
- displayAntennaAlerts();
- showAlertColor(alert.color);
- status_report[STATUS_ALERT] = sb.ToString();
+ displayAlerts();
 }
 
 void removeAlert(int level) {
@@ -3340,45 +3350,7 @@ void removeAlert(int level) {
  var alert = text_alerts[level];
  alert.enabled = false;
 
- // now, see if we should display another alert
- var sb = new StringBuilder();
- alert = null;
-
- removeAntennaAlert(ALERT_LOW_POWER);
- removeAntennaAlert(ALERT_LOW_STORAGE);
- removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
- removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
-
- // now, find enabled alerts
- bool first = true;
- for (int i = 0; i < text_alerts.Count; i++) {
-  if (text_alerts[i].enabled) {
-   if (i == BLUE_ALERT) {
-    addAntennaAlert(ALERT_LOW_POWER);
-   } else if (i == YELLOW_ALERT) {
-    addAntennaAlert(ALERT_LOW_STORAGE);
-   } else if (i == RED_ALERT) {
-    addAntennaAlert(ALERT_VERY_LOW_STORAGE);
-   } else if (i == WHITE_ALERT) {
-    addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
-   }
-   if (alert == null) {
-    alert = text_alerts[i];
-   }
-   if (!first) {
-    sb.Append(", ");
-   }
-   first = false;
-   sb.Append(alert.text);
-  }
- }
- status_report[STATUS_ALERT] = sb.ToString();
- if (alert == null) {
-  hideAlertColor();
- } else {
-  showAlertColor(alert.color);
- }
- displayAntennaAlerts();
+ displayAlerts();
 }
 
 bool clStrCompare(string str1, string str2) {
