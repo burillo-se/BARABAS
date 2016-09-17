@@ -366,7 +366,8 @@ Dictionary < string, Decimal > thrust_power = new Dictionary < string, Decimal >
 const Decimal URANIUM_INGOT_POWER = 68760M;
 
 public class ItemHelper {
- public IMyInventory Inventory;
+ public IMyTerminalBlock Owner;
+ public int invIdx;
  public IMyInventoryItem Item;
  public int Index;
 }
@@ -1360,7 +1361,8 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
  * Inventory access functions
  */
 // get all ingots of a certain type from a particular inventory
-void getAllIngots(IMyInventory inv, string name, List < ItemHelper > list) {
+void getAllIngots(IMyTerminalBlock block, int srcInv, string name, List < ItemHelper > list) {
+ var inv = block.GetInventory(srcInv);
  var items = inv.GetItems();
  for (int i = items.Count - 1; i >= 0; i--) {
   var item = items[i];
@@ -1371,15 +1373,17 @@ void getAllIngots(IMyInventory inv, string name, List < ItemHelper > list) {
    continue;
   }
   ItemHelper ih = new ItemHelper();
-  ih.Inventory = inv;
+  ih.invIdx = srcInv;
   ih.Item = item;
   ih.Index = i;
+  ih.Owner = block;
   list.Add(ih);
  }
 }
 
 // get all ingots of a certain type from a particular inventory
-void getAllOre(IMyInventory inv, string name, List < ItemHelper > list) {
+void getAllOre(IMyTerminalBlock block, int srcInv, string name, List < ItemHelper > list) {
+ var inv = block.GetInventory(srcInv);
  var items = inv.GetItems();
  for (int i = items.Count - 1; i >= 0; i--) {
   var item = items[i];
@@ -1390,9 +1394,10 @@ void getAllOre(IMyInventory inv, string name, List < ItemHelper > list) {
    continue;
   }
   ItemHelper ih = new ItemHelper();
-  ih.Inventory = inv;
+  ih.invIdx = srcInv;
   ih.Item = item;
   ih.Index = i;
+  ih.Owner = block;
   list.Add(ih);
  }
 }
@@ -1402,8 +1407,7 @@ List < ItemHelper > getAllStorageOre(string name = null) {
  List < ItemHelper > list = new List < ItemHelper > ();
  var blocks = getStorage();
  foreach (var block in blocks) {
-  var inv = block.GetInventory(0);
-  getAllOre(inv, name, list);
+  getAllOre(block, 0, name, list);
  }
  return list;
 }
@@ -1427,9 +1431,9 @@ bool isComponent(IMyInventoryItem item) {
 }
 
 // get total amount of all ingots (of a particular type) stored in a particular inventory
-Decimal getTotalIngots(IMyInventory inv, string name) {
+Decimal getTotalIngots(IMyTerminalBlock block, int srcInv, string name) {
  var entries = new List < ItemHelper > ();
- getAllIngots(inv, name, entries);
+ getAllIngots(block, srcInv, name, entries);
  Decimal ingots = 0;
  foreach (var entry in entries) {
   var item = entry.Item;
@@ -1498,8 +1502,10 @@ void rebalance(IMyInventory inv) {
  }
 }
 
-Decimal TryTransfer(IMyInventory src_inv, IMyInventory dst_inv, int srcIndex,
- int ? dstIndex, bool ? stack, VRage.MyFixedPoint ? amount) {
+Decimal TryTransfer(IMyTerminalBlock src, int srcInv, IMyTerminalBlock dst, int dstInv,
+                    int srcIndex, int ? dstIndex, bool ? stack, VRage.MyFixedPoint ? amount) {
+ var src_inv = src.GetInventory(srcInv);
+ var dst_inv = dst.GetInventory(dstInv);
  var src_items = src_inv.GetItems();
  var src_count = src_items.Count;
  var src_amount = src_items[srcIndex].Amount;
@@ -1528,12 +1534,12 @@ Decimal TryTransfer(IMyInventory src_inv, IMyInventory dst_inv, int srcIndex,
  return (Decimal)(src_amount - cur_amount);
 }
 
-bool Transfer(IMyInventory src_inv, IMyInventory dst_inv, int srcIndex,
- int ? dstIndex, bool ? stack, VRage.MyFixedPoint ? amount) {
- if (dst_inv == src_inv) {
+bool Transfer(IMyTerminalBlock src, int srcInv, IMyTerminalBlock dst, int dstInv,
+              int srcIndex, int ? dstIndex, bool ? stack, VRage.MyFixedPoint ? amount) {
+ if (src == dst) {
   return true;
  }
- return TryTransfer(src_inv, dst_inv, srcIndex, dstIndex, stack, amount) > 0;
+ return TryTransfer(src, srcInv, dst, dstInv, srcIndex, dstIndex, stack, amount) > 0;
 }
 
 void pushBack(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) {
@@ -1792,7 +1798,7 @@ void sortLocalStorage() {
     continue;
    }
 
-   pushToStorage(inv, i, null);
+   pushToStorage(container, 0, i, null);
 
    // we don't check for success because we may end up sending stuff to
    // the same container; rather, we check if volume has changed
@@ -1809,7 +1815,7 @@ void sortLocalStorage() {
 }
 
 // try pushing something to one of the local storage containers
-bool pushToStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) {
+bool pushToStorage(IMyTerminalBlock block, int invIdx, int srcIndex, VRage.MyFixedPoint ? amount) {
  var containers = getStorage();
  /*
   * Stage 0: special case for small container numbers, or if sorting is
@@ -1820,7 +1826,7 @@ bool pushToStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) 
   foreach (var storage in containers) {
    var container_inv = storage.GetInventory(0);
    // try pushing to this container
-   if (Transfer(src, container_inv, srcIndex, null, true, amount)) {
+   if (Transfer(block, invIdx, storage, 0, srcIndex, null, true, amount)) {
     return true;
    }
   }
@@ -1830,6 +1836,7 @@ bool pushToStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) 
  /*
   * Stage 1: try to put stuff into designated containers
   */
+ var src = block.GetInventory(invIdx);
  var item = src.GetItems()[srcIndex];
  bool itemIsOre = isOre(item);
  bool itemIsIngot = isIngot(item);
@@ -1846,7 +1853,7 @@ bool pushToStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) 
  for (int i = startStep; i < containers.Count; i += steps) {
   var container_inv = containers[i].GetInventory(0);
   // try pushing to this container
-  if (Transfer(src, container_inv, srcIndex, null, true, amount)) {
+  if (Transfer(block, invIdx, containers[i], 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
@@ -1899,20 +1906,20 @@ bool pushToStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) 
 
  // now, try pushing into one of the containers we found
  if (overflowIdx != -1) {
-  var dst = containers[overflowIdx].GetInventory(0);
-  if (Transfer(src, dst, srcIndex, null, true, amount)) {
+  var dst = containers[overflowIdx];
+  if (Transfer(block, invIdx,  dst, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
  if (emptyIdx != -1) {
-  var dst = containers[emptyIdx].GetInventory(0);
-  if (Transfer(src, dst, srcIndex, null, true, amount)) {
+  var dst = containers[emptyIdx];
+  if (Transfer(block, invIdx, dst, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
  if (leastFullIdx != -1) {
-  var dst = containers[leastFullIdx].GetInventory(0);
-  if (Transfer(src, dst, srcIndex, null, true, amount)) {
+  var dst = containers[leastFullIdx];
+  if (Transfer(block, invIdx, dst, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
@@ -1920,7 +1927,7 @@ bool pushToStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) 
 }
 
 // try pushing something to one of the remote storage containers
-bool pushToRemoteStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) {
+bool pushToRemoteStorage(IMyTerminalBlock block, int srcInv, int srcIndex, VRage.MyFixedPoint ? amount) {
  var containers = getRemoteStorage();
  foreach (var container in containers) {
   var container_inv = container.GetInventory(0);
@@ -1928,9 +1935,8 @@ bool pushToRemoteStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? am
   if (freeVolume < 1M) {
    continue;
   }
-  int count = container_inv.GetItems().Count;
   // try pushing to this container
-  if (Transfer(src, container_inv, srcIndex, null, true, amount)) {
+  if (Transfer(block, srcInv, container, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
@@ -1938,12 +1944,11 @@ bool pushToRemoteStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? am
 }
 
 // try pushing something to one of the remote storage containers
-bool pushToRemoteShipStorage(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) {
+bool pushToRemoteShipStorage(IMyTerminalBlock block, int srcInv, int srcIndex, VRage.MyFixedPoint ? amount) {
  var containers = getRemoteShipStorage();
  foreach (var container in containers) {
-  var container_inv = container.GetInventory(0);
   // try pushing to this container
-  if (Transfer(src, container_inv, srcIndex, null, true, amount)) {
+  if (Transfer(block, srcInv, container, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
@@ -1959,16 +1964,16 @@ void pushAllToRemoteStorage() {
   for (int j = items.Count - 1; j >= 0; j--) {
    var item = items[j];
    if (isOre(item) && push_ore_to_base) {
-    pushToRemoteStorage(inv, j, null);
+    pushToRemoteStorage(container, 0, j, null);
    }
    if (isIngot(item)) {
     var type = item.Content.SubtypeName;
     if (type != URANIUM && push_ingots_to_base) {
-     pushToRemoteStorage(inv, j, null);
+     pushToRemoteStorage(container, 0, j, null);
     }
    }
    if (isComponent(item) && push_components_to_base) {
-    pushToRemoteStorage(inv, j, null);
+    pushToRemoteStorage(container, 0, j, null);
    }
   }
  }
@@ -1986,19 +1991,19 @@ void pullFromRemoteStorage() {
   for (int j = items.Count - 1; j >= 0; j--) {
    var item = items[j];
    if (isOre(item) && pull_ore_from_base) {
-    pushToStorage(inv, j, null);
+    pushToStorage(container, 0, j, null);
    }
    if (isIngot(item)) {
     var type = item.Content.SubtypeName;
     // don't take all uranium from base
     if (type == URANIUM && auto_refuel_ship && !powerAboveHighWatermark()) {
-     pushToStorage(inv, j, (VRage.MyFixedPoint) Math.Min(0.5M, (Decimal) item.Amount));
+     pushToStorage(container, 0, j, (VRage.MyFixedPoint) Math.Min(0.5M, (Decimal) item.Amount));
     } else if (type != URANIUM && pull_ingots_from_base) {
-     pushToStorage(inv, j, null);
+     pushToStorage(container, 0, j, null);
     }
    }
    if (isComponent(item) && pull_components_from_base) {
-    pushToStorage(inv, j, null);
+    pushToStorage(container, 0, j, null);
    }
   }
  }
@@ -2013,16 +2018,16 @@ void pushToRemoteShipStorage() {
   for (int j = items.Count - 1; j >= 0; j--) {
    var item = items[j];
    if (isOre(item) && pull_ore_from_base) {
-    pushToRemoteShipStorage(inv, j, null);
+    pushToRemoteShipStorage(container, 0, j, null);
    }
    if (isIngot(item)) {
     var type = item.Content.SubtypeName;
     if (type != URANIUM && pull_ingots_from_base) {
-     pushToRemoteShipStorage(inv, j, null);
+     pushToRemoteShipStorage(container, 0, j, null);
     }
    }
    if (isComponent(item) && pull_components_from_base) {
-    pushToRemoteShipStorage(inv, j, null);
+    pushToRemoteShipStorage(container, 0, j, null);
    }
   }
  }
@@ -2037,17 +2042,17 @@ void pullFromRemoteShipStorage() {
   for (int j = items.Count - 1; j >= 0; j--) {
    var item = items[j];
    if (isOre(item) && push_ore_to_base) {
-    pushToStorage(inv, j, null);
+    pushToStorage(container, 0, j, null);
    }
    if (isIngot(item)) {
     var type = item.Content.SubtypeName;
     // don't take all uranium from base
     if (type != URANIUM && push_ingots_to_base) {
-     pushToStorage(inv, j, null);
+     pushToStorage(container, 0, j, null);
     }
    }
    if (isComponent(item) && push_components_to_base) {
-    pushToStorage(inv, j, null);
+    pushToStorage(container, 0, j, null);
    }
   }
  }
@@ -2059,7 +2064,7 @@ void emptyBlocks(List < IMyTerminalBlock > blocks) {
   var inv = block.GetInventory(0);
   var items = inv.GetItems();
   for (int j = items.Count - 1; j >= 0; j--) {
-   pushToStorage(inv, j, null);
+   pushToStorage(block, 0, j, null);
   }
  }
 }
@@ -2099,7 +2104,7 @@ void fillWelders() {
 
     // send one and check load
     Decimal old_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-    if (!Transfer(src_inv, dst_inv, j, null, true, (VRage.MyFixedPoint) 1)) {
+    if (!Transfer(welder, 0, container, 0, j, null, true, (VRage.MyFixedPoint) 1)) {
      continue;
     }
     Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
@@ -2121,7 +2126,7 @@ void pushOreToStorage() {
  foreach (var refinery in refineries) {
   var inv = refinery.GetInventory(0);
   for (int j = inv.GetItems().Count - 1; j >= 0; j--) {
-   pushToStorage(inv, j, null);
+   pushToStorage(refinery, 0, j, null);
   }
  }
 }
@@ -2136,7 +2141,7 @@ void pushIceToStorage() {
    if (item.Content.SubtypeName != ICE) {
     continue;
    }
-   pushToStorage(inv, j, null);
+   pushToStorage(refinery, 0, j, null);
   }
  }
 }
@@ -2369,7 +2374,7 @@ bool refillReactors(bool force = false) {
   Decimal reactor_proportion = (Decimal) reactor.MaxOutput * 1000M / getMaxReactorPowerOutput();
   Decimal reactor_power_draw = getMaxPowerDraw() * (reactor_proportion);
   Decimal ingots_per_reactor = getPowerHighWatermark(reactor_power_draw) / URANIUM_INGOT_POWER;
-  Decimal ingots_in_reactor = getTotalIngots(rinv, URANIUM);
+  Decimal ingots_in_reactor = getTotalIngots(reactor, 0, URANIUM);
   if ((ingots_in_reactor < ingots_per_reactor) || force) {
    // find us an ingot
    if (ingot == null) {
@@ -2381,9 +2386,10 @@ bool refillReactors(bool force = false) {
       var item = items[j];
       if (isIngot(item) && item.Content.SubtypeName == URANIUM) {
        ingot = new ItemHelper();
-       ingot.Inventory = sinv;
+       ingot.invIdx = 0;
        ingot.Index = j;
        ingot.Item = item;
+       ingot.Owner = storage[s_index];
        orig_amount = (Decimal) item.Amount;
        cur_amount = orig_amount;
        break;
@@ -2409,10 +2415,10 @@ bool refillReactors(bool force = false) {
    // don't leave change, we've expended this ingot
    if (cur_amount - amount <= 0.05M) {
     cur_amount = 0;
-    rinv.TransferItemFrom(ingot.Inventory, ingot.Index, null, true, null);
+    rinv.TransferItemFrom(ingot.Owner.GetInventory(ingot.invIdx), ingot.Index, null, true, null);
     ingot = null;
    } else {
-    amount = TryTransfer(ingot.Inventory, rinv, ingot.Index, null, true, (VRage.MyFixedPoint) amount);
+    amount = TryTransfer(ingot.Owner, ingot.invIdx, reactor, 0, ingot.Index, null, true, (VRage.MyFixedPoint) amount);
     if (amount > 0) {
      cur_amount -= amount;
     }
@@ -2433,13 +2439,13 @@ void pushSpareUraniumToStorage() {
   if (inv.GetItems().Count > 1) {
    consolidate(inv);
   }
-  Decimal ingots = getTotalIngots(reactor.GetInventory(0), URANIUM);
+  Decimal ingots = getTotalIngots(reactor, 0, URANIUM);
   Decimal reactor_power_draw = getMaxPowerDraw() *
    (((Decimal) reactor.MaxOutput * 1000M) / (getMaxReactorPowerOutput() + getMaxBatteryPowerOutput()));
   Decimal ingots_per_reactor = getPowerHighWatermark(reactor_power_draw);
   if (ingots > ingots_per_reactor) {
    Decimal amount = ingots - ingots_per_reactor;
-   pushToStorage(inv, 0, (VRage.MyFixedPoint) amount);
+   pushToStorage(reactor, 0, 0, (VRage.MyFixedPoint) amount);
   }
  }
 }
@@ -2547,7 +2553,8 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
  var entries = getAllStorageOre(name);
  foreach (var entry in entries) {
   var item = entry.Item;
-  var srcInv = entry.Inventory;
+  var srcObj = entry.Owner;
+  var invIdx = entry.invIdx;
   var index = entry.Index;
   var orig_amount = Math.Min(target_amount, (Decimal) entry.Item.Amount);
   var cur_amount = orig_amount;
@@ -2556,11 +2563,10 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
    if (skip_list.Contains(connector)) {
     continue;
    }
-   var connector_inv = connector.GetInventory(0);
    var amount = Math.Min(orig_amount / getTrashConnectors().Count, cur_amount);
 
    // send it to connector
-   var transferred = TryTransfer(srcInv, connector_inv, index, null, true,
+   var transferred = TryTransfer(srcObj, invIdx, connector, 0, index, null, true,
     (VRage.MyFixedPoint) amount);
    if (transferred > 0) {
     target_amount -= transferred;
@@ -2595,7 +2601,7 @@ void storeTrash(bool store_all = false) {
     continue;
    }
    // do this ten times
-   if (pushToStorage(inv, i, null) && ++count == 10) {
+   if (pushToStorage(connector, 0, i, null) && ++count == 10) {
     return;
    }
   }
@@ -2647,17 +2653,18 @@ void refineOre() {
    Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
    if (canAcceptOre(input_inv, ore) || ore == ICE) {
     // if we've got a very small amount, send it all
+    var item_inv = item.Owner.GetInventory(item.invIdx);
     if (amount < 1) {
-     if (Transfer(item.Inventory, input_inv, item.Index, input_inv.GetItems().Count, true, null)) {
+     if (Transfer(item.Owner, item.invIdx, refinery, 0, item.Index, input_inv.GetItems().Count, true, null)) {
       break;
      }
     }
     // if refinery is almost empty, send a lot
     else if (input_load < 0.2M) {
      amount = Math.Min(CHUNK_SIZE * 5, orig_amount);
-     item.Inventory.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
+     item_inv.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
     } else {
-     item.Inventory.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
+     item_inv.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
     }
    }
   }
@@ -2808,9 +2815,11 @@ RebalanceResult findMinMax(List < IMyTerminalBlock > blocks) {
 }
 
 // spread ore between two inventories
-bool spreadOre(IMyInventory src_inv, IMyInventory dst_inv) {
+bool spreadOre(IMyTerminalBlock src, int srcIdx, IMyTerminalBlock dst, int dstIdx) {
  bool success = false;
 
+ var src_inv = src.GetInventory(srcIdx);
+ var dst_inv = dst.GetInventory(dstIdx);
  var maxLoad = (Decimal) src_inv.CurrentVolume * 1000M;
  var minLoad = (Decimal) dst_inv.CurrentVolume * 1000M;
 
@@ -2828,7 +2837,7 @@ bool spreadOre(IMyInventory src_inv, IMyInventory dst_inv) {
    tmp = null;
    amount = (Decimal) items[i].Amount;
   }
-  amount = TryTransfer(src_inv, dst_inv, i, null, true, tmp);
+  amount = TryTransfer(src, srcIdx, dst, dstIdx, i, null, true, tmp);
   if (amount > 0) {
    success = true;
    target_volume -= amount * volume;
@@ -2858,9 +2867,9 @@ void rebalanceRefineries() {
  if (oxyresult.maxLoad > 0) {
   bool trySpread = oxyresult.minLoad == 0 || oxyresult.maxLoad / oxyresult.minLoad > ratio;
   if (oxyresult.minIndex != oxyresult.maxIndex && trySpread) {
-   var src_inv = ogs[oxyresult.maxIndex].GetInventory(0);
-   var dst_inv = ogs[oxyresult.minIndex].GetInventory(0);
-   spreadOre(src_inv, dst_inv);
+   var src = ogs[oxyresult.maxIndex];
+   var dst = ogs[oxyresult.minIndex];
+   spreadOre(src, 0, dst, 0);
   }
  }
 
@@ -2873,9 +2882,9 @@ void rebalanceRefineries() {
  if (refresult.maxLoad > 250M) {
   bool trySpread = refresult.minLoad == 0 || refresult.maxLoad / refresult.minLoad > ratio;
   if (refresult.minIndex != refresult.maxIndex && trySpread) {
-   var src_inv = refineries[refresult.maxIndex].GetInventory(0);
-   var dst_inv = refineries[refresult.minIndex].GetInventory(0);
-   if (spreadOre(src_inv, dst_inv)) {
+   var src = refineries[refresult.maxIndex];
+   var dst = refineries[refresult.minIndex];
+   if (spreadOre(src, 0, dst, 0)) {
     refsuccess = true;
    }
   }
@@ -2883,9 +2892,9 @@ void rebalanceRefineries() {
  if (arcresult.maxLoad > 250M) {
   bool trySpread = arcresult.minLoad == 0 || (arcresult.maxLoad / arcresult.minLoad) > ratio;
   if (arcresult.minIndex != arcresult.maxIndex && trySpread) {
-   var src_inv = furnaces[arcresult.maxIndex].GetInventory(0);
-   var dst_inv = furnaces[arcresult.minIndex].GetInventory(0);
-   if (spreadOre(src_inv, dst_inv)) {
+   var src = furnaces[arcresult.maxIndex];
+   var dst = furnaces[arcresult.minIndex];
+   if (spreadOre(src, 0, dst, 0)) {
     arcsuccess = true;
    }
   }
@@ -2903,9 +2912,9 @@ void rebalanceRefineries() {
  bool refToArc = !refsuccess || (refsuccess && refresult.maxIndex != refresult.maxArcIndex);
  refToArc = refToArcRatio > ratio || (arcresult.minLoad == 0 && refresult.maxArcLoad > 0);
  if (refToArc) {
-  var src_inv = refineries[refresult.maxArcIndex].GetInventory(0);
-  var dst_inv = furnaces[arcresult.minIndex].GetInventory(0);
-  if (spreadOre(src_inv, dst_inv)) {
+  var src = refineries[refresult.maxArcIndex];
+  var dst = furnaces[arcresult.minIndex];
+  if (spreadOre(src, 0, dst, 0)) {
    return;
   }
  }
@@ -2918,9 +2927,9 @@ void rebalanceRefineries() {
 
  bool arcToRef = refresult.minLoad == 0 || arcToRefRatio > ratio;
  if (arcToRef) {
-  var src_inv = furnaces[arcresult.maxIndex].GetInventory(0);
-  var dst_inv = refineries[refresult.minIndex].GetInventory(0);
-  spreadOre(src_inv, dst_inv);
+  var src = furnaces[arcresult.maxIndex];
+  var dst = refineries[refresult.minIndex];
+  spreadOre(src, 0, dst, 0);
  }
 }
 
@@ -2970,7 +2979,7 @@ void declogAssemblers() {
   if (assembler.IsQueueEmpty) {
    items = inv.GetItems();
    for (int j = items.Count - 1; j >= 0; j--) {
-    pushToStorage(inv, j, null);
+    pushToStorage(assembler, 0, j, null);
    }
   }
 
@@ -2980,7 +2989,7 @@ void declogAssemblers() {
   if (!assembler.DisassembleEnabled) {
    items = inv.GetItems();
    for (int j = items.Count - 1; j >= 0; j--) {
-    pushToStorage(inv, j, null);
+    pushToStorage(assembler, 1, j, null);
    }
   }
  }
@@ -2992,7 +3001,7 @@ void declogRefineries() {
   var inv = refinery.GetInventory(1);
   var items = inv.GetItems();
   for (int j = items.Count - 1; j >= 0; j--) {
-   pushToStorage(inv, j, null);
+   pushToStorage(refinery, 1, j, null);
   }
  }
 }
@@ -3018,6 +3027,8 @@ void spreadLoad(List < IMyTerminalBlock > blocks) {
  }
  // even out the load between biggest loaded block
  if (minIndex != maxIndex && (minLoad == 0 || maxLoad / minLoad > 1.1M)) {
+  var src = blocks[maxIndex];
+  var dst = blocks[minIndex];
   var src_inv = blocks[maxIndex].GetInventory(0);
   var dst_inv = blocks[minIndex].GetInventory(0);
   var target_volume = (maxVol - minVol) / 2M;
@@ -3035,7 +3046,7 @@ void spreadLoad(List < IMyTerminalBlock > blocks) {
 
    // send one and check load
    Decimal cur_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-   if (!Transfer(src_inv, dst_inv, i, null, true, (VRage.MyFixedPoint) 1)) {
+   if (!Transfer(src, 0, dst, 0, i, null, true, (VRage.MyFixedPoint) 1)) {
     continue;
    }
    Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
