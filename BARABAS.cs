@@ -257,7 +257,7 @@ const int PINK_ALERT = 6;
 const int BROWN_ALERT = 7;
 const int GREEN_ALERT = 8;
 
-public struct Alert {
+public class Alert {
  public Alert(Color c, string t) {
   color = c;
   enabled = false;
@@ -3284,56 +3284,17 @@ void addAlert(int level) {
   return;
  }
  alert.enabled = true;
- text_alerts[level] = alert;
- Alert ? cur_alert = null;
- string text = "";
+
+ StringBuilder sb = new StringBuilder();
 
  removeAntennaAlert(ALERT_LOW_POWER);
  removeAntennaAlert(ALERT_LOW_STORAGE);
  removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
  removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
 
+ alert = null;
  // now, find enabled alerts
- for (int i = 0; i < text_alerts.Count; i++) {
-  alert = text_alerts[i];
-  if (text_alerts[i].enabled) {
-   if (i == BLUE_ALERT) {
-    addAntennaAlert(ALERT_LOW_POWER);
-   } else if (i == YELLOW_ALERT) {
-    addAntennaAlert(ALERT_LOW_STORAGE);
-   } else if (i == RED_ALERT) {
-    addAntennaAlert(ALERT_VERY_LOW_STORAGE);
-   } else if (i == WHITE_ALERT) {
-    addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
-   }
-   if (cur_alert == null) {
-    cur_alert = alert;
-    text += alert.text;
-   } else {
-    text += ", " + alert.text;
-   }
-  }
- }
- displayAntennaAlerts();
- showAlertColor(cur_alert.Value.color);
- status_report[STATUS_ALERT] = text;
-}
-
-void removeAlert(int level) {
- // disable the alert
- var old_alert = text_alerts[level];
- old_alert.enabled = false;
- text_alerts[level] = old_alert;
- // now, see if we should display another alert
- Alert ? alert = null;
- string text = "";
-
- removeAntennaAlert(ALERT_LOW_POWER);
- removeAntennaAlert(ALERT_LOW_STORAGE);
- removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
- removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
-
- // now, find enabled alerts
+ bool first = true;
  for (int i = 0; i < text_alerts.Count; i++) {
   if (text_alerts[i].enabled) {
    if (i == BLUE_ALERT) {
@@ -3347,17 +3308,61 @@ void removeAlert(int level) {
    }
    if (alert == null) {
     alert = text_alerts[i];
-    text += alert.Value.text;
-   } else {
-    text += ", " + text_alerts[i].text;
    }
+   if (!first) {
+    sb.Append(", ");
+   }
+   first = false;
+   sb.Append(alert.text);
   }
  }
- status_report[STATUS_ALERT] = text;
- if (!alert.HasValue) {
+ displayAntennaAlerts();
+ showAlertColor(alert.color);
+ status_report[STATUS_ALERT] = sb.ToString();
+}
+
+void removeAlert(int level) {
+ // disable the alert
+ var alert = text_alerts[level];
+ alert.enabled = false;
+
+ // now, see if we should display another alert
+ var sb = new StringBuilder();
+ alert = null;
+
+ removeAntennaAlert(ALERT_LOW_POWER);
+ removeAntennaAlert(ALERT_LOW_STORAGE);
+ removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
+ removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+
+ // now, find enabled alerts
+ bool first = true;
+ for (int i = 0; i < text_alerts.Count; i++) {
+  if (text_alerts[i].enabled) {
+   if (i == BLUE_ALERT) {
+    addAntennaAlert(ALERT_LOW_POWER);
+   } else if (i == YELLOW_ALERT) {
+    addAntennaAlert(ALERT_LOW_STORAGE);
+   } else if (i == RED_ALERT) {
+    addAntennaAlert(ALERT_VERY_LOW_STORAGE);
+   } else if (i == WHITE_ALERT) {
+    addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+   }
+   if (alert == null) {
+    alert = text_alerts[i];
+   }
+   if (!first) {
+    sb.Append(", ");
+   }
+   first = false;
+   sb.Append(alert.text);
+  }
+ }
+ status_report[STATUS_ALERT] = sb.ToString();
+ if (alert == null) {
   hideAlertColor();
  } else {
-  showAlertColor(alert.Value.color);
+  showAlertColor(alert.color);
  }
  displayAntennaAlerts();
 }
