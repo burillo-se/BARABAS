@@ -3284,7 +3284,7 @@ void addAlert(int level) {
  }
  alert.enabled = true;
 
- StringBuilder sb = new StringBuilder();
+ var sb = new StringBuilder();
 
  removeAntennaAlert(ALERT_LOW_POWER);
  removeAntennaAlert(ALERT_LOW_STORAGE);
@@ -3397,7 +3397,7 @@ bool parseWatermarkStr(string val, out Decimal low, out Decimal high) {
 }
 
 string generateConfiguration() {
- StringBuilder sb = new StringBuilder();
+ var sb = new StringBuilder();
 
  if (isBaseMode()) {
   config_options[CONFIGSTR_OP_MODE] = "base";
@@ -3978,18 +3978,15 @@ void displayStatusReport() {
  displayAntennaAlerts();
 
  // construct panel text
- string panel_text = "";
- Dictionary < string, string > .Enumerator e;
- e = status_report.GetEnumerator();
- while (e.MoveNext()) {
-  var item = e.Current;
-  if (item.Value == "") {
+ var sb = new StringBuilder();
+ foreach (var pair in status_report) {
+  if (pair.Value == "") {
    continue;
   }
-  panel_text += item.Key + ": " + item.Value + "\n";
+  sb.AppendLine(String.Format("{0}: {1}", pair.Key, pair.Value));
  }
  foreach (IMyTextPanel panel in panels) {
-  panel.WritePublicText(panel_text);
+  panel.WritePublicText(sb.ToString());
   panel.WritePublicTitle("BARABAS Notify Report");
   panel.ShowTextureOnScreen();
   panel.ShowPublicTextOnScreen();
@@ -4326,7 +4323,7 @@ void s_updateMaterialStats() {
   }
  }
  bool alert = false;
- StringBuilder sb = new StringBuilder();
+ var sb = new StringBuilder();
  foreach (var ore in ore_types) {
   Decimal total_ingots = 0;
   Decimal total_ore = ore_status[ore];
