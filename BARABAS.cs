@@ -489,7 +489,7 @@ public class GridGraph {
 
 // just have a method to indicate that this exception comes from BARABAS
 class BarabasException: Exception {
- public BarabasException(string msg, Program p): base("BARABAS: " + msg) {
+ public BarabasException(string msg, Program p) : base("BARABAS: " + msg) {
   // calling the getX() functions will set off a chain of events if local data
   // is not initialized, so use locally stored data instead
   var panels = p.local_text_panels;
@@ -4554,7 +4554,12 @@ public void Main() {
  do {
   try {
    states[current_state]();
+  } catch (BarabasException e) {
+   // if we caught our own exception, pass it along
+   Echo(e.StackTrace);
+   throw;
   } catch (Exception e) {
+   Echo(e.StackTrace);
    string msg = String.Format("State: {0} Error: {1}", current_state, e.Message);
    throw new BarabasException(msg, this);
   }
