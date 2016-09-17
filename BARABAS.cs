@@ -1,5 +1,5 @@
 /*
- * BARABAS v1.5beta1
+ * BARABAS v1.5beta2
  *
  * (Burillo's Automatic Resource Administration for BAses and Ships)
  *
@@ -496,6 +496,7 @@ public class GridGraph {
     }
     return false;
   }
+
   // get all grids that are local to source grid (i.e. all grids connected by
   // rotors or pistons)
   public List<IMyCubeGrid> getLocalGrids(IMyCubeGrid src) {
