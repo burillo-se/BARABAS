@@ -294,6 +294,8 @@ IMyTextPanel config_block = null;
 List < IMyCubeGrid > local_grids = null;
 List < IMyCubeGrid > remote_base_grids = null;
 List < IMyCubeGrid > remote_ship_grids = null;
+Dictionary<IMyCubeGrid, GridData> remote_grid_data = null;
+GridData local_grid_data = null;
 
 // alert levels, in priority order
 const int RED_ALERT = 0;
@@ -420,6 +422,105 @@ public struct ItemHelper {
   public int Index;
 }
 
+// data we store about a grid
+// technically, while we use this class to store data about grids, what we
+// really want is to have an instance of this class per grid collection, i.e.
+// all grids that are local to each other (connected by rotors or pistons)
+public class GridData {
+  public bool has_thrusters;
+  public bool has_wheels;
+  public bool has_welders;
+  public bool has_grinders;
+  public bool has_drills;
+  public bool override_ship;
+  public bool override_base;
+}
+
+// grid graph edge class, represents a connection point between two grids, noting
+// if this connection is via a connector (i.e. if it's an external grid connection)
+public class GridGraphEdge {
+  public GridGraphEdge(IMyCubeGrid src_in, IMyCubeGrid dst_in, bool connector_in) {
+    src = src_in;
+    dst = dst_in;
+    is_connector = connector_in;
+  }
+  public IMyCubeGrid src;
+  public IMyCubeGrid dst;
+  public bool is_connector;
+}
+
+// comparer for graph edges
+public class GridGraphEdgeComparer : IEqualityComparer<GridGraphEdge> {
+  public int GetHashCode(GridGraphEdge e) {
+    int hash = 13;
+    hash = (hash * 7) + (e.src.GetHashCode() * e.dst.GetHashCode());
+    hash = (hash * 7) + e.is_connector.GetHashCode();
+    return hash;
+  }
+  public bool Equals(GridGraphEdge e1, GridGraphEdge e2) {
+    if (e1.is_connector != e2.is_connector) {
+      return false;
+    }
+    if (e1.src == e2.src && e1.dst == e2.dst) {
+      return true;
+    }
+    if (e1.src == e2.dst && e1.dst == e2.src) {
+      return true;
+    }
+    return false;
+  }
+}
+
+// our grid graph
+public class GridGraph {
+  public GridGraph() {
+    edges = new HashSet<GridGraphEdge>(new GridGraphEdgeComparer());
+  }
+  // add an edge to the graph
+  public bool addEdge(IMyCubeGrid src, IMyCubeGrid dst, bool is_connector) {
+    var t = new GridGraphEdge(src, dst, is_connector);
+    // avoid adding the same edge twice
+    if (!edges.Contains(t)) {
+      edges.Add(t);
+      return true;
+    }
+    return false;
+  }
+  // get all grids that are local to source grid (i.e. all grids connected by
+  // rotors or pistons)
+  public List<IMyCubeGrid> getLocalGrids(IMyCubeGrid src) {
+    var grids = new List<IMyCubeGrid>();
+    var seen = new HashSet<IMyCubeGrid>();
+    grids.Add(src);
+    seen.Add(src);
+    foreach (var edge in edges) {
+      if (!edge.is_connector && seen.Contains(edge.src) && !seen.Contains(edge.dst)) {
+        grids.Add(edge.dst);
+        seen.Add(edge.dst);
+      }
+      if (!edge.is_connector && seen.Contains(edge.dst) && !seen.Contains(edge.src)) {
+        grids.Add(edge.src);
+        seen.Add(edge.src);
+      }
+    }
+    return grids;
+  }
+  // get all neighboring (connected by connectors) grid entry points
+  public List<GridGraphEdge> getGridConnections() {
+    var list = new List<GridGraphEdge>();
+
+    // now, go through the list and see if there are any connector edges
+    foreach (var edge in edges) {
+      if (!edge.is_connector) {
+        continue;
+      }
+      list.Add(edge);
+    }
+    return list;
+  }
+  HashSet<GridGraphEdge> edges;
+}
+
 // just have a method to indicate that this exception comes from BARABAS
 class BarabasException: Exception {
   public BarabasException(string msg, Program p): base("BARABAS: " + msg) {
@@ -454,21 +555,11 @@ bool excludeBlock(IMyTerminalBlock block) {
   return false;
 }
 
-// this includes ALL local blocks, used for purposes of calculating max power consumption
-bool localGridDumbFilter(IMyTerminalBlock block) {
-  if (!(block as IMyCubeBlock).IsFunctional) {
-    return false;
-  }
-  return getLocalGrids().Contains(block.CubeGrid);
-}
 bool localGridFilter(IMyTerminalBlock block) {
-  if (block.CustomName.StartsWith("X")) {
+  if (excludeBlock(block)) {
     return false;
   }
   return getLocalGrids().Contains(block.CubeGrid);
-}
-bool pbGridDumbFilter(IMyTerminalBlock block) {
-  return block.CubeGrid == Me.CubeGrid;
 }
 /*
  * Difference between remoteGridFilter and remoteGridDumbFilter is that
@@ -483,13 +574,6 @@ bool remoteGridFilter(IMyTerminalBlock block) {
   }
   return getRemoteGrids().Contains(block.CubeGrid);
 }
-// this filter is not supposed to be used in normal code
-bool remoteGridDumbFilter(IMyTerminalBlock block) {
-  if (excludeBlock(block)) {
-    return false;
-  }
-  return !getLocalGrids().Contains(block.CubeGrid);
-}
 // this filter only gets remote ships - used for tug mode
 bool shipFilter(IMyTerminalBlock block) {
   if (excludeBlock(block)) {
@@ -501,20 +585,6 @@ bool shipFilter(IMyTerminalBlock block) {
 /**
  * Grid and block functions
  */
-// template functions for filtering blocks
-public void filterBlocks < T > (List < IMyTerminalBlock > list, string name_filter = null, string definition_filter = null) {
-  for (int i = list.Count - 1; i >= 0; i--) {
-    var block = list[i];
-    if (!(block is T)) {
-      list.RemoveAt(i);
-    } else if (name_filter != null && block.CustomName != name_filter) {
-      list.RemoveAt(i);
-    } else if (definition_filter != null && !block.BlockDefinition.ToString().Contains(definition_filter)) {
-      list.RemoveAt(i);
-    }
-  }
-}
-
 public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks) {
   var grids = getLocalGrids();
   for (int i = blocks.Count - 1; i >= 0; i--) {
@@ -528,17 +598,14 @@ public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks) {
 
 // remove null blocks from list
 HashSet<List<IMyTerminalBlock>> null_list;
-List<IMyTerminalBlock> removeNulls(List<IMyTerminalBlock> list, int invCount) {
-  if (invCount == 0) {
-    return list;
-  }
+List<IMyTerminalBlock> removeNulls(List<IMyTerminalBlock> list) {
   if (null_list.Contains(list)) {
     return list;
   }
   null_list.Add(list);
   for (int i = list.Count - 1; i >= 0; i--) {
    var block = list[i];
-   if (block.GetInventoryCount() != invCount) {
+   if (!block.IsFunctional) {
      blocks_to_alerts.Remove(block);
      list.RemoveAt(i);
    }
@@ -548,15 +615,6 @@ List<IMyTerminalBlock> removeNulls(List<IMyTerminalBlock> list, int invCount) {
 
 IMySlimBlock slimBlock(IMyTerminalBlock block) {
   return block.CubeGrid.GetCubeBlock(block.Position);
-}
-
-IMyTerminalBlock findBlockById(IMyTerminalBlock block, List<IMyTerminalBlock> blocks) {
-  foreach (var cur in blocks) {
-    if (cur.ToString() == block.ToString()) {
-      return cur;
-    }
-  }
-  return null;
 }
 
 List<IMyTerminalBlock> randomSubset(List<IMyTerminalBlock> list, int limit) {
@@ -586,11 +644,10 @@ List<IMyTerminalBlock> randomSubset(List<IMyTerminalBlock> list, int limit) {
 // get local blocks
 List < IMyTerminalBlock > getBlocks(bool force_update = false) {
   if (local_blocks != null && !force_update) {
-    return local_blocks;
+    return removeNulls(local_blocks);
   }
-  local_blocks = new List < IMyTerminalBlock > ();
-  GridTerminalSystem.GetBlocksOfType
-          < IMyTerminalBlock > (local_blocks, localGridFilter);
+  filterLocalGrid < IMyTerminalBlock > (local_blocks);
+
   bool alert = false;
   // check if we have unfinished blocks
   for (int i = local_blocks.Count - 1; i >= 0; i--) {
@@ -598,9 +655,6 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
     if (!slimBlock(block).IsFullIntegrity) {
       alert = true;
       addBlockAlert(block, ALERT_DAMAGED);
-      if (!block.IsFunctional) {
-        local_blocks.RemoveAt(i);
-      }
     } else {
       removeBlockAlert(block, ALERT_DAMAGED);
     }
@@ -616,10 +670,9 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
 
 List < IMyTerminalBlock > getReactors(bool force_update = false) {
   if (local_reactors != null && !force_update) {
-    return removeNulls(local_reactors, 1);
+    return removeNulls(local_reactors);
   }
-  local_reactors = new List < IMyTerminalBlock > (getBlocks());
-  filterBlocks < IMyReactor > (local_reactors);
+  filterLocalGrid < IMyReactor > (local_reactors);
   foreach (var reactor in local_reactors) {
     var inv = reactor.GetInventory(0);
     if (inv.GetItems().Count > 1) {
@@ -631,10 +684,9 @@ List < IMyTerminalBlock > getReactors(bool force_update = false) {
 
 List < IMyTerminalBlock > getBatteries(bool force_update = false) {
   if (local_batteries != null && !force_update) {
-    return local_batteries;
+    return removeNulls(local_batteries);
   }
-  local_batteries = new List < IMyTerminalBlock > (getBlocks());
-  filterBlocks < IMyBatteryBlock > (local_batteries);
+  filterLocalGrid < IMyBatteryBlock > (local_batteries);
   for (int i = local_batteries.Count - 1; i >= 0; i--) {
     if ((local_batteries[i] as IMyBatteryBlock).OnlyRecharge) {
       local_batteries.RemoveAt(i);
@@ -645,10 +697,9 @@ List < IMyTerminalBlock > getBatteries(bool force_update = false) {
 
 List < IMyTerminalBlock > getStorage(bool force_update = false) {
   if (local_storage != null && !force_update) {
-    return removeNulls(local_storage, 1);
+    return removeNulls(local_storage);
   }
-  local_storage = new List < IMyTerminalBlock > (getBlocks());
-  filterBlocks < IMyCargoContainer > (local_storage);
+  filterLocalGrid < IMyCargoContainer > (local_storage);
   foreach (var storage in local_storage) {
     var inv = storage.GetInventory(0);
     consolidate(inv);
@@ -662,11 +713,10 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
     if (!null_list.Contains(local_refineries_subset)) {
       local_refineries_subset = randomSubset(local_refineries, 50);
     }
-    return removeNulls(local_refineries_subset, 2);
+    return removeNulls(local_refineries_subset);
   }
   refineries_clogged = false;
-  local_refineries = new List < IMyTerminalBlock > (getBlocks());
-  filterBlocks < IMyRefinery > (local_refineries, null, "LargeRefinery");
+  filterLocalGrid < IMyRefinery > (local_refineries);
   foreach (IMyRefinery refinery in local_refineries) {
     var input_inv = refinery.GetInventory(0);
     var output_inv = refinery.GetInventory(1);
@@ -692,11 +742,10 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
     if (!null_list.Contains(local_arc_furnaces_subset)) {
       local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 30);
     }
-    return removeNulls(local_arc_furnaces_subset, 2);
+    return removeNulls(local_arc_furnaces_subset);
   }
   arc_furnaces_clogged = false;
-  local_arc_furnaces = new List < IMyTerminalBlock > (getBlocks());
-  filterBlocks < IMyRefinery > (local_arc_furnaces, null, "Blast Furnace");
+  filterLocalGrid < IMyRefinery > (local_arc_furnaces);
   foreach (IMyRefinery furnace in local_arc_furnaces) {
     var input_inv = furnace.GetInventory(0);
     var output_inv = furnace.GetInventory(1);
@@ -725,16 +774,15 @@ List < IMyTerminalBlock > getAllRefineries() {
     local_all_refineries.AddRange(getRefineries());
     local_all_refineries.AddRange(getArcFurnaces());
   }
-  return removeNulls(local_all_refineries, 2);
+  return removeNulls(local_all_refineries);
 }
 
 List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
   if (local_assemblers != null && !force_update) {
-    return removeNulls(local_assemblers, 2);
+    return removeNulls(local_assemblers);
   }
   assemblers_clogged = false;
-  local_assemblers = new List < IMyTerminalBlock > (getBlocks());
-  filterBlocks < IMyAssembler > (local_assemblers);
+  filterLocalGrid < IMyAssembler > (local_assemblers);
   for (int i = local_assemblers.Count - 1; i >= 0; i--) {
     var block = local_assemblers[i] as IMyAssembler;
     if (block.DisassembleEnabled) {
@@ -764,10 +812,9 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
 
 List < IMyTerminalBlock > getConnectors(bool force_update = false) {
   if (local_connectors != null && !force_update) {
-    return removeNulls(local_connectors, 1);
+    return removeNulls(local_connectors);
   }
-  local_connectors = new List < IMyTerminalBlock > (getBlocks());
-  filterBlocks < IMyShipConnector > (local_connectors);
+  filterLocalGrid < IMyShipConnector > (local_connectors);
   foreach (IMyShipConnector connector in local_connectors) {
     consolidate(connector.GetInventory(0));
     // prepare the connector
@@ -785,54 +832,41 @@ List < IMyTerminalBlock > getConnectors(bool force_update = false) {
 // get notification lights
 List < IMyTerminalBlock > getLights(bool force_update = false) {
   if (local_lights != null && !force_update) {
-    return local_lights;
+    return removeNulls(local_lights);
   }
   // find our group
   local_lights = new List < IMyTerminalBlock > ();
-  var groups = new List<IMyBlockGroup>();
-  GridTerminalSystem.GetBlockGroups(groups);
-  foreach (var group in groups) {
-    // skip groups we don't want
-    if (group.Name != "BARABAS Notify") {
-      continue;
-    }
-    group.GetBlocks(local_lights);
-
-    // we may find multiple Notify groups, as we may have a BARABAS-driven
-    // ships connected, so let's filter lights
-    filterLocalGrid < IMyLightingBlock > (local_lights);
-
-    break;
+  var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
+  if (group != null) {
+    group.GetBlocks(local_lights, localGridFilter);
   }
+  filterLocalGrid < IMyLightingBlock > (local_lights);
   return local_lights;
 }
 
 // get status report text panels
 List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
   if (local_text_panels != null && !force_update) {
-    return local_text_panels;
+    return removeNulls(local_text_panels);
   }
   // find our group
   local_text_panels = new List < IMyTerminalBlock > ();
-  var groups = new List<IMyBlockGroup>();
-  GridTerminalSystem.GetBlockGroups(groups);
-  foreach (var group in groups) {
-    // skip groups we don't want
-    if (group.Name != "BARABAS Notify") {
-      continue;
-    }
-    group.GetBlocks(local_text_panels);
-    // we may find multiple Status groups, as we may have a BARABAS-driven
-    // ships connected, so let's filter text panels
-    filterLocalGrid < IMyTextPanel > (local_text_panels);
 
-    // if the user accidentally included a config block into this group,
-    // notify him immediately
-    if (local_text_panels.Contains(getConfigBlock() as IMyTerminalBlock)) {
-      throw new BarabasException("Configuration text panel should not " +
-        "be part of BARABAS Notify group", this);
-    }
-    break;
+  var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
+
+  if (group != null) {
+    group.GetBlocks(local_text_panels, localGridFilter);
+  }
+
+  // we may find multiple Status groups, as we may have a BARABAS-driven
+  // ships connected, so let's filter text panels
+  filterLocalGrid < IMyTextPanel > (local_text_panels);
+
+  // if the user accidentally included a config block into this group,
+  // notify him immediately
+  if (local_text_panels.Contains(getConfigBlock() as IMyTerminalBlock)) {
+    throw new BarabasException("Configuration text panel should not " +
+      "be part of BARABAS Notify group", this);
   }
   return local_text_panels;
 }
@@ -840,17 +874,13 @@ List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
 // get status report text panels
 List < IMyTerminalBlock > getAntennas(bool force_update = false) {
   if (local_text_panels != null && !force_update) {
-    return local_antennas;
+    return removeNulls(local_antennas);
   }
   // find our group
   local_antennas = new List < IMyTerminalBlock > ();
-  var groups = new List<IMyBlockGroup>();
-  GridTerminalSystem.GetBlockGroups(groups);
-  foreach (var group in groups) {
-    // skip groups we don't want
-    if (group.Name != "BARABAS Notify") {
-      continue;
-    }
+  var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
+
+  if (group != null) {
     var tmp_antennas = new List<IMyTerminalBlock>();
     var tmp_beacons = new List<IMyTerminalBlock>();
     var tmp_laser = new List<IMyTerminalBlock>();
@@ -868,17 +898,16 @@ List < IMyTerminalBlock > getAntennas(bool force_update = false) {
     local_antennas.AddRange(tmp_beacons);
     local_antennas.AddRange(tmp_antennas);
     local_antennas.AddRange(tmp_laser);
-
-    break;
   }
+
   return local_antennas;
 }
 
 List < IMyTerminalBlock > getDrills(bool force_update = false) {
   if (local_drills != null && !force_update) {
-    return removeNulls(local_drills, 1);
+    return removeNulls(local_drills);
   }
-  filterBlocks < IMyShipDrill > (local_drills);
+  filterLocalGrid < IMyShipDrill > (local_drills);
   foreach (var drill in local_drills) {
     consolidate(drill.GetInventory(0));
   }
@@ -887,9 +916,9 @@ List < IMyTerminalBlock > getDrills(bool force_update = false) {
 
 List < IMyTerminalBlock > getGrinders(bool force_update = false) {
   if (local_grinders != null && !force_update) {
-    return removeNulls(local_grinders, 1);
+    return removeNulls(local_grinders);
   }
-  filterBlocks < IMyShipGrinder > (local_grinders);
+  filterLocalGrid < IMyShipGrinder > (local_grinders);
   foreach (var grinder in local_grinders) {
     consolidate(grinder.GetInventory(0));
   }
@@ -897,101 +926,46 @@ List < IMyTerminalBlock > getGrinders(bool force_update = false) {
 }
 
 List < IMyTerminalBlock > getWelders(bool force_update = false) {
-	if (local_welders != null && !force_update) {
-		return removeNulls(local_welders, 1);
-	}
-	local_welders = new List < IMyTerminalBlock > (getBlocks());
-	filterBlocks < IMyShipWelder > (local_welders);
-	foreach (var welder in local_welders) {
-		consolidate(welder.GetInventory(0));
-	}
-	return local_welders;
-}
-
-List<IMyTerminalBlock> getTanks(string type) {
-	var list = new List < IMyTerminalBlock > (getBlocks());
-	filterBlocks < IMyOxygenTank > (list, null, type);
-	return list;
+  if (local_welders != null && !force_update) {
+    return removeNulls(local_welders);
+  }
+  filterLocalGrid < IMyShipWelder > (local_welders);
+  foreach (var welder in local_welders) {
+    consolidate(welder.GetInventory(0));
+  }
+  return local_welders;
 }
 
 List < IMyTerminalBlock > getAirVents(bool force_update = false) {
   if (local_air_vents != null && !force_update) {
-    return local_air_vents;
+    return removeNulls(local_air_vents);
   }
-  local_air_vents = new List < IMyTerminalBlock > (getBlocks());
-  filterBlocks < IMyAirVent > (local_air_vents);
+  filterLocalGrid < IMyAirVent > (local_air_vents);
   return local_air_vents;
 }
 
 List < IMyTerminalBlock > getOxygenTanks(bool force_update = false) {
-	if (local_oxygen_tanks != null && !force_update) {
-		return local_oxygen_tanks;
-	}
-	local_oxygen_tanks = getTanks("Oxygen");
-	// hydrogen tanks are counted as oxygen tanks here, so filter them out
-	for (int i = local_oxygen_tanks.Count - 1; i >= 0; i--) {
-		var block = local_oxygen_tanks[i];
-		if (block.BlockDefinition.ToString().Contains("Hydrogen")) {
-			local_oxygen_tanks.RemoveAt(i);
-		}
-	}
-	return local_oxygen_tanks;
+  if (local_oxygen_tanks != null && !force_update) {
+    return removeNulls(local_oxygen_tanks);
+  }
+  filterLocalGrid < IMyOxygenTank >(local_oxygen_tanks);
+  return local_oxygen_tanks;
 }
 
 List < IMyTerminalBlock > getHydrogenTanks(bool force_update = false) {
-	if (local_hydrogen_tanks != null && !force_update) {
-		return local_hydrogen_tanks;
-	}
-	local_hydrogen_tanks = getTanks("Hydrogen");
-	return local_hydrogen_tanks;
+  if (local_hydrogen_tanks != null && !force_update) {
+    return removeNulls(local_hydrogen_tanks);
+  }
+  filterLocalGrid < IMyOxygenTank >(local_hydrogen_tanks);
+  return local_hydrogen_tanks;
 }
 
 List < IMyTerminalBlock > getOxygenGenerators(bool force_update = false) {
-	if (local_oxygen_generators != null && !force_update) {
-		return removeNulls(local_oxygen_generators, 1);
-	}
-	local_oxygen_generators = new List < IMyTerminalBlock > (getBlocks());
-	filterBlocks < IMyOxygenGenerator > (local_oxygen_generators);
-	return local_oxygen_generators;
-}
-
-string getGridId(string val) {
-	var regex = new System.Text.RegularExpressions.Regex("\\{([\\dA-F]+)\\}");
-	var match = regex.Match(val);
-	if (!match.Success || !match.Groups[1].Success) {
-		throw new BarabasException("Unknown grid id format", this);
-	}
-	return match.Groups[1].Value;
-}
-
-void loadLocalGrids(List < IMyCubeGrid > grids) {
-	grids.Add(Me.CubeGrid);
-	if (Storage.Length > 0) {
-		var tentative_grids = new List < IMyCubeGrid > ();
-		var blocks = new List < IMyTerminalBlock > ();
-		string[] ids = Storage.Split(':');
-		GridTerminalSystem.GetBlocksOfType < IMyTerminalBlock > (blocks);
-		foreach (var block in blocks) {
-			var grid = block.CubeGrid;
-			if (!tentative_grids.Contains(grid)) {
-				tentative_grids.Add(grid);
-				// check if we know this grid
-				var str = getGridId(grid.ToString());
-				if (Array.IndexOf(ids, str) != -1) {
-					grids.Add(grid);
-				}
-			}
-		}
-	}
-}
-
-void saveLocalGrids(List < IMyCubeGrid > grids) {
-	StringBuilder sb = new StringBuilder();
-	foreach (var grid in grids) {
-		sb.Append(getGridId(grid.ToString()));
-		sb.Append(":");
-	}
-	Storage = sb.ToString();
+  if (local_oxygen_generators != null && !force_update) {
+    return removeNulls(local_oxygen_generators);
+  }
+  filterLocalGrid < IMyOxygenGenerator > (local_oxygen_generators);
+  return local_oxygen_generators;
 }
 
 IMyCubeGrid findGrid(Vector3D world_pos, IMyCubeGrid self, List<IMyCubeGrid> grids) {
@@ -1008,7 +982,15 @@ IMyCubeGrid findGrid(Vector3D world_pos, IMyCubeGrid self, List<IMyCubeGrid> gri
 }
 
 IMyCubeGrid getConnectedGrid(IMyShipConnector connector) {
-	return connector.IsConnected ? connector.OtherConnector.CubeGrid : null;
+  if (!connector.IsConnected) {
+    return null;
+  }
+  // skip connectors connecting to the same grid
+  var other = connector.OtherConnector;
+  if (other.CubeGrid == connector.CubeGrid) {
+    return null;
+  }
+  return other.CubeGrid;
 }
 
 IMyCubeGrid getConnectedGrid(IMyMotorBase rotor, List<IMyCubeGrid> grids) {
@@ -1043,177 +1025,220 @@ IMyCubeGrid getConnectedGrid(IMyPistonBase piston, List<IMyCubeGrid> grids) {
 
 // getting local grids is not trivial, we're basically doing some heuristics
 List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
-	if (local_grids != null && !force_update) {
-		return local_grids;
-	}
-	var tentative_grids = new List < IMyCubeGrid > ();
-	tentative_grids.Add(Me.CubeGrid);
+  if (local_grids != null && !force_update) {
+    return local_grids;
+  }
 
-	// get all connectors
-	List < IMyTerminalBlock > list = new List < IMyTerminalBlock > ();
-	GridTerminalSystem.GetBlocksOfType < IMyShipConnector > (list);
-	// assume any grid we will find is local, unless we encounter a locked
-	// connector, in which case we either don't update the list at all, or, if
-	// this is our first time, go with guaranteed-local grid only
-	foreach (IMyShipConnector connector in list) {
-		if (connector.IsConnected) {
-			// see if it's on the same grid
-			var other = connector.OtherConnector;
-			if (!local_grids.Contains(other.CubeGrid)) {
-				return local_grids;
-			}
-		}
-		if (!tentative_grids.Contains(connector.CubeGrid)) {
-			tentative_grids.Add(connector.CubeGrid);
-		}
-	}
-	var blocks = new List < IMyTerminalBlock > ();
-	GridTerminalSystem.GetBlocksOfType < IMyLightingBlock > (blocks);
-	foreach (var block in blocks) {
-		if (!tentative_grids.Contains(block.CubeGrid)) {
-			tentative_grids.Add(block.CubeGrid);
-		}
-	}
-	local_grids = tentative_grids;
-	return local_grids;
+  // clear all lists
+  local_blocks = new List<IMyTerminalBlock>();
+  local_reactors = new List<IMyTerminalBlock>();
+  local_batteries = new List<IMyTerminalBlock>();
+  local_refineries = new List<IMyTerminalBlock>();
+  local_arc_furnaces = new List<IMyTerminalBlock>();
+  local_assemblers = new List<IMyTerminalBlock>();
+  local_connectors = new List<IMyTerminalBlock>();
+  local_storage = new List<IMyTerminalBlock>();
+  local_drills = new List<IMyTerminalBlock>();
+  local_grinders = new List<IMyTerminalBlock>();
+  local_welders = new List<IMyTerminalBlock>();
+  local_air_vents = new List<IMyTerminalBlock>();
+  local_oxygen_tanks = new List<IMyTerminalBlock>();
+  local_hydrogen_tanks = new List<IMyTerminalBlock>();
+  local_oxygen_generators = new List<IMyTerminalBlock>();
+  var pistons = new List<IMyTerminalBlock>();
+  var rotors = new List<IMyTerminalBlock>();
+
+  var tmp_grid_data = new Dictionary<IMyCubeGrid, GridData>();
+
+  GridTerminalSystem.GetBlocks(local_blocks);
+
+  foreach (var block in local_blocks) {
+    GridData data;
+    if (!tmp_grid_data.TryGetValue(block.CubeGrid, out data)) {
+      data = new GridData();
+      tmp_grid_data.Add(block.CubeGrid, data);
+    }
+
+    // fill all lists
+    if (block is IMyReactor) {
+      local_reactors.Add(block);
+    } else if (block is IMyBatteryBlock) {
+      local_batteries.Add(block);
+    } else if (block is IMyRefinery) {
+      if (block.BlockDefinition.ToString().Contains("LargeRefinery")) {
+        local_refineries.Add(block);
+      } else {
+        local_arc_furnaces.Add(block);
+      }
+    } else if (block is IMyAssembler) {
+      local_assemblers.Add(block);
+    } else if (block is IMyShipConnector) {
+      local_connectors.Add(block);
+    } else if (block is IMyCargoContainer) {
+      local_storage.Add(block);
+    } else if (block is IMyShipDrill) {
+      local_drills.Add(block);
+      data.has_drills = true;
+    } else if (block is IMyShipGrinder) {
+      local_grinders.Add(block);
+      data.has_grinders = true;
+    } else if (block is IMyShipWelder) {
+      local_welders.Add(block);
+      data.has_welders = true;
+    } else if (block is IMyAirVent) {
+      local_air_vents.Add(block);
+    } else if (block is IMyOxygenTank) {
+      if (block.BlockDefinition.ToString().Contains("Hydrogen")) {
+        local_hydrogen_tanks.Add(block);
+      } else {
+        local_oxygen_tanks.Add(block);
+      }
+    } else if (block is IMyOxygenGenerator) {
+      local_oxygen_generators.Add(block);
+    } else if (block is IMyPistonBase) {
+      pistons.Add(block);
+    } else if (block is IMyMotorBase) {
+      rotors.Add(block);
+    } else if (block is IMyMotorSuspension) {
+      data.has_wheels = true;
+    } else if (block is IMyThrust) {
+      data.has_thrusters = true;
+    } else if (block is IMyProgrammableBlock && block != Me && block.CubeGrid != Me.CubeGrid) {
+      if (block.CustomName == "BARABAS Ship CPU") {
+        data.override_ship = true;
+      } else if (block.CustomName == "BARABAS Base CPU") {
+        data.override_base = true;
+      }
+    }
+  }
+
+  // bool is
+  var graph = new GridGraph();
+  var grids = new List<IMyCubeGrid>(tmp_grid_data.Keys);
+
+  // first, go through all pistons
+  foreach (IMyPistonBase piston in pistons) {
+    var connected_grid = getConnectedGrid(piston, grids);
+
+    if (connected_grid != null) {
+      graph.addEdge(piston.CubeGrid, connected_grid, false).ToString();
+    }
+  }
+
+  // do the same for rotors
+  foreach (IMyMotorBase rotor in rotors) {
+    var connected_grid = getConnectedGrid(rotor, grids);
+
+    if (connected_grid != null) {
+      graph.addEdge(rotor.CubeGrid, connected_grid, false).ToString();
+    }
+  }
+
+  // do the same for connectors
+  foreach (IMyShipConnector connector in local_connectors) {
+    var connected_grid = getConnectedGrid(connector);
+
+    if (connected_grid != null) {
+      graph.addEdge(connector.CubeGrid, connected_grid, true).ToString();
+    }
+  }
+
+  // now, get our actual local grid
+  local_grids = new List<IMyCubeGrid>();
+  local_grids = graph.getLocalGrids(Me.CubeGrid);
+
+  // store our new local grid data
+  local_grid_data = new GridData();
+  foreach (var grid in local_grids) {
+    local_grid_data.has_wheels |= tmp_grid_data[grid].has_wheels;
+    local_grid_data.has_thrusters |= tmp_grid_data[grid].has_thrusters;
+    local_grid_data.has_drills |= tmp_grid_data[grid].has_drills;
+    local_grid_data.has_grinders |= tmp_grid_data[grid].has_grinders;
+    local_grid_data.has_welders |= tmp_grid_data[grid].has_welders;
+    local_grid_data.override_base |= tmp_grid_data[grid].override_base;
+    local_grid_data.override_ship |= tmp_grid_data[grid].override_ship;
+  }
+
+  var connections = graph.getGridConnections();
+  var seen = new HashSet<IMyCubeGrid>(local_grids);
+
+  Echo("seen: " + seen.Count);
+  Echo("connections: " + connections.Count);
+
+  remote_grid_data = new Dictionary<IMyCubeGrid, GridData>();
+
+  foreach (var e in connections) {
+    GridData data;
+    if (!seen.Contains(e.src)) {
+      var r_grids = graph.getLocalGrids(e.src);
+      if (!remote_grid_data.TryGetValue(e.src, out data)) {
+        data = new GridData();
+      }
+      foreach (var g in r_grids) {
+        data.has_wheels |= tmp_grid_data[g].has_wheels;
+        data.has_thrusters |= tmp_grid_data[g].has_thrusters;
+        data.has_drills |= tmp_grid_data[g].has_drills;
+        data.has_grinders |= tmp_grid_data[g].has_grinders;
+        data.has_welders |= tmp_grid_data[g].has_welders;
+        data.override_base |= tmp_grid_data[g].override_base;
+        data.override_ship |= tmp_grid_data[g].override_ship;
+        remote_grid_data.Add(g, data);
+        seen.Add(g);
+      }
+    }
+    if (!seen.Contains(e.dst)) {
+      var r_grids = graph.getLocalGrids(e.dst);
+      if (!remote_grid_data.TryGetValue(e.dst, out data)) {
+        data = new GridData();
+      }
+      foreach (var g in r_grids) {
+        data.has_wheels |= tmp_grid_data[g].has_wheels;
+        data.has_thrusters |= tmp_grid_data[g].has_thrusters;
+        data.override_base |= tmp_grid_data[g].override_base;
+        data.override_ship |= tmp_grid_data[g].override_ship;
+        remote_grid_data.Add(g, data);
+        seen.Add(g);
+      }
+    }
+  }
+
+  return local_grids;
 }
 
 // a process of getting remote grids comprises getting all non-local storage
 // containers and determining whether they are ship grids or base grids by checking
 // if there are thrusters on the same grid
 void findRemoteGrids() {
-	var base_grids = new List < IMyCubeGrid > ();
-	var ship_grids = new List < IMyCubeGrid > ();
-	var skip_grids = new List < IMyCubeGrid > ();
+  if (remote_grid_data.Count == 0) {
+    remote_base_grids = new List < IMyCubeGrid > ();
+    remote_ship_grids = new List < IMyCubeGrid > ();
+    connected_to_base = false;
+    connected_to_ship = false;
+    connected = false;
+    return;
+  }
+  var base_grids = new List < IMyCubeGrid > ();
+  var ship_grids = new List < IMyCubeGrid > ();
 
-	// first, get all remote storage
-	List < IMyTerminalBlock > list = new List < IMyTerminalBlock > ();
-	GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (list, remoteGridDumbFilter);
-
-	// reset all grids
-	if (list.Count == 0) {
-		remote_base_grids = new List < IMyCubeGrid > ();
-		remote_ship_grids = new List < IMyCubeGrid > ();
-		connected_to_base = false;
-		connected_to_ship = false;
-		connected = false;
-		return;
-	}
-
-	// find all remote thrusters
-	List < IMyTerminalBlock > thrusters = new List < IMyTerminalBlock > ();
-	List < IMyTerminalBlock > wheels = new List < IMyTerminalBlock > ();
-	List < IMyTerminalBlock > pb = new List < IMyTerminalBlock > ();
-	GridTerminalSystem.GetBlocksOfType < IMyThrust > (thrusters, remoteGridDumbFilter);
-	GridTerminalSystem.GetBlocksOfType < IMyMotorSuspension > (wheels, remoteGridDumbFilter);
-	GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (pb, remoteGridDumbFilter);
-
-	// find any thruster grids that also have storage on the same grid
-	foreach (var thruster in thrusters) {
-		var thruster_grid = thruster.CubeGrid;
-		bool found = false;
-		// if we already seen this grid, skip
-		if (skip_grids.Contains(thruster_grid) || ship_grids.Contains(thruster_grid)) {
-			continue;
-		}
-		for (int j = list.Count - 1; j >= 0; j--) {
-			var grid = list[j].CubeGrid;
-			if (thruster_grid == grid) {
-				// assume it's a ship
-				if (!ship_grids.Contains(thruster_grid)) {
-					ship_grids.Add(thruster_grid);
-				}
-				list.RemoveAt(j);
-				found = true;
-				// go on and see if any other block in the list is on the same grid
-			}
-		}
-		// we don't know what the hell it is
-		if (!found) {
-			skip_grids.Add(thruster_grid);
-		}
-	}
-	skip_grids.Clear();
-	foreach (var wheel in wheels) {
-		var wheel_grid = wheel.CubeGrid;
-		bool found = false;
-		// if we already seen this grid, skip
-		if (skip_grids.Contains(wheel_grid) || ship_grids.Contains(wheel_grid)) {
-			continue;
-		}
-		for (int j = list.Count - 1; j >= 0; j--) {
-			var grid = list[j].CubeGrid;
-			if (wheel_grid == grid) {
-				// assume it's a ship
-				if (!ship_grids.Contains(wheel_grid)) {
-					ship_grids.Add(wheel_grid);
-				}
-				list.RemoveAt(j);
-				found = true;
-				// go on and see if any other block in the list is on the same grid
-			}
-		}
-		// we don't know what the hell it is
-		if (!found) {
-			skip_grids.Add(wheel_grid);
-		}
-	}
-
-	// if we're a ship, anything that wasn't filtered out previously, is a base
-	// grid, otherwise assume it's a ship.
-	var add_list = isShipMode() ? base_grids : ship_grids;
-	foreach (var block in list) {
-		var grid = block.CubeGrid;
-		if (!add_list.Contains(grid)) {
-			add_list.Add(grid);
-		}
-	}
-
-	// now, override anything we've found if there are BARABAS instances on those grids
-	for (int i = base_grids.Count - 1; i >= 0; i--) {
-		var grid = base_grids[i];
-		// now go through programmable blocks
-		for (int j = 0; j < pb.Count; j++) {
-			var pb_grid = pb[j].CubeGrid;
-			if (pb_grid == grid) {
-				var name = pb[j].CustomName;
-				if (name == "BARABAS Ship CPU") {
-					ship_grids.Add(grid);
-					base_grids.RemoveAt(i);
-					break;
-				}
-			}
-		}
-	}
-	for (int i = ship_grids.Count - 1; i >= 0; i--) {
-		var grid = ship_grids[i];
-		// now go through programmable blocks
-		for (int j = 0; j < pb.Count; j++) {
-			var pb_grid = pb[j].CubeGrid;
-			if (pb_grid == grid) {
-				var name = pb[j].CustomName;
-				if (name == "BARABAS Base CPU") {
-					base_grids.Add(grid);
-					ship_grids.RemoveAt(i);
-					break;
-				}
-			}
-		}
-	}
-
-	// having multiple bases is not supported
-	if ((isBaseMode() && base_grids.Count != 0) || base_grids.Count > 1) {
-		throw new BarabasException("Connecting to multiple bases is not supported!", this);
-	}
-	remote_base_grids = base_grids;
-	remote_ship_grids = ship_grids;
-	connected_to_base = base_grids.Count > 0;
-	connected_to_ship = ship_grids.Count > 0;
-	connected = connected_to_base || connected_to_ship;
-}
-
-List < IMyCubeGrid > getBaseGrids() {
-  return remote_base_grids;
+  foreach (var pair in remote_grid_data) {
+    var grid = pair.Key;
+    var data = pair.Value;
+    if (data.override_ship) {
+      ship_grids.Add(grid);
+    } else if (data.override_base) {
+      base_grids.Add(grid);
+    }
+    // if we're a base, assume every other grid is a ship unless we're explicitly
+    // told that it's another base
+    if (data.has_thrusters || data.has_wheels || isBaseMode()) {
+      ship_grids.Add(grid);
+    }
+  }
+  remote_base_grids = base_grids;
+  remote_ship_grids = ship_grids;
+  connected_to_base = base_grids.Count > 0;
+  connected_to_ship = ship_grids.Count > 0;
+  connected = connected_to_base || connected_to_ship;
 }
 
 List < IMyCubeGrid > getShipGrids() {
@@ -1230,7 +1255,7 @@ List < IMyCubeGrid > getRemoteGrids() {
 
 List < IMyTerminalBlock > getRemoteStorage(bool force_update = false) {
   if (remote_storage != null && !force_update) {
-    return removeNulls(remote_storage, 1);
+    return removeNulls(remote_storage);
   }
   remote_storage = new List < IMyTerminalBlock > ();
   GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (remote_storage, remoteGridFilter);
@@ -1242,7 +1267,7 @@ List < IMyTerminalBlock > getRemoteStorage(bool force_update = false) {
 
 List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
   if (remote_ship_storage != null && !force_update) {
-    return removeNulls(remote_ship_storage, 1);
+    return removeNulls(remote_ship_storage);
   }
   remote_ship_storage = new List < IMyTerminalBlock > ();
   GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (remote_ship_storage, shipFilter);
@@ -1255,29 +1280,25 @@ List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
 // get local trash disposal connector
 List<IMyTerminalBlock> getTrashConnectors(bool force_update = false) {
   if (local_trash_connectors != null && !force_update) {
-    return removeNulls(local_trash_connectors, 1);
+    return removeNulls(local_trash_connectors);
   }
 
   // find our group
   local_trash_connectors = new List < IMyTerminalBlock > ();
-  var groups = new List<IMyBlockGroup>();
-  GridTerminalSystem.GetBlockGroups(groups);
-  foreach (var group in groups) {
-    // skip groups we don't want
-    if (group.Name != "BARABAS Trash") {
-      continue;
-    }
-    group.GetBlocks(local_trash_connectors);
 
-    // we may find multiple Trash groups, as we may have a BARABAS-driven
-    // ships connected, so let's filter connectors
-    filterLocalGrid < IMyShipConnector > (local_trash_connectors);
-    break;
+  var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Trash");
+
+  if (group != null) {
+    group.GetBlocks(local_trash_connectors);
   }
 
+  // we may find multiple Trash groups, as we may have a BARABAS-driven
+  // ships connected, so let's filter connectors
+  filterLocalGrid < IMyShipConnector > (local_trash_connectors);
+
   // backwards compatibility: add old-style trash connectors as well
-  var blocks = new List<IMyTerminalBlock>(getConnectors());
-  filterBlocks < IMyShipConnector > (blocks, "BARABAS Trash");
+  var blocks = new List<IMyTerminalBlock>();
+  GridTerminalSystem.SearchBlocksOfName("BARABAS Trash", blocks, localGridFilter);
 
   foreach (var block in blocks) {
     if (!local_trash_connectors.Contains(block)) {
@@ -1287,7 +1308,7 @@ List<IMyTerminalBlock> getTrashConnectors(bool force_update = false) {
 
   // if we still have no trash connectors, use the first one available
   if (local_trash_connectors.Count == 0 && getConnectors().Count > 0) {
-    local_trash_connectors.Add(local_connectors[0]);
+    local_trash_connectors.Add(getConnectors()[0]);
   }
 
   return local_trash_connectors;
@@ -1296,29 +1317,25 @@ List<IMyTerminalBlock> getTrashConnectors(bool force_update = false) {
 // get local trash disposal sensors
 List<IMyTerminalBlock> getTrashSensors(bool force_update = false) {
   if (local_trash_sensors != null && !force_update) {
-    return removeNulls(local_trash_sensors, 1);
+    return removeNulls(local_trash_sensors);
   }
 
   // find our group
   local_trash_sensors = new List < IMyTerminalBlock > ();
-  var groups = new List<IMyBlockGroup>();
-  GridTerminalSystem.GetBlockGroups(groups);
-  foreach (var group in groups) {
-    // skip groups we don't want
-    if (group.Name != "BARABAS Trash") {
-      continue;
-    }
-    group.GetBlocks(local_trash_sensors);
 
-    // we may find multiple Trash groups, as we may have a BARABAS-driven
-    // ships connected, so let's filter sensors
-    filterLocalGrid < IMySensorBlock > (local_trash_sensors);
-    break;
+  var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Trash");
+
+  if (group != null) {
+    group.GetBlocks(local_trash_sensors);
   }
 
+  // we may find multiple Trash groups, as we may have a BARABAS-driven
+  // ships connected, so let's filter sensors
+  filterLocalGrid < IMySensorBlock > (local_trash_sensors);
+
   // backwards compatibility: add old-style BARABAS trash sensors as well
-  var blocks = new List<IMyTerminalBlock>(getBlocks());
-  filterBlocks < IMySensorBlock > (blocks, "BARABAS Trash Sensor");
+  var blocks = new List<IMyTerminalBlock>();
+  GridTerminalSystem.SearchBlocksOfName("BARABAS Trash Sensor", blocks, localGridFilter);
 
   foreach (var block in blocks) {
     if (!local_trash_sensors.Contains(block)) {
@@ -1331,17 +1348,21 @@ List<IMyTerminalBlock> getTrashSensors(bool force_update = false) {
 
 IMyTextPanel getConfigBlock(bool force_update = false) {
   if (!force_update && config_block != null) {
+    if (!config_block.IsFunctional) {
+      return null;
+    }
     return config_block;
   }
-  var blocks = new List < IMyTerminalBlock> (getBlocks());
-  filterBlocks < IMyTextPanel > (blocks, "BARABAS Config");
+  var blocks = new List < IMyTerminalBlock > ();
+  GridTerminalSystem.SearchBlocksOfName("BARABAS Config", blocks, localGridFilter);
   if (blocks.Count < 1) {
     return null;
   } else if (blocks.Count > 1) {
     Echo("Multiple config blocks found.");
     if (config_block != null) {
       // find our previous config block, ignore the rest
-      config_block = findBlockById(config_block, blocks) as IMyTextPanel;
+      var id = config_block.EntityId;
+      config_block = GridTerminalSystem.GetBlockWithId(id) as IMyTextPanel;
     }
     if (config_block == null) {
       // if we didn't find our config block, just use the first one
@@ -2214,7 +2235,7 @@ Decimal getCurPowerDraw(bool force_update = false) {
 
   // go through all the blocks
   List < IMyTerminalBlock > blocks = new List < IMyTerminalBlock > ();
-  GridTerminalSystem.GetBlocksOfType < IMyTerminalBlock > (blocks, localGridDumbFilter);
+  GridTerminalSystem.GetBlocksOfType < IMyTerminalBlock > (blocks, localGridFilter);
 
   foreach (var block in blocks) {
     if (block is IMyReactor) {
@@ -2239,7 +2260,7 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 
   // go through all the blocks
   List < IMyTerminalBlock > blocks = new List < IMyTerminalBlock > ();
-  GridTerminalSystem.GetBlocksOfType < IMyTerminalBlock > (blocks, localGridDumbFilter);
+  GridTerminalSystem.GetBlocksOfType < IMyTerminalBlock > (blocks, localGridFilter);
 
   foreach (var block in blocks) {
     if (block is IMyBatteryBlock)
@@ -3240,23 +3261,18 @@ void configureWatermarks() {
 
 // select operation mode
 void selectOperationMode() {
-  var list = new List < IMyTerminalBlock > ();
-  var wlist = new List < IMyTerminalBlock > ();
-  // get a list of local thrusters and wheels
-  GridTerminalSystem.GetBlocksOfType < IMyThrust > (list, localGridDumbFilter);
-  GridTerminalSystem.GetBlocksOfType < IMyMotorSuspension > (wlist, localGridDumbFilter);
   // if we found some thrusters or wheels, assume we're a ship
-  if (list.Count > 0 || wlist.Count > 0) {
+  if (local_grid_data.has_thrusters || local_grid_data.has_wheels) {
     // this is likely a drill ship
-    if (has_drills && !has_welders && !has_grinders) {
+    if (local_grid_data.has_drills && !local_grid_data.has_welders && !local_grid_data.has_grinders) {
       setMode(OP_MODE_DRILL);
     }
     // this is likely a welder ship
-    else if (has_welders && !has_drills && !has_grinders) {
+    else if (local_grid_data.has_welders && !local_grid_data.has_drills && !local_grid_data.has_grinders) {
       setMode(OP_MODE_WELDER);
     }
     // this is likely a grinder ship
-    else if (has_grinders && !has_drills && !has_welders) {
+    else if (local_grid_data.has_grinders && !local_grid_data.has_drills && !local_grid_data.has_welders) {
       setMode(OP_MODE_GRINDER);
     }
     // we don't know what the hell this is, so don't adjust the defaults
@@ -4414,11 +4430,6 @@ int[] state_fn_counts;
 int cur_cycle_count = 0;
 int cur_fn_count = 0;
 
-// saving state
-public void Save() {
-	saveLocalGrids(local_grids);
-}
-
 bool canContinue() {
   var prev_state = current_state == 0 ? states.Length - 1 : current_state - 1;
   var next_state = (current_state + 1) % states.Length;
@@ -4468,7 +4479,7 @@ bool canContinue() {
 bool canRun() {
   bool isDisabled = Me.CustomName.Contains("DISABLED");
   var pbs = new List<IMyTerminalBlock>();
-  GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (pbs, pbGridDumbFilter);
+  GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (pbs, localGridFilter);
 
   foreach (var block in pbs) {
     if (block == Me) {
@@ -4485,6 +4496,13 @@ bool canRun() {
     }
   }
   return true;
+}
+
+public void Save() {
+  // save config block ID to storage
+  if (config_block != null) {
+    Storage = config_block.EntityId.ToString();
+  }
 }
 
 // constructor
@@ -4525,8 +4543,16 @@ public Program() {
   }
 
   // determine grid size
-  var id = Me.BlockDefinition.ToString();
-  large_grid = id.Contains("Large");
+  var bd = Me.BlockDefinition.ToString();
+  large_grid = bd.Contains("Large");
+
+  // find config block
+  if (Storage.Length > 0) {
+    long id;
+    if (long.TryParse(Storage, out id)) {
+      config_block = GridTerminalSystem.GetBlockWithId(id) as IMyTextPanel;
+    }
+  }
 }
 
 public void Main() {
