@@ -491,7 +491,8 @@ public class GridGraph {
     } else if (has_alt && !is_connector) {
       // also, if we have a connector edge and a non-connector edge, non-connector
       // edge always wins
-      edges.Replace(alt, t);
+      edges.Remove(alt);
+      edges.Add(t);
     }
     return false;
   }
