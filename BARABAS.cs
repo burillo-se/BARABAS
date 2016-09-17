@@ -367,7 +367,7 @@ const Decimal URANIUM_INGOT_POWER = 68760M;
 
 public class ItemHelper {
  public IMyTerminalBlock Owner;
- public int invIdx;
+ public int InvIdx;
  public IMyInventoryItem Item;
  public int Index;
 }
@@ -1373,7 +1373,7 @@ void getAllIngots(IMyTerminalBlock block, int srcInv, string name, List < ItemHe
    continue;
   }
   ItemHelper ih = new ItemHelper();
-  ih.invIdx = srcInv;
+  ih.InvIdx = srcInv;
   ih.Item = item;
   ih.Index = i;
   ih.Owner = block;
@@ -1394,7 +1394,7 @@ void getAllOre(IMyTerminalBlock block, int srcInv, string name, List < ItemHelpe
    continue;
   }
   ItemHelper ih = new ItemHelper();
-  ih.invIdx = srcInv;
+  ih.InvIdx = srcInv;
   ih.Item = item;
   ih.Index = i;
   ih.Owner = block;
@@ -2386,7 +2386,7 @@ bool refillReactors(bool force = false) {
       var item = items[j];
       if (isIngot(item) && item.Content.SubtypeName == URANIUM) {
        ingot = new ItemHelper();
-       ingot.invIdx = 0;
+       ingot.InvIdx = 0;
        ingot.Index = j;
        ingot.Item = item;
        ingot.Owner = storage[s_index];
@@ -2415,10 +2415,10 @@ bool refillReactors(bool force = false) {
    // don't leave change, we've expended this ingot
    if (cur_amount - amount <= 0.05M) {
     cur_amount = 0;
-    rinv.TransferItemFrom(ingot.Owner.GetInventory(ingot.invIdx), ingot.Index, null, true, null);
+    rinv.TransferItemFrom(ingot.Owner.GetInventory(ingot.InvIdx), ingot.Index, null, true, null);
     ingot = null;
    } else {
-    amount = TryTransfer(ingot.Owner, ingot.invIdx, reactor, 0, ingot.Index, null, true, (VRage.MyFixedPoint) amount);
+    amount = TryTransfer(ingot.Owner, ingot.InvIdx, reactor, 0, ingot.Index, null, true, (VRage.MyFixedPoint) amount);
     if (amount > 0) {
      cur_amount -= amount;
     }
@@ -2554,7 +2554,7 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
  foreach (var entry in entries) {
   var item = entry.Item;
   var srcObj = entry.Owner;
-  var invIdx = entry.invIdx;
+  var invIdx = entry.InvIdx;
   var index = entry.Index;
   var orig_amount = Math.Min(target_amount, (Decimal) entry.Item.Amount);
   var cur_amount = orig_amount;
@@ -2653,9 +2653,9 @@ void refineOre() {
    Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
    if (canAcceptOre(input_inv, ore) || ore == ICE) {
     // if we've got a very small amount, send it all
-    var item_inv = item.Owner.GetInventory(item.invIdx);
+    var item_inv = item.Owner.GetInventory(item.InvIdx);
     if (amount < 1) {
-     if (Transfer(item.Owner, item.invIdx, refinery, 0, item.Index, input_inv.GetItems().Count, true, null)) {
+     if (Transfer(item.Owner, item.InvIdx, refinery, 0, item.Index, input_inv.GetItems().Count, true, null)) {
       break;
      }
     }
