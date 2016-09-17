@@ -4427,51 +4427,42 @@ void s_updateMaterialStats() {
 }
 
 int[] state_cycle_counts;
-int[] state_fn_counts;
 int cur_cycle_count = 0;
-int cur_fn_count = 0;
 
 bool canContinue() {
   var prev_state = current_state == 0 ? states.Length - 1 : current_state - 1;
   var next_state = (current_state + 1) % states.Length;
   var cur_i = Runtime.CurrentInstructionCount;
-  var cur_fn = Runtime.CurrentMethodCallCount;
 
   // check if we ever executed the next state and therefore can estimate how
-  // much cycle/fn count it will likely take
+  // much cycle count it will likely take
   bool canEstimate = state_cycle_counts[next_state] != 0;
 
-  // store how many cycles/fn calls we've used during this state
+  // store how many cycles we've used during this state
   state_cycle_counts[current_state] = cur_i - cur_cycle_count;
-  state_fn_counts[current_state] = cur_fn - cur_fn_count;
 
-  // how many cycles/fn did the next state take when it was last executed?
+  // how many cycles did the next state take when it was last executed?
   var last_cycle_count = state_cycle_counts[next_state];
-  var last_fn_count = state_fn_counts[next_state];
 
-  // estimate cycle/fn count after executing the next state
+  // estimate cycle count after executing the next state
   int projected_cycle_count = cur_i + last_cycle_count;
-  int projected_fn_count = cur_fn + last_fn_count;
 
   // given our estimate, how are we doing with regards to IL count limits?
   Decimal cycle_p = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
-  Decimal fn_p = (Decimal) projected_fn_count / Runtime.MaxMethodCallCount;
 
   // if we never executed the next state, we leave 60% headroom for our next
   // state (for all we know it could be a big state), otherwise leave at 20%
   // because we already know how much it usually takes and it's unlikely to
   // suddenly become much bigger than what we've seen before
   var cycle_thresh = canEstimate ? 0.8M : 0.4M;
-  var fn_thresh = canEstimate ? 0.8M : 0.4M;
 
-  // check if we are exceeding our stated thresholds (projected 80% cycle/fn
+  // check if we are exceeding our stated thresholds (projected 80% cycle
   // count for known states, or 40% up to this point for unknown states)
-  bool haveEnoughHeadroom = cycle_p <= cycle_thresh && fn_p <= fn_thresh;
+  bool haveEnoughHeadroom = cycle_p <= cycle_thresh;
 
   // advance current state and store IL count values
   current_state = next_state;
   cur_cycle_count = cur_i;
-  cur_fn_count = cur_fn;
 
   return haveEnoughHeadroom;
 }
@@ -4536,11 +4527,9 @@ public Program() {
   current_state = 0;
   crisis_mode = CRISIS_MODE_NONE;
   state_cycle_counts = new int[states.Length];
-  state_fn_counts = new int[states.Length];
 
   for (int i = 0; i < state_cycle_counts.Length; i++) {
     state_cycle_counts[i] = 0;
-    state_fn_counts[i] = 0;
   }
 
   // determine grid size
@@ -4564,7 +4553,6 @@ public void Main() {
 
   // zero out IL counters
   cur_cycle_count = 0;
-  cur_fn_count = 0;
 
   // clear set of lists we have refreshed during this iteration
   null_list = new HashSet<List<IMyTerminalBlock>>();
@@ -4599,11 +4587,6 @@ public void Main() {
         Runtime.CurrentInstructionCount,
         Runtime.MaxInstructionCount,
         (Decimal) Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100M);
-  string fn_str = String.Format("Call count: {0}/{1} ({2:0.0}%)",
-        Runtime.CurrentMethodCallCount,
-        Runtime.MaxMethodCallCount,
-        (Decimal) Runtime.CurrentMethodCallCount / Runtime.MaxMethodCallCount * 100M);
   Echo(String.Format("States executed: {0}", num_states));
   Echo(il_str);
-  Echo(fn_str);
 }
