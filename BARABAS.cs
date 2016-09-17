@@ -281,6 +281,7 @@ readonly List < Alert > text_alerts = new List < Alert > {
 };
 
 Dictionary < IMyTerminalBlock, int > blocks_to_alerts = new Dictionary < IMyTerminalBlock, int > ();
+Dictionary < IMyTerminalBlock, IMyTerminalBlock > disconnected_blocks = new Dictionary < IMyTerminalBlock, IMyTerminalBlock > ();
 
 // alert flags
 const int ALERT_DAMAGED = 0x01;
@@ -296,6 +297,7 @@ const int ALERT_LOW_HYDROGEN = 0x200;
 const int ALERT_CRISIS_THROW_OUT = 0x400;
 const int ALERT_CRISIS_LOCKUP = 0x800;
 const int ALERT_CRISIS_STANDBY = 0x1000;
+const int ALERT_DISCONNECTED = 0x2000;
 
 readonly Dictionary < int, string > block_alerts = new Dictionary < int, string > {
   { ALERT_DAMAGED, "Damaged" },
@@ -310,7 +312,8 @@ readonly Dictionary < int, string > block_alerts = new Dictionary < int, string 
   { ALERT_LOW_HYDROGEN, "Low hydrogen" },
   { ALERT_CRISIS_THROW_OUT, "Crisis: throwing out ore" },
   { ALERT_CRISIS_LOCKUP, "Crisis: locked up" },
-  { ALERT_CRISIS_STANDBY, "Crisis: standing by" }
+  { ALERT_CRISIS_STANDBY, "Crisis: standing by" },
+  { ALERT_DISCONNECTED, "Block not connected" },
 };
 
 /* misc local data */
@@ -617,6 +620,10 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
  filterLocalGrid < IMyTerminalBlock > (local_blocks);
 
  bool alert = false;
+
+ if (hasDisconnectedBlocks()) {
+  alert = true;
+ }
  // check if we have unfinished blocks
  for (int i = local_blocks.Count - 1; i >= 0; i--) {
   var block = local_blocks[i];
@@ -1364,6 +1371,33 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
 /**
  * Inventory access functions
  */
+// check if there are still any disconnected blocks
+bool hasDisconnectedBlocks() {
+ var to_delete = new List<IMyTerminalBlock>();
+ foreach (var pair in disconnected_blocks) {
+  var src = pair.Key;
+  var dst = pair.Value;
+
+  if (!blockExists(src) || !blockExists(dst)) {
+   removeBlockAlert(src, ALERT_DISCONNECTED);
+   removeBlockAlert(dst, ALERT_DISCONNECTED);
+   to_delete.Add(src);
+   continue;
+  }
+  var src_inv = src.GetInventory(0);
+  var dst_inv = dst.GetInventory(0);
+  if (src_inv.IsConnectedTo(dst_inv)) {
+   removeBlockAlert(src, ALERT_DISCONNECTED);
+   removeBlockAlert(dst, ALERT_DISCONNECTED);
+   to_delete.Add(src);
+  }
+ }
+ foreach (var key in to_delete) {
+  disconnected_blocks.Remove(key);
+ }
+ return disconnected_blocks.Count != 0;
+}
+
 // get all ingots of a certain type from a particular inventory
 void getAllIngots(IMyTerminalBlock block, int srcInv, string name, List < ItemHelper > list) {
  var inv = block.GetInventory(srcInv);
@@ -1522,6 +1556,11 @@ Decimal TryTransfer(IMyTerminalBlock src, int srcInv, IMyTerminalBlock dst, int 
   sb.Append(getBlockName(dst));
   Echo(sb.ToString());
   Echo("Check conveyors for missing/damage and\nblock ownership");
+  if (!disconnected_blocks.ContainsKey(src)) {
+   disconnected_blocks.Add(src, dst);
+  }
+  addBlockAlert(src, ALERT_DISCONNECTED);
+  addBlockAlert(dst, ALERT_DISCONNECTED);
   return -1;
  }
 
