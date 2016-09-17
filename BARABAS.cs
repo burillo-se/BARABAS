@@ -2745,7 +2745,7 @@ void reprioritizeOre() {
  *
  * Keep out unless you know what you're doing...
  */
-public struct RebalanceResult {
+public class RebalanceResult {
  public int minIndex;
  public int maxIndex;
  public Decimal minLoad;
