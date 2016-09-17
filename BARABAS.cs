@@ -4557,7 +4557,12 @@ public void Main() {
   // clear set of lists we have refreshed during this iteration
   null_list = new HashSet<List<IMyTerminalBlock>>();
   do {
-    states[current_state]();
+    try {
+      states[current_state]();
+    } catch (Exception e) {
+      string msg = String.Format("State: {0} Error: {1}", current_state, e.Message);
+      throw new BarabasException(msg, this)
+    }
     num_states++;
   } while (canContinue() && num_states < states.Length);
 
