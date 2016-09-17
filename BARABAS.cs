@@ -568,7 +568,7 @@ List < IMyTerminalBlock > removeNulls(List < IMyTerminalBlock > list) {
  null_list.Add(list);
  for (int i = list.Count - 1; i >= 0; i--) {
   var block = list[i];
-  if (!block.IsFunctional) {
+  if (!blockExists(block)) {
    blocks_to_alerts.Remove(block);
    list.RemoveAt(i);
   }
@@ -578,6 +578,10 @@ List < IMyTerminalBlock > removeNulls(List < IMyTerminalBlock > list) {
 
 IMySlimBlock slimBlock(IMyTerminalBlock block) {
  return block.CubeGrid.GetCubeBlock(block.Position);
+}
+
+bool blockExists(IMyTerminalBlock block) {
+ return block.CubeGrid.CubeExists(block.Position);
 }
 
 // does what it says on the tin: picks random subset of a list
@@ -1331,7 +1335,7 @@ List < IMyTerminalBlock > getTrashSensors(bool force_update = false) {
 
 IMyTextPanel getConfigBlock(bool force_update = false) {
  if (!force_update && config_block != null) {
-  if (!config_block.IsFunctional) {
+  if (!blockExists(config_block)) {
    return null;
   }
   return config_block;
