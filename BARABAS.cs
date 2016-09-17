@@ -1450,6 +1450,15 @@ List < ItemHelper > getAllStorageOre(string name = null) {
  return list;
 }
 
+List < ItemHelper > getAllStorageIngots(string name = null) {
+ List < ItemHelper > list = new List < ItemHelper > ();
+ var blocks = getStorage();
+ foreach (var block in blocks) {
+  getAllIngots(block, 0, name, list);
+ }
+ return list;
+}
+
 bool isOre(IMyInventoryItem item) {
  if (item.Content.SubtypeName == "Scrap") {
   return true;
@@ -2539,9 +2548,6 @@ void stopThrowing() {
 
 // only stone is considered unuseful, and only if config says to throw out stone
 bool isUseful(IMyInventoryItem item) {
- if (!isOre(item)) {
-  return true;
- }
  return !throw_out_stone || item.Content.SubtypeName != STONE;
 }
 
@@ -2610,7 +2616,60 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
 
    // send it to connector
    var transferred = TryTransfer(srcObj, invIdx, connector, 0, index, null, true,
-    (VRage.MyFixedPoint) amount);
+                                 (VRage.MyFixedPoint) amount);
+   if (transferred > 0) {
+    target_amount -= transferred;
+    cur_amount -= transferred;
+
+    if (target_amount == 0) {
+     return true;
+    }
+    if (cur_amount == 0) {
+     break;
+    }
+   }
+  }
+ }
+ return target_amount != orig_target || entries.Count == 0;
+}
+
+bool throwOutIngots(string name, Decimal ingot_amount = 0, bool force = false) {
+ var connectors = getTrashConnectors();
+ var skip_list = new List < IMyTerminalBlock > ();
+
+ if (connectors.Count == 0) {
+  return false;
+ }
+ Decimal orig_target = ingot_amount == 0 ? 5 * CHUNK_SIZE : ingot_amount;
+ Decimal target_amount = orig_target;
+
+ // first, go through list of connectors and enable throw
+ foreach (IMyShipConnector connector in connectors) {
+  if (!startThrowing(connector, force)) {
+   skip_list.Add(connector);
+   continue;
+  }
+ }
+
+ // now, find all instances of ore we're looking for, and push it to trash
+ var entries = getAllStorageIngots(name);
+ foreach (var entry in entries) {
+  var item = entry.Item;
+  var srcObj = entry.Owner;
+  var invIdx = entry.InvIdx;
+  var index = entry.Index;
+  var orig_amount = Math.Min(target_amount, (Decimal) entry.Item.Amount);
+  var cur_amount = orig_amount;
+
+  foreach (IMyShipConnector connector in connectors) {
+   if (skip_list.Contains(connector)) {
+    continue;
+   }
+   var amount = Math.Min(orig_amount / getTrashConnectors().Count, cur_amount);
+
+   // send it to connector
+   var transferred = TryTransfer(srcObj, invIdx, connector, 0, index, null, true,
+                                 (VRage.MyFixedPoint) amount);
    if (transferred > 0) {
     target_amount -= transferred;
     cur_amount -= transferred;
@@ -3500,7 +3559,7 @@ string generateConfiguration() {
  sb.AppendLine(key + " = " + config_options[key]);
  sb.AppendLine();
  key = CONFIGSTR_KEEP_STONE;
- sb.AppendLine("# How much stone to keep, in tons.");
+ sb.AppendLine("# How much gravel to keep, in tons.");
  sb.AppendLine("# Can be a positive number, \"none\", \"all\" or \"auto\".");
  sb.AppendLine(key + " = " + config_options[key]);
  sb.AppendLine();
@@ -4223,11 +4282,14 @@ void s_materialsRebalance() {
 void s_materialsCrisis() {
  if (crisis_mode == CRISIS_MODE_NONE && throw_out_stone) {
   // check if we want to throw out extra stone
-  if (storage_ore_status[STONE] > 0) {
-   Decimal excessStone = storage_ingot_status[STONE] + storage_ore_status[STONE] * ore_to_ingot_ratios[STONE] - material_thresholds[STONE] * 5;
+  if (storage_ore_status[STONE] > 0 || storage_ingot_status[STONE] > 0) {
+   var excessStone = storage_ingot_status[STONE] + storage_ore_status[STONE] * ore_to_ingot_ratios[STONE] - material_thresholds[STONE] * 5;
    excessStone = Math.Min(excessStone / ore_to_ingot_ratios[STONE], storage_ore_status[STONE]);
+   var excessGravel = storage_ingot_status[STONE] - material_thresholds[STONE] * 5;
    if (excessStone > 0) {
     throwOutOre(STONE, excessStone);
+   } else if (excessGravel > 0) {
+    throwOutIngots(STONE, excessGravel);
    } else {
     storeTrash();
    }
