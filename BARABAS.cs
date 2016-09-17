@@ -479,10 +479,19 @@ public class GridGraph {
   // add an edge to the graph
   public bool addEdge(IMyCubeGrid src, IMyCubeGrid dst, bool is_connector) {
     var t = new GridGraphEdge(src, dst, is_connector);
+    var alt = new GridGraphEdge(src, dst, !is_connector);
+
+    bool has_t = edges.Contains(t);
+    bool has_alt = edges.Contains(alt);
+
     // avoid adding the same edge twice
-    if (!edges.Contains(t)) {
+    if (!has_t && !has_alt) {
       edges.Add(t);
       return true;
+    } else if (has_alt && !is_connector) {
+      // also, if we have a connector edge and a non-connector edge, non-connector
+      // edge always wins
+      edges.Replace(alt, t);
     }
     return false;
   }
