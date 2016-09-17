@@ -1517,9 +1517,9 @@ Decimal TryTransfer(IMyTerminalBlock src, int srcInv, IMyTerminalBlock dst, int 
  if (!src_inv.TransferItemTo(dst_inv, srcIndex, dstIndex, stack, amount)) {
   var sb = new StringBuilder();
   sb.Append("Error transfering from ");
-  sb.Append((src_inv.Owner as IMyTerminalBlock).CustomName);
+  sb.Append(getBlockName(src));
   sb.Append(" to ");
-  sb.Append((dst_inv.Owner as IMyTerminalBlock).CustomName);
+  sb.Append(getBlockName(dst));
   Echo(sb.ToString());
   Echo("Check conveyors for missing/damage and\nblock ownership");
   return -1;
