@@ -365,7 +365,7 @@ Dictionary < string, Decimal > thrust_power = new Dictionary < string, Decimal >
 // power constants - in kWatts
 const Decimal URANIUM_INGOT_POWER = 68760M;
 
-public struct ItemHelper {
+public class ItemHelper {
  public IMyInventory Inventory;
  public IMyInventoryItem Item;
  public int Index;
@@ -2359,7 +2359,7 @@ bool powerAboveLowWatermark() {
 // push uranium into reactors, optionally push ALL uranium into reactors
 bool refillReactors(bool force = false) {
  bool refilled = true;
- ItemHelper ? ingot = null;
+ ItemHelper ingot = null;
  Decimal orig_amount = 0M, cur_amount = 0M;
  int s_index = 0;
  // check if we can put some more uranium into reactors
@@ -2380,11 +2380,10 @@ bool refillReactors(bool force = false) {
      for (int j = 0; j < items.Count; j++) {
       var item = items[j];
       if (isIngot(item) && item.Content.SubtypeName == URANIUM) {
-       ItemHelper tmp = new ItemHelper();
-       tmp.Inventory = sinv;
-       tmp.Index = j;
-       tmp.Item = item;
-       ingot = tmp;
+       ingot = new ItemHelper();
+       ingot.Inventory = sinv;
+       ingot.Index = j;
+       ingot.Item = item;
        orig_amount = (Decimal) item.Amount;
        cur_amount = orig_amount;
        break;
@@ -2410,10 +2409,10 @@ bool refillReactors(bool force = false) {
    // don't leave change, we've expended this ingot
    if (cur_amount - amount <= 0.05M) {
     cur_amount = 0;
-    rinv.TransferItemFrom(ingot.Value.Inventory, ingot.Value.Index, null, true, null);
+    rinv.TransferItemFrom(ingot.Inventory, ingot.Index, null, true, null);
     ingot = null;
    } else {
-    amount = TryTransfer(ingot.Value.Inventory, rinv, ingot.Value.Index, null, true, (VRage.MyFixedPoint) amount);
+    amount = TryTransfer(ingot.Inventory, rinv, ingot.Index, null, true, (VRage.MyFixedPoint) amount);
     if (amount > 0) {
      cur_amount -= amount;
     }
