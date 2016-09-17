@@ -4561,7 +4561,7 @@ public void Main() {
       states[current_state]();
     } catch (Exception e) {
       string msg = String.Format("State: {0} Error: {1}", current_state, e.Message);
-      throw new BarabasException(msg, this)
+      throw new BarabasException(msg, this);
     }
     num_states++;
   } while (canContinue() && num_states < states.Length);
