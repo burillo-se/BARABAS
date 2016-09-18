@@ -393,37 +393,25 @@ public class GridData {
 
 // grid graph edge class, represents a connection point between two grids, noting
 // if this connection is via a connector (i.e. if it's an external grid connection).
-public class GridGraphEdge {
- public GridGraphEdge(IMyCubeGrid src_in, IMyCubeGrid dst_in, bool connector_in) {
-  src = src_in;
-  dst = dst_in;
-  is_connector = connector_in;
- }
- public IMyCubeGrid src;
- public IMyCubeGrid dst;
- public bool is_connector;
+public class Edge < T > {
+ public T src {get; set;}
+ public T dst {get; set;}
 }
 
 // comparer for graph edges - the way the comparison is done means the edges are
 // bidirectional - meaning, it doesn't matter which grid is source and which
 // grid is destination, they will be equal as far as comparison is concerned.
-public class GridGraphEdgeComparer: IEqualityComparer < GridGraphEdge > {
- public int GetHashCode(GridGraphEdge e) {
-  int hash = 13;
+public class EdgeComparer < T > : IEqualityComparer < Edge < T > > {
+ public int GetHashCode(Edge < T > e) {
   // multiply src hashcode by dst hashcode - multiplication is commutative, so
   // result will be the same no matter which grid was source or destination
-  hash = (hash * 7) + (e.src.GetHashCode() * e.dst.GetHashCode());
-  hash = (hash * 7) + e.is_connector.GetHashCode();
-  return hash;
+  return e.src.GetHashCode() * e.dst.GetHashCode();
  }
- public bool Equals(GridGraphEdge e1, GridGraphEdge e2) {
-  if (e1.is_connector != e2.is_connector) {
-   return false;
-  }
-  if (e1.src == e2.src && e1.dst == e2.dst) {
+ public bool Equals(Edge < T > e1, Edge < T > e2) {
+  if (e1.src.Equals(e2.src) && e1.dst.Equals(e2.dst)) {
    return true;
   }
-  if (e1.src == e2.dst && e1.dst == e2.src) {
+  if (e1.src.Equals(e2.dst) && e1.dst.Equals(e2.src)) {
    return true;
   }
   return false;
@@ -431,64 +419,109 @@ public class GridGraphEdgeComparer: IEqualityComparer < GridGraphEdge > {
 }
 
 // our grid graph
-public class GridGraph {
- public GridGraph() {
-  edges = new HashSet < GridGraphEdge > (new GridGraphEdgeComparer());
+public class Graph < T > {
+ public Graph() {
+  cmp = new EdgeComparer < T >();
+  v_edges = new Dictionary < T, HashSet < Edge < T > > >();
+  r_edges = new HashSet < Edge < T > >(cmp);
  }
-  // add an edge to the graph
- public bool addEdge(IMyCubeGrid src, IMyCubeGrid dst, bool is_connector) {
-  var t = new GridGraphEdge(src, dst, is_connector);
-  var alt = new GridGraphEdge(src, dst, !is_connector);
 
-  bool has_t = edges.Contains(t);
-  bool has_alt = edges.Contains(alt);
+ // add an edge to the graph
+ public void addEdge(T src, T dst, bool is_remote) {
+  var t = new Edge<T>();
+  t.src = src;
+  t.dst = dst;
 
-  // avoid adding the same edge twice
-  if (!has_t && !has_alt) {
-   edges.Add(t);
-   return true;
-  } else if (has_alt && !is_connector) {
-   // also, if we have a connector edge and a non-connector edge, non-connector
-   // edge always wins
-   edges.Remove(alt);
-   edges.Add(t);
+  // remote edges don't need to be added to local list of edges
+  if (is_remote) {
+   r_edges.Add(t);
+   return;
   }
-  return false;
+
+  // add edge to list of per-vertex edges
+  HashSet < Edge < T > > hs_src, hs_dst;
+  if (!v_edges.TryGetValue(src, out hs_src)) {
+   hs_src = new HashSet < Edge < T > >(cmp);
+   v_edges.Add(src, hs_src);
+  }
+  if (!v_edges.TryGetValue(dst, out hs_dst)) {
+   hs_dst = new HashSet < Edge < T > >(cmp);
+   v_edges.Add(dst, hs_dst);
+  }
+  hs_src.Add(t);
+  hs_dst.Add(t);
  }
 
  // get all grids that are local to source grid (i.e. all grids connected by
  // rotors or pistons)
- public List < IMyCubeGrid > getLocalGrids(IMyCubeGrid src) {
-  var grids = new List < IMyCubeGrid > ();
-  var seen = new HashSet < IMyCubeGrid > ();
-  grids.Add(src);
-  seen.Add(src);
-  foreach (var edge in edges) {
-   // local grid is a grid which is not connected by a connector
-   if (!edge.is_connector && seen.Contains(edge.src) && !seen.Contains(edge.dst)) {
-    grids.Add(edge.dst);
-    seen.Add(edge.dst);
-   }
-   if (!edge.is_connector && seen.Contains(edge.dst) && !seen.Contains(edge.src)) {
-    grids.Add(edge.src);
-    seen.Add(edge.src);
+ public List < T > getGridRegion(T src) {
+  // if there never was a local edge from/to this grid, it's by definition
+  // the only grid in this region
+  if (!v_edges.ContainsKey(src)) {
+   return new List < T >() {src};
+  }
+  // otherwise, gather all vertices in this region
+  var region = new List<T>();
+  var seen = new HashSet<T>();
+  var next = new Queue<T>();
+  next.Enqueue(src);
+  while (next.Count != 0) {
+   var g = next.Dequeue();
+   if (!seen.Contains(g)) {
+    var edges = v_edges[g];
+    foreach (var edge in edges) {
+     next.Enqueue(edge.src);
+     next.Enqueue(edge.dst);
+    }
+    seen.Add(g);
+    region.Add(g);
    }
   }
-  return grids;
+  return region;
+ }
+
+ // this must be called after adding all edges. what this does is, it removes
+ // edges that aren't supposed to be there. For example, if you have grids
+ // A, B, C, local edges A->B and B->C, and a remote edge C->A, there is a path
+ // from C to A through local edges, so the remote edge should not count as an
+ // actual "remote" edge, and therefore should be removed.
+ public void validateGraph() {
+  var to_remove = new HashSet < Edge <T> >(cmp);
+  var seen = new HashSet<T>();
+  foreach (var edge in r_edges) {
+   var next = new Queue<T>();
+   next.Enqueue(edge.src);
+   next.Enqueue(edge.dst);
+   while (next.Count != 0) {
+    var g = next.Dequeue();
+    if (!seen.Contains(g)) {
+     var region = new HashSet<T>(getGridRegion(g));
+     seen.UnionWith(region);
+     // find any edges that are completely inside this region, and remove them
+     foreach (var e in r_edges) {
+      if (region.Contains(e.src) && region.Contains(e.dst)) {
+       to_remove.Add(e);
+      }
+     }
+    }
+   }
+  }
+  foreach (var edge in to_remove) {
+   r_edges.Remove(edge);
+  }
  }
 
  // get all neighboring (connected by connectors) grid entry points
- public List < GridGraphEdge > getGridConnections() {
-  var list = new List < GridGraphEdge > ();
-  foreach (var edge in edges) {
-   if (!edge.is_connector) {
-    continue;
-   }
-   list.Add(edge);
-  }
-  return list;
+ public List < Edge < T > > getGridConnections() {
+  return new List < Edge < T > >(r_edges);
  }
- HashSet < GridGraphEdge > edges; // HashSet for constant time access
+
+ // our comparer to use with all sets
+ EdgeComparer < T > cmp;
+ // list of all edges
+ HashSet < Edge < T > > r_edges;
+ // dictionaries of edges for each vertex
+ Dictionary < T, HashSet < Edge < T > > > v_edges;
 }
 
 // just have a method to indicate that this exception comes from BARABAS
@@ -1099,7 +1132,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
  }
 
  // now, build a graph of all grids
- var graph = new GridGraph();
+ var graph = new Graph<IMyCubeGrid>();
  var grids = new List < IMyCubeGrid > (tmp_grid_data.Keys);
 
  // first, go through all pistons
@@ -1108,7 +1141,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 
   if (connected_grid != null) {
    // grids connected to pistons are local to their source
-   graph.addEdge(piston.CubeGrid, connected_grid, false).ToString();
+   graph.addEdge(piston.CubeGrid, connected_grid, false);
   }
  }
 
@@ -1118,7 +1151,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 
   if (connected_grid != null) {
    // grids connected to locals are local to their source
-   graph.addEdge(rotor.CubeGrid, connected_grid, false).ToString();
+   graph.addEdge(rotor.CubeGrid, connected_grid, false);
   }
  }
 
@@ -1128,12 +1161,15 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 
   if (connected_grid != null) {
    // grids connected to connectors belong to a different ship
-   graph.addEdge(connector.CubeGrid, connected_grid, true).ToString();
+   graph.addEdge(connector.CubeGrid, connected_grid, true);
   }
  }
 
+ // make sure we remove all unnecessary edges from the graph
+ graph.validateGraph();
+
  // now, get our actual local grid
- local_grids = graph.getLocalGrids(Me.CubeGrid);
+ local_grids = graph.getGridRegion(Me.CubeGrid);
 
  // store our new local grid data
  local_grid_data = new GridData();
@@ -1164,7 +1200,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
    if (!seen.Contains(e_g)) {
     // get all grids that are local to it
     GridData data;
-    var r_grids = graph.getLocalGrids(e_g);
+    var r_grids = graph.getGridRegion(e_g);
     if (!remote_grid_data.TryGetValue(e_g, out data)) {
      data = new GridData();
     }
