@@ -726,10 +726,6 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
  refineries_clogged = false;
  filterLocalGrid < IMyRefinery > (local_refineries);
  foreach (IMyRefinery refinery in local_refineries) {
-  var input_inv = refinery.GetInventory(0);
-  var output_inv = refinery.GetInventory(1);
-  Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
-  Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
   if (!refinery.IsQueueEmpty && !refinery.IsProducing) {
    addBlockAlert(refinery, ALERT_CLOGGED);
    refineries_clogged = true;
@@ -755,10 +751,6 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
  arc_furnaces_clogged = false;
  filterLocalGrid < IMyRefinery > (local_arc_furnaces);
  foreach (IMyRefinery furnace in local_arc_furnaces) {
-  var input_inv = furnace.GetInventory(0);
-  var output_inv = furnace.GetInventory(1);
-  Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
-  Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
   if (!furnace.IsQueueEmpty && !furnace.IsProducing) {
    addBlockAlert(furnace, ALERT_CLOGGED);
    arc_furnaces_clogged = true;
