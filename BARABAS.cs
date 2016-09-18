@@ -719,7 +719,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
  if (local_refineries != null && !force_update) {
   // if we didn't refresh the list yet, get a random subset
   if (!null_list.Contains(local_refineries_subset)) {
-   local_refineries_subset = randomSubset(local_refineries, 50);
+   local_refineries_subset = randomSubset(local_refineries, 30);
   }
   return removeNulls(local_refineries_subset);
  }
@@ -735,7 +735,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
   displayBlockAlerts(refinery);
  }
  if (!null_list.Contains(local_refineries_subset)) {
-  local_refineries_subset = randomSubset(local_refineries, 50);
+  local_refineries_subset = randomSubset(local_refineries, 30);
  }
  return local_refineries_subset;
 }
