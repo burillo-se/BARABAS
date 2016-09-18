@@ -48,6 +48,8 @@
  *
  */
 
+const string VERSION = "1.5beta3";
+
 // configuration
 const int OP_MODE_AUTO = 0x0;
 const int OP_MODE_SHIP = 0x1;
@@ -3652,7 +3654,7 @@ void rebuildConfiguration() {
 
  // put text back into the text block
  block.WritePrivateText(text);
- block.WritePublicText(" BARABAS Configuration v1.5");
+ block.WritePublicText(String.Format(" BARABAS v{0} Configuration", VERSION));
  block.WritePrivateTitle("BARABAS Configuration");
  block.ShowPublicTextOnScreen();
 }
