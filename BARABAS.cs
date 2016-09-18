@@ -3375,7 +3375,7 @@ void configureWatermarks() {
    oxygen_high_watermark = 60;
   }
  }
- if (oxygen_low_watermark == 0 && has_oxygen_tanks) {
+ if (oxygen_low_watermark == 0 && oxygen_high_watermark == 0 && has_oxygen_tanks) {
   if (isBaseMode()) {
    oxygen_low_watermark = 10;
   } else {
@@ -3385,7 +3385,7 @@ void configureWatermarks() {
  if (hydrogen_high_watermark == 0 && has_hydrogen_tanks) {
   hydrogen_high_watermark = 80;
  }
- if (hydrogen_low_watermark == 0 && has_hydrogen_tanks) {
+ if (hydrogen_low_watermark == 0 && hydrogen_high_watermark == 0 && has_hydrogen_tanks) {
   if (isBaseMode()) {
    hydrogen_low_watermark = 10;
   } else {
@@ -3545,12 +3545,12 @@ string generateConfiguration() {
  } else {
   config_options[CONFIGSTR_KEEP_STONE] = "all";
  }
- if (oxygen_low_watermark > 0) {
+ if (oxygen_high_watermark > 0) {
   config_options[CONFIGSTR_OXYGEN_WATERMARKS] = getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark);
  } else {
   config_options[CONFIGSTR_OXYGEN_WATERMARKS] = "none";
  }
- if (hydrogen_low_watermark > 0) {
+ if (hydrogen_high_watermark > 0) {
   config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark);
  } else {
   config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = "none";
@@ -3700,7 +3700,7 @@ void parseLine(string line) {
    oxygen_low_watermark = -1;
    oxygen_high_watermark = -1;
    return;
-  } else if (Decimal.TryParse(strval, out tmp) && tmp > 0 && tmp <= 100) {
+  } else if (Decimal.TryParse(strval, out tmp) && tmp >= 0 && tmp <= 100) {
    oxygen_low_watermark = tmp;
    oxygen_high_watermark = Math.Min(tmp * 2, 100);
    return;
@@ -3714,7 +3714,7 @@ void parseLine(string line) {
    hydrogen_low_watermark = -1;
    hydrogen_high_watermark = -1;
    return;
-  } else if (Decimal.TryParse(strval, out tmp) && tmp > 0 && tmp <= 100) {
+  } else if (Decimal.TryParse(strval, out tmp) && tmp >= 0 && tmp <= 100) {
    hydrogen_low_watermark = tmp;
    hydrogen_high_watermark = Math.Min(tmp * 2, 100);
    return;
@@ -3813,7 +3813,7 @@ void parseLine(string line) {
    oxygen_low_watermark = -1;
    oxygen_high_watermark = -1;
   } else if (parseWatermarkStr(strval, out low, out high)) {
-   if (low > 0 && low <= 100) {
+   if (low >= 0 && low <= 100) {
     oxygen_low_watermark = low;
    } else {
     fail = true;
@@ -3835,7 +3835,7 @@ void parseLine(string line) {
    hydrogen_low_watermark = -1;
    hydrogen_high_watermark = -1;
   } else if (parseWatermarkStr(strval, out low, out high)) {
-   if (low > 0 && low <= 100) {
+   if (low >= 0 && low <= 100) {
     hydrogen_low_watermark = low;
    } else {
     fail = true;
