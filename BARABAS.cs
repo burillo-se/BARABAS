@@ -4112,6 +4112,9 @@ void displayStatusReport() {
 
 void s_refreshGrids() {
  getLocalGrids(true);
+}
+
+void s_refreshBlocks() {
  getBlocks(true);
 }
 
@@ -4613,6 +4616,7 @@ public Program() {
  // kick off state machine
  states = new Action[] {
   s_refreshGrids,
+  s_refreshBlocks,
   s_refreshPower,
   s_refreshProduction,
   s_refreshOxyHydro,
