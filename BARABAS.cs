@@ -721,7 +721,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
  if (local_refineries != null && !force_update) {
   // if we didn't refresh the list yet, get a random subset
   if (!null_list.Contains(local_refineries_subset)) {
-   local_refineries_subset = randomSubset(local_refineries, 30);
+   local_refineries_subset = randomSubset(local_refineries, 40);
   }
   return removeNulls(local_refineries_subset);
  }
@@ -737,7 +737,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
   displayBlockAlerts(refinery);
  }
  if (!null_list.Contains(local_refineries_subset)) {
-  local_refineries_subset = randomSubset(local_refineries, 30);
+  local_refineries_subset = randomSubset(local_refineries, 40);
  }
  return local_refineries_subset;
 }
@@ -746,7 +746,7 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
  if (local_arc_furnaces != null && !force_update) {
   // if we didn't refresh the list yet, get a random subset
   if (!null_list.Contains(local_arc_furnaces_subset)) {
-   local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 30);
+   local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 40);
   }
   return removeNulls(local_arc_furnaces_subset);
  }
@@ -762,7 +762,7 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
   displayBlockAlerts(furnace);
  }
  if (!null_list.Contains(local_arc_furnaces_subset)) {
-  local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 30);
+  local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 40);
  }
  return local_arc_furnaces_subset;
 }
