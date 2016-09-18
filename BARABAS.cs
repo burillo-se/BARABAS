@@ -3652,7 +3652,7 @@ void rebuildConfiguration() {
 
  // put text back into the text block
  block.WritePrivateText(text);
- block.WritePublicText("   BARABAS Configuration");
+ block.WritePublicText(" BARABAS Configuration v1.5");
  block.WritePrivateTitle("BARABAS Configuration");
  block.ShowPublicTextOnScreen();
 }
