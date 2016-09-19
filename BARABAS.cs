@@ -3821,7 +3821,7 @@ void parseLine(string line) {
    } else {
     fail = true;
    }
-   if (high > 0 && high <= 100 && low <= high) {
+   if (high >= 0 && high <= 100 && low <= high) {
     oxygen_high_watermark = high;
    } else {
     fail = true;
@@ -3843,7 +3843,7 @@ void parseLine(string line) {
    } else {
     fail = true;
    }
-   if (high > 0 && high <= 100 && low <= high) {
+   if (high >= 0 && high <= 100 && low <= high) {
     hydrogen_high_watermark = high;
    } else {
     fail = true;
