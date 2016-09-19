@@ -3368,13 +3368,6 @@ void configureWatermarks() {
    power_high_watermark = 30;
   }
  }
- if (oxygen_high_watermark == 0 && has_oxygen_tanks) {
-  if (isBaseMode()) {
-   oxygen_high_watermark = 30;
-  } else {
-   oxygen_high_watermark = 60;
-  }
- }
  if (oxygen_low_watermark == 0 && oxygen_high_watermark == 0 && has_oxygen_tanks) {
   if (isBaseMode()) {
    oxygen_low_watermark = 10;
@@ -3382,14 +3375,25 @@ void configureWatermarks() {
    oxygen_low_watermark = 15;
   }
  }
- if (hydrogen_high_watermark == 0 && has_hydrogen_tanks) {
-  hydrogen_high_watermark = 80;
+ if (oxygen_high_watermark == 0 && has_oxygen_tanks) {
+  if (isBaseMode()) {
+   oxygen_high_watermark = 30;
+  } else {
+   oxygen_high_watermark = 60;
+  }
  }
  if (hydrogen_low_watermark == 0 && hydrogen_high_watermark == 0 && has_hydrogen_tanks) {
   if (isBaseMode()) {
-   hydrogen_low_watermark = 10;
+   hydrogen_low_watermark = 0;
   } else {
-   hydrogen_low_watermark = 30;
+   hydrogen_low_watermark = 15;
+  }
+ }
+ if (hydrogen_high_watermark == 0 && has_hydrogen_tanks) {
+  if (isBaseMode()) {
+	hydrogen_high_watermark = 30;
+  } else {
+	hydrogen_high_watermark = 70;
   }
  }
 }
@@ -3545,12 +3549,12 @@ string generateConfiguration() {
  } else {
   config_options[CONFIGSTR_KEEP_STONE] = "all";
  }
- if (oxygen_high_watermark > 0) {
+ if (oxygen_high_watermark >= 0) {
   config_options[CONFIGSTR_OXYGEN_WATERMARKS] = getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark);
  } else {
   config_options[CONFIGSTR_OXYGEN_WATERMARKS] = "none";
  }
- if (hydrogen_high_watermark > 0) {
+ if (hydrogen_high_watermark >= 0) {
   config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark);
  } else {
   config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = "none";
