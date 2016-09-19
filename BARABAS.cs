@@ -393,8 +393,7 @@ public class GridData {
  public bool override_base;
 }
 
-// grid graph edge class, represents a connection point between two grids, noting
-// if this connection is via a connector (i.e. if it's an external grid connection).
+// grid graph edge class, represents a connection point between two grids.
 public class Edge < T > {
  public T src {get; set;}
  public T dst {get; set;}
