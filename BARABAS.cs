@@ -80,6 +80,8 @@ bool push_components_to_base = false;
 bool pull_ore_from_base = false;
 bool pull_ingots_from_base = false;
 bool pull_components_from_base = false;
+bool refuel_oxygen = false;
+bool refuel_hydrogen = false;
 
 // state variables
 int current_state;
@@ -106,6 +108,8 @@ const string CONFIGSTR_SORT_STORAGE = "sort storage";
 const string CONFIGSTR_HUD_NOTIFICATIONS = "HUD notifications";
 const string CONFIGSTR_OXYGEN_WATERMARKS = "oxygen watermarks";
 const string CONFIGSTR_HYDROGEN_WATERMARKS = "hydrogen watermarks";
+const string CONFIGSTR_REFUEL_OXYGEN = "refuel oxygen";
+const string CONFIGSTR_REFUEL_HYDROGEN = "refuel hydrogen";
 
 // ore_volume
 const Decimal VOLUME_ORE = 0.37M;
@@ -142,6 +146,8 @@ readonly Dictionary < string, string > config_options = new Dictionary < string,
   { CONFIGSTR_POWER_WATERMARKS, "" },
   { CONFIGSTR_OXYGEN_WATERMARKS, "" },
   { CONFIGSTR_HYDROGEN_WATERMARKS, "" },
+  { CONFIGSTR_REFUEL_OXYGEN, "" },
+  { CONFIGSTR_REFUEL_HYDROGEN, "" },
   { CONFIGSTR_PUSH_ORE, "" },
   { CONFIGSTR_PUSH_INGOTS, "" },
   { CONFIGSTR_PUSH_COMPONENTS, "" },
@@ -241,6 +247,8 @@ List < IMyTerminalBlock > local_trash_sensors = null;
 List < IMyTerminalBlock > local_antennas = null;
 List < IMyTerminalBlock > remote_storage = null;
 List < IMyTerminalBlock > remote_ship_storage = null;
+List < IMyTerminalBlock > remote_oxygen_tanks = null;
+List < IMyTerminalBlock > remote_hydrogen_tanks = null;
 IMyTextPanel config_block = null;
 List < IMyCubeGrid > local_grids = null;
 List < IMyCubeGrid > remote_base_grids = null;
@@ -1298,6 +1306,36 @@ List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
   consolidate(s.GetInventory(0));
  }
  return remote_ship_storage;
+}
+
+List < IMyTerminalBlock > getRemoteOxygenTanks(bool force_update = false) {
+ if (remote_oxygen_tanks != null && !force_update) {
+  return removeNulls(remote_oxygen_tanks);
+ }
+ remote_oxygen_tanks = new List < IMyTerminalBlock > ();
+ GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (remote_oxygen_tanks, remoteGridFilter);
+ for (int i = remote_oxygen_tanks.Count - 1; i >= 0; i--) {
+  var b = remote_oxygen_tanks[i] as IMyOxygenTank;
+  if (b.BlockDefinition.ToString().Contains("Hydrogen") || b.GetValue < bool > ("Stockpile") || b.GetOxygenLevel() == 0) {
+   remote_oxygen_tanks.RemoveAt(i);
+  }
+ }
+ return remote_oxygen_tanks;
+}
+
+List < IMyTerminalBlock > getRemoteHydrogenTanks(bool force_update = false) {
+ if (remote_hydrogen_tanks != null && !force_update) {
+  return removeNulls(remote_hydrogen_tanks);
+ }
+ remote_hydrogen_tanks = new List < IMyTerminalBlock > ();
+ GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (remote_hydrogen_tanks, remoteGridFilter);
+ for (int i = remote_oxygen_tanks.Count - 1; i >= 0; i--) {
+  var b = remote_oxygen_tanks[i] as IMyOxygenTank;
+  if (!b.BlockDefinition.ToString().Contains("Hydrogen") || b.GetValue < bool > ("Stockpile") || b.GetOxygenLevel() == 0) {
+   remote_hydrogen_tanks.RemoveAt(i);
+  }
+ }
+ return remote_hydrogen_tanks;
 }
 
 // get local trash disposal connector
@@ -3215,15 +3253,28 @@ void toggleOxygenGenerators(bool val) {
  }
 }
 
-bool iceAboveHighWatermark() {
- bool result = true;
+void toggleStockpile(List < IMyTerminalBlock > blocks, bool val) {
+ foreach (var b in blocks) {
+  b.SetValue("Stockpile", val);
+ }
+}
+
+bool oxygenAboveHighWatermark() {
  if (has_oxygen_tanks && oxygen_high_watermark > 0 && cur_oxygen_level < oxygen_high_watermark) {
-  result = false;
+  return false;
  }
+ return true;
+}
+
+bool hydrogenAboveHighWatermark() {
  if (has_hydrogen_tanks && hydrogen_high_watermark > 0 && cur_hydrogen_level < hydrogen_high_watermark) {
-  result = false;
+  return false;
  }
- return result;
+ return true;
+}
+
+bool iceAboveHighWatermark() {
+ return oxygenAboveHighWatermark() && hydrogenAboveHighWatermark();
 }
 
 Decimal getStoredOxygen() {
@@ -3317,6 +3368,8 @@ void resetConfig() {
  push_ore_to_base = false;
  push_ingots_to_base = false;
  push_components_to_base = false;
+ refuel_oxygen = false;
+ refuel_hydrogen = false;
  throw_out_stone = true;
  material_thresholds[STONE] = 5000M;
  power_low_watermark = 0;
@@ -3387,9 +3440,9 @@ void configureWatermarks() {
  }
  if (hydrogen_high_watermark == 0 && has_hydrogen_tanks) {
   if (isBaseMode()) {
-	hydrogen_high_watermark = 30;
+	  hydrogen_high_watermark = 30;
   } else {
-	hydrogen_high_watermark = 70;
+	  hydrogen_high_watermark = 70;
   }
  }
 }
@@ -3529,12 +3582,16 @@ string generateConfiguration() {
  }
  config_options[CONFIGSTR_HUD_NOTIFICATIONS] = Convert.ToString(hud_notifications);
  config_options[CONFIGSTR_POWER_WATERMARKS] = getWatermarkStr(power_low_watermark, power_high_watermark);
- config_options[CONFIGSTR_PUSH_ORE] = Convert.ToString(push_ore_to_base);
- config_options[CONFIGSTR_PUSH_INGOTS] = Convert.ToString(push_ingots_to_base);
- config_options[CONFIGSTR_PUSH_COMPONENTS] = Convert.ToString(push_components_to_base);
- config_options[CONFIGSTR_PULL_ORE] = Convert.ToString(pull_ore_from_base);
- config_options[CONFIGSTR_PULL_INGOTS] = Convert.ToString(pull_ingots_from_base);
- config_options[CONFIGSTR_PULL_COMPONENTS] = Convert.ToString(pull_components_from_base);
+ if (isShipMode()) {
+  config_options[CONFIGSTR_PUSH_ORE] = Convert.ToString(push_ore_to_base);
+  config_options[CONFIGSTR_PUSH_INGOTS] = Convert.ToString(push_ingots_to_base);
+  config_options[CONFIGSTR_PUSH_COMPONENTS] = Convert.ToString(push_components_to_base);
+  config_options[CONFIGSTR_PULL_ORE] = Convert.ToString(pull_ore_from_base);
+  config_options[CONFIGSTR_PULL_INGOTS] = Convert.ToString(pull_ingots_from_base);
+  config_options[CONFIGSTR_PULL_COMPONENTS] = Convert.ToString(pull_components_from_base);
+  config_options[CONFIGSTR_REFUEL_OXYGEN] = Convert.ToString(refuel_oxygen);
+  config_options[CONFIGSTR_REFUEL_HYDROGEN] = Convert.ToString(refuel_hydrogen);
+ }
  config_options[CONFIGSTR_SORT_STORAGE] = Convert.ToString(sort_storage);
  if (throw_out_stone) {
   if (material_thresholds[STONE] == 0) {
@@ -3545,16 +3602,8 @@ string generateConfiguration() {
  } else {
   config_options[CONFIGSTR_KEEP_STONE] = "all";
  }
- if (oxygen_high_watermark >= 0) {
-  config_options[CONFIGSTR_OXYGEN_WATERMARKS] = getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark);
- } else {
-  config_options[CONFIGSTR_OXYGEN_WATERMARKS] = "none";
- }
- if (hydrogen_high_watermark >= 0) {
-  config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark);
- } else {
-  config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = "none";
- }
+ config_options[CONFIGSTR_OXYGEN_WATERMARKS] = String.Format("{0}", oxygen_high_watermark >= 0 ? getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark) : "none");
+ config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = String.Format("{0}", hydrogen_high_watermark >= 0 ? getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark) : "none");
 
  // currently selected operation mode
  sb.AppendLine("# Operation mode.");
@@ -3588,6 +3637,18 @@ string generateConfiguration() {
  sb.AppendLine("# Second number is when to stop refining ice.");
  sb.AppendLine(key + " = " + config_options[key]);
  sb.AppendLine();
+ if (isShipMode()) {
+  key = CONFIGSTR_REFUEL_OXYGEN;
+  sb.AppendLine("# Automatically refuel oxygen on connection.");
+  sb.AppendLine("# Can be True or False.");
+  sb.AppendLine(key + " = " + config_options[key]);
+  sb.AppendLine();
+  key = CONFIGSTR_REFUEL_HYDROGEN;
+  sb.AppendLine("# Automatically refuel hydrogen on connection.");
+  sb.AppendLine("# Can be True or False.");
+  sb.AppendLine(key + " = " + config_options[key]);
+  sb.AppendLine();
+ }
  key = CONFIGSTR_KEEP_STONE;
  sb.AppendLine("# How much gravel to keep, in tons.");
  sb.AppendLine("# Can be a positive number, \"none\", \"all\" or \"auto\".");
@@ -3598,47 +3659,51 @@ string generateConfiguration() {
  sb.AppendLine("# Can be True or False.");
  sb.AppendLine(key + " = " + config_options[key]);
  sb.AppendLine();
- sb.AppendLine("#");
- sb.AppendLine("# Values below this line are only applicable to");
- sb.AppendLine("# ships when connected to base or other ships.");
- sb.AppendLine("#");
- sb.AppendLine();
- key = CONFIGSTR_PUSH_ORE;
- sb.AppendLine("# Push ore to base storage.");
- sb.AppendLine("# In tug mode, also pull ore from ships.");
- sb.AppendLine("# Can be True or False.");
- sb.AppendLine(key + " = " + config_options[key]);
- sb.AppendLine();
- key = CONFIGSTR_PUSH_INGOTS;
- sb.AppendLine("# Push ingots to base storage.");
- sb.AppendLine("# In tug mode, also pull ingots from ships.");
- sb.AppendLine("# Can be True or False.");
- sb.AppendLine(key + " = " + config_options[key]);
- sb.AppendLine();
- key = CONFIGSTR_PUSH_COMPONENTS;
- sb.AppendLine("# Push components to base storage.");
- sb.AppendLine("# In tug mode, also pull components from ships.");
- sb.AppendLine("# Can be True or False.");
- sb.AppendLine(key + " = " + config_options[key]);
- sb.AppendLine();
- key = CONFIGSTR_PULL_ORE;
- sb.AppendLine("# Pull ore from base storage.");
- sb.AppendLine("# In tug mode, also push ore to ships.");
- sb.AppendLine("# Can be True or False.");
- sb.AppendLine(key + " = " + config_options[key]);
- sb.AppendLine();
- key = CONFIGSTR_PULL_INGOTS;
- sb.AppendLine("# Pull ingots from base storage.");
- sb.AppendLine("# In tug mode, also push ingots to ships.");
- sb.AppendLine("# Can be True or False.");
- sb.AppendLine(key + " = " + config_options[key]);
- sb.AppendLine();
- key = CONFIGSTR_PULL_COMPONENTS;
- sb.AppendLine("# Pull components from base storage.");
- sb.AppendLine("# In tug mode, also push components to ships.");
- sb.AppendLine("# Can be True or False.");
- sb.AppendLine(key + " = " + config_options[key]);
- sb.AppendLine();
+
+ // these values only apply to ships
+ if (isShipMode()) {
+  sb.AppendLine("#");
+  sb.AppendLine("# Values below this line are only applicable to");
+  sb.AppendLine("# ships when connected to base or other ships.");
+  sb.AppendLine("#");
+  sb.AppendLine();
+  key = CONFIGSTR_PUSH_ORE;
+  sb.AppendLine("# Push ore to base storage.");
+  sb.AppendLine("# In tug mode, also pull ore from ships.");
+  sb.AppendLine("# Can be True or False.");
+  sb.AppendLine(key + " = " + config_options[key]);
+  sb.AppendLine();
+  key = CONFIGSTR_PUSH_INGOTS;
+  sb.AppendLine("# Push ingots to base storage.");
+  sb.AppendLine("# In tug mode, also pull ingots from ships.");
+  sb.AppendLine("# Can be True or False.");
+  sb.AppendLine(key + " = " + config_options[key]);
+  sb.AppendLine();
+  key = CONFIGSTR_PUSH_COMPONENTS;
+  sb.AppendLine("# Push components to base storage.");
+  sb.AppendLine("# In tug mode, also pull components from ships.");
+  sb.AppendLine("# Can be True or False.");
+  sb.AppendLine(key + " = " + config_options[key]);
+  sb.AppendLine();
+  key = CONFIGSTR_PULL_ORE;
+  sb.AppendLine("# Pull ore from base storage.");
+  sb.AppendLine("# In tug mode, also push ore to ships.");
+  sb.AppendLine("# Can be True or False.");
+  sb.AppendLine(key + " = " + config_options[key]);
+  sb.AppendLine();
+  key = CONFIGSTR_PULL_INGOTS;
+  sb.AppendLine("# Pull ingots from base storage.");
+  sb.AppendLine("# In tug mode, also push ingots to ships.");
+  sb.AppendLine("# Can be True or False.");
+  sb.AppendLine(key + " = " + config_options[key]);
+  sb.AppendLine();
+  key = CONFIGSTR_PULL_COMPONENTS;
+  sb.AppendLine("# Pull components from base storage.");
+  sb.AppendLine("# In tug mode, also push components to ships.");
+  sb.AppendLine("# Can be True or False.");
+  sb.AppendLine(key + " = " + config_options[key]);
+  sb.AppendLine();
+ }
 
  return sb.ToString();
 }
@@ -3851,19 +3916,26 @@ void parseLine(string line) {
  }
  // bools
  else if (bparse) {
-  if (clStrCompare(str, CONFIGSTR_PUSH_ORE)) {
-   push_ore_to_base = bval;
-  } else if (clStrCompare(str, CONFIGSTR_PUSH_INGOTS)) {
-   push_ingots_to_base = bval;
-  } else if (clStrCompare(str, CONFIGSTR_PUSH_COMPONENTS)) {
-   push_components_to_base = bval;
-  } else if (clStrCompare(str, CONFIGSTR_PULL_ORE)) {
-   pull_ore_from_base = bval;
-  } else if (clStrCompare(str, CONFIGSTR_PULL_INGOTS)) {
-   pull_ingots_from_base = bval;
-  } else if (clStrCompare(str, CONFIGSTR_PULL_COMPONENTS)) {
-   pull_components_from_base = bval;
-  } else if (clStrCompare(str, CONFIGSTR_SORT_STORAGE)) {
+  if (isShipMode()) {
+   if (clStrCompare(str, CONFIGSTR_PUSH_ORE)) {
+    push_ore_to_base = bval;
+   } else if (clStrCompare(str, CONFIGSTR_PUSH_INGOTS)) {
+    push_ingots_to_base = bval;
+   } else if (clStrCompare(str, CONFIGSTR_PUSH_COMPONENTS)) {
+    push_components_to_base = bval;
+   } else if (clStrCompare(str, CONFIGSTR_PULL_ORE)) {
+    pull_ore_from_base = bval;
+   } else if (clStrCompare(str, CONFIGSTR_PULL_INGOTS)) {
+    pull_ingots_from_base = bval;
+   } else if (clStrCompare(str, CONFIGSTR_PULL_COMPONENTS)) {
+    pull_components_from_base = bval;
+   } else if (clStrCompare(str, CONFIGSTR_REFUEL_OXYGEN)) {
+    refuel_oxygen = bval;
+   } else if (clStrCompare(str, CONFIGSTR_REFUEL_HYDROGEN)) {
+    refuel_hydrogen = bval;
+   }
+  }
+  if (clStrCompare(str, CONFIGSTR_SORT_STORAGE)) {
    sort_storage = bval;
   } else if (clStrCompare(str, CONFIGSTR_HUD_NOTIFICATIONS)) {
    hud_notifications = bval;
@@ -4202,6 +4274,8 @@ void s_refreshRemote() {
  if (connected) {
   getRemoteStorage(true);
   getRemoteShipStorage(true);
+  getRemoteOxygenTanks(true);
+  getRemoteHydrogenTanks(true);
   addAlert(GREEN_ALERT);
  } else {
   removeAlert(GREEN_ALERT);
@@ -4297,6 +4371,28 @@ void s_processIce() {
   return;
  }
  pushIceToStorage();
+}
+
+void s_refuelIce() {
+ var o = getOxygenTanks();
+ var h = getHydrogenTanks();
+ var o_s = false;
+ var h_s = false;
+
+ // if we're not a ship or we're not connected to anything, bail out
+ if (!isShipMode() || !connected) {
+  toggleStockpile(o, o_s);
+  toggleStockpile(h, h_s);
+  return;
+ }
+ if (refuel_oxygen && getRemoteOxygenTanks().Count != 0 && !oxygenAboveHighWatermark()) {
+  o_s = true;
+ }
+ if (refuel_hydrogen && getRemoteHydrogenTanks().Count != 0 && !hydrogenAboveHighWatermark()) {
+  h_s = true;
+ }
+ toggleStockpile(o, o_s);
+ toggleStockpile(h, h_s);
 }
 
 void s_materialsPriority() {
@@ -4630,6 +4726,7 @@ public Program() {
   s_power,
   s_refineries,
   s_processIce,
+  s_refuelIce,
   s_materialsPriority,
   s_materialsRebalance,
   s_materialsCrisis,
