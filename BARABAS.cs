@@ -507,8 +507,8 @@ public class Graph < T > {
     }
    }
   }
-  foreach (var edge in to_remove) {
-   r_edges.Remove(edge);
+  foreach (var e in to_remove) {
+   r_edges.Remove(e);
   }
  }
 
@@ -527,21 +527,21 @@ public class Graph < T > {
 
 // just have a method to indicate that this exception comes from BARABAS
 class BarabasException: Exception {
- public BarabasException(string msg, Program p) : base("BARABAS: " + msg) {
+ public BarabasException(string msg, Program pr) : base("BARABAS: " + msg) {
   // calling the getX() functions will set off a chain of events if local data
   // is not initialized, so use locally stored data instead
-  var panels = p.local_text_panels;
+  var panels = pr.local_text_panels;
   if (panels != null && panels.Count > 0) {
-   foreach (IMyTextPanel panel in panels) {
-    panel.WritePublicText(" BARABAS EXCEPTION:\n" + msg);
-    panel.ShowTextureOnScreen();
-    panel.ShowPublicTextOnScreen();
+   foreach (IMyTextPanel p in panels) {
+    p.WritePublicText(" BARABAS EXCEPTION:\n" + msg);
+    p.ShowTextureOnScreen();
+    p.ShowPublicTextOnScreen();
    }
   }
-  p.Me.SetCustomName("BARABAS Exception: " + msg);
-  p.showOnHud(p.Me);
-  if (p.local_lights != null) {
-   p.showAlertColor(Color.Red);
+  pr.Me.SetCustomName("BARABAS Exception: " + msg);
+  pr.showOnHud(pr.Me);
+  if (pr.local_lights != null) {
+   pr.showAlertColor(Color.Red);
   }
  }
 }
@@ -549,36 +549,36 @@ class BarabasException: Exception {
 /**
  * Filters
  */
-bool excludeBlock(IMyTerminalBlock block) {
- if (block.CustomName.StartsWith("X")) {
+bool excludeBlock(IMyTerminalBlock b) {
+ if (b.CustomName.StartsWith("X")) {
   return true;
  }
- if (!block.IsFunctional) {
+ if (!b.IsFunctional) {
   return true;
  }
  return false;
 }
 
-bool localGridFilter(IMyTerminalBlock block) {
- if (excludeBlock(block)) {
+bool localGridFilter(IMyTerminalBlock b) {
+ if (excludeBlock(b)) {
   return false;
  }
- return getLocalGrids().Contains(block.CubeGrid);
+ return getLocalGrids().Contains(b.CubeGrid);
 }
 
-bool remoteGridFilter(IMyTerminalBlock block) {
- if (excludeBlock(block)) {
+bool remoteGridFilter(IMyTerminalBlock b) {
+ if (excludeBlock(b)) {
   return false;
  }
- return getRemoteGrids().Contains(block.CubeGrid);
+ return getRemoteGrids().Contains(b.CubeGrid);
 }
 
 // this filter only gets remote ships - used for tug mode
-bool shipFilter(IMyTerminalBlock block) {
- if (excludeBlock(block)) {
+bool shipFilter(IMyTerminalBlock b) {
+ if (excludeBlock(b)) {
   return false;
  }
- return getShipGrids().Contains(block.CubeGrid);
+ return getShipGrids().Contains(b.CubeGrid);
 }
 
 /**
@@ -588,9 +588,9 @@ bool shipFilter(IMyTerminalBlock block) {
 public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks) {
  var grids = getLocalGrids();
  for (int i = blocks.Count - 1; i >= 0; i--) {
-  var block = blocks[i];
-  var grid = block.CubeGrid;
-  if (!(block is T) || !grids.Contains(grid)) {
+  var b = blocks[i];
+  var grid = b.CubeGrid;
+  if (!(b is T) || !grids.Contains(grid)) {
    blocks.RemoveAt(i);
   }
  }
@@ -604,43 +604,43 @@ List < IMyTerminalBlock > removeNulls(List < IMyTerminalBlock > list) {
  }
  null_list.Add(list);
  for (int i = list.Count - 1; i >= 0; i--) {
-  var block = list[i];
-  if (!blockExists(block)) {
-   blocks_to_alerts.Remove(block);
+  var b = list[i];
+  if (!blockExists(b)) {
+   blocks_to_alerts.Remove(b);
    list.RemoveAt(i);
   }
  }
  return list;
 }
 
-IMySlimBlock slimBlock(IMyTerminalBlock block) {
- return block.CubeGrid.GetCubeBlock(block.Position);
+IMySlimBlock slimBlock(IMyTerminalBlock b) {
+ return b.CubeGrid.GetCubeBlock(b.Position);
 }
 
-bool blockExists(IMyTerminalBlock block) {
- return block.CubeGrid.CubeExists(block.Position);
+bool blockExists(IMyTerminalBlock b) {
+ return b.CubeGrid.CubeExists(b.Position);
 }
 
 // does what it says on the tin: picks random subset of a list
 List < IMyTerminalBlock > randomSubset(List < IMyTerminalBlock > list, int limit) {
  int len = Math.Min(list.Count, limit);
- var random_idx = new List < int > ();
+ var r_idx = new List < int > ();
  var result = new List < IMyTerminalBlock > ();
 
  // initialize the index list
  for (int i = 0; i < list.Count; i++) {
-  random_idx.Add(i);
+  r_idx.Add(i);
  }
 
  // randomize the list
  Random rng = new Random();
- for (int i = 0; i < random_idx.Count; i++) {
-  random_idx.Swap(i, rng.Next(0, random_idx.Count));
+ for (int i = 0; i < r_idx.Count; i++) {
+  r_idx.Swap(i, rng.Next(0, r_idx.Count));
  }
 
  // now, pick out the random subset
  for (int i = 0; i < len; i++) {
-  result.Add(list[random_idx[i]]);
+  result.Add(list[r_idx[i]]);
  }
 
  return result;
@@ -660,14 +660,14 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
  }
  // check if we have unfinished blocks
  for (int i = local_blocks.Count - 1; i >= 0; i--) {
-  var block = local_blocks[i];
-  if (!slimBlock(block).IsFullIntegrity) {
+  var b = local_blocks[i];
+  if (!slimBlock(b).IsFullIntegrity) {
    alert = true;
-   addBlockAlert(block, ALERT_DAMAGED);
+   addBlockAlert(b, ALERT_DAMAGED);
   } else {
-   removeBlockAlert(block, ALERT_DAMAGED);
+   removeBlockAlert(b, ALERT_DAMAGED);
   }
-  displayBlockAlerts(block);
+  displayBlockAlerts(b);
  }
  if (alert) {
   addAlert(PINK_ALERT);
@@ -682,8 +682,8 @@ List < IMyTerminalBlock > getReactors(bool force_update = false) {
   return removeNulls(local_reactors);
  }
  filterLocalGrid < IMyReactor > (local_reactors);
- foreach (var reactor in local_reactors) {
-  var inv = reactor.GetInventory(0);
+ foreach (var r in local_reactors) {
+  var inv = r.GetInventory(0);
   if (inv.GetItems().Count > 1) {
    consolidate(inv);
   }
@@ -709,8 +709,8 @@ List < IMyTerminalBlock > getStorage(bool force_update = false) {
   return removeNulls(local_storage);
  }
  filterLocalGrid < IMyCargoContainer > (local_storage);
- foreach (var storage in local_storage) {
-  var inv = storage.GetInventory(0);
+ foreach (var s in local_storage) {
+  var inv = s.GetInventory(0);
   consolidate(inv);
  }
  return local_storage;
@@ -726,14 +726,14 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
  }
  refineries_clogged = false;
  filterLocalGrid < IMyRefinery > (local_refineries);
- foreach (IMyRefinery refinery in local_refineries) {
-  if (!refinery.IsQueueEmpty && !refinery.IsProducing) {
-   addBlockAlert(refinery, ALERT_CLOGGED);
+ foreach (IMyRefinery r in local_refineries) {
+  if (!r.IsQueueEmpty && !r.IsProducing) {
+   addBlockAlert(r, ALERT_CLOGGED);
    refineries_clogged = true;
   } else {
-   removeBlockAlert(refinery, ALERT_CLOGGED);
+   removeBlockAlert(r, ALERT_CLOGGED);
   }
-  displayBlockAlerts(refinery);
+  displayBlockAlerts(r);
  }
  if (!null_list.Contains(local_refineries_subset)) {
   local_refineries_subset = randomSubset(local_refineries, 40);
@@ -751,14 +751,14 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
  }
  arc_furnaces_clogged = false;
  filterLocalGrid < IMyRefinery > (local_arc_furnaces);
- foreach (IMyRefinery furnace in local_arc_furnaces) {
-  if (!furnace.IsQueueEmpty && !furnace.IsProducing) {
-   addBlockAlert(furnace, ALERT_CLOGGED);
+ foreach (IMyRefinery r in local_arc_furnaces) {
+  if (!r.IsQueueEmpty && !r.IsProducing) {
+   addBlockAlert(r, ALERT_CLOGGED);
    arc_furnaces_clogged = true;
   } else {
-   removeBlockAlert(furnace, ALERT_CLOGGED);
+   removeBlockAlert(r, ALERT_CLOGGED);
   }
-  displayBlockAlerts(furnace);
+  displayBlockAlerts(r);
  }
  if (!null_list.Contains(local_arc_furnaces_subset)) {
   local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 40);
@@ -785,27 +785,27 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
  assemblers_clogged = false;
  filterLocalGrid < IMyAssembler > (local_assemblers);
  for (int i = local_assemblers.Count - 1; i >= 0; i--) {
-  var block = local_assemblers[i] as IMyAssembler;
-  if (block.DisassembleEnabled) {
+  var a = local_assemblers[i] as IMyAssembler;
+  if (a.DisassembleEnabled) {
    local_assemblers.RemoveAt(i);
   } else {
-   consolidate(block.GetInventory(0));
-   consolidate(block.GetInventory(1));
-   var input_inv = block.GetInventory(0);
-   var output_inv = block.GetInventory(1);
+   consolidate(a.GetInventory(0));
+   consolidate(a.GetInventory(1));
+   var input_inv = a.GetInventory(0);
+   var output_inv = a.GetInventory(1);
    Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
    Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
-   bool isWaiting = !block.IsQueueEmpty && !block.IsProducing;
-   removeBlockAlert(block, ALERT_MATERIALS_MISSING);
-   removeBlockAlert(block, ALERT_CLOGGED);
+   bool isWaiting = !a.IsQueueEmpty && !a.IsProducing;
+   removeBlockAlert(a, ALERT_MATERIALS_MISSING);
+   removeBlockAlert(a, ALERT_CLOGGED);
    if ((input_load > 0.98M || output_load > 0.98M) && isWaiting) {
-    addBlockAlert(block, ALERT_CLOGGED);
+    addBlockAlert(a, ALERT_CLOGGED);
     assemblers_clogged = true;
    } else if (isWaiting) {
-    addBlockAlert(block, ALERT_MATERIALS_MISSING);
+    addBlockAlert(a, ALERT_MATERIALS_MISSING);
     assemblers_clogged = true;
    }
-   displayBlockAlerts(block);
+   displayBlockAlerts(a);
   }
  }
  return local_assemblers;
@@ -816,15 +816,15 @@ List < IMyTerminalBlock > getConnectors(bool force_update = false) {
   return removeNulls(local_connectors);
  }
  filterLocalGrid < IMyShipConnector > (local_connectors);
- foreach (IMyShipConnector connector in local_connectors) {
-  consolidate(connector.GetInventory(0));
+ foreach (IMyShipConnector c in local_connectors) {
+  consolidate(c.GetInventory(0));
   // prepare the connector
   // at this point, we have already turned off the conveyors,
   // so now just check if we aren't throwing anything already and
   // if we aren't in "collect all" mode
-  if (connector.CollectAll) {
+  if (c.CollectAll) {
    // disable collect all
-   connector.ApplyAction("CollectAll");
+   c.ApplyAction("CollectAll");
   }
  }
  return local_connectors;
@@ -837,9 +837,9 @@ List < IMyTerminalBlock > getLights(bool force_update = false) {
  }
  // find our group
  local_lights = new List < IMyTerminalBlock > ();
- var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
- if (group != null) {
-  group.GetBlocks(local_lights, localGridFilter);
+ var g = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
+ if (g != null) {
+  g.GetBlocks(local_lights, localGridFilter);
  }
  filterLocalGrid < IMyLightingBlock > (local_lights);
  return local_lights;
@@ -853,10 +853,10 @@ List < IMyTerminalBlock > getTextPanels(bool force_update = false) {
  // find our group
  local_text_panels = new List < IMyTerminalBlock > ();
 
- var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
+ var g = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
 
- if (group != null) {
-  group.GetBlocks(local_text_panels, localGridFilter);
+ if (g != null) {
+  g.GetBlocks(local_text_panels, localGridFilter);
  }
 
  // we may find multiple Status groups, as we may have a BARABAS-driven
@@ -879,26 +879,26 @@ List < IMyTerminalBlock > getAntennas(bool force_update = false) {
  }
  // find our group
  local_antennas = new List < IMyTerminalBlock > ();
- var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
+ var g = GridTerminalSystem.GetBlockGroupWithName("BARABAS Notify");
 
- if (group != null) {
-  var tmp_antennas = new List < IMyTerminalBlock > ();
-  var tmp_beacons = new List < IMyTerminalBlock > ();
-  var tmp_laser = new List < IMyTerminalBlock > ();
-  group.GetBlocks(tmp_antennas);
-  group.GetBlocks(tmp_beacons);
-  group.GetBlocks(tmp_laser);
+ if (g != null) {
+  var a = new List < IMyTerminalBlock > ();
+  var b = new List < IMyTerminalBlock > ();
+  var l = new List < IMyTerminalBlock > ();
+  g.GetBlocks(b);
+  g.GetBlocks(a);
+  g.GetBlocks(l);
 
   // we may find multiple Status groups, as we may have a BARABAS-driven
   // ships connected, so let's filter text panels
-  filterLocalGrid < IMyBeacon > (tmp_beacons);
-  filterLocalGrid < IMyRadioAntenna > (tmp_antennas);
-  filterLocalGrid < IMyLaserAntenna > (tmp_laser);
+  filterLocalGrid < IMyBeacon > (b);
+  filterLocalGrid < IMyRadioAntenna > (a);
+  filterLocalGrid < IMyLaserAntenna > (l);
 
   // populate the list
-  local_antennas.AddRange(tmp_beacons);
-  local_antennas.AddRange(tmp_antennas);
-  local_antennas.AddRange(tmp_laser);
+  local_antennas.AddRange(b);
+  local_antennas.AddRange(a);
+  local_antennas.AddRange(l);
  }
 
  return local_antennas;
@@ -909,8 +909,8 @@ List < IMyTerminalBlock > getDrills(bool force_update = false) {
   return removeNulls(local_drills);
  }
  filterLocalGrid < IMyShipDrill > (local_drills);
- foreach (var drill in local_drills) {
-  consolidate(drill.GetInventory(0));
+ foreach (var d in local_drills) {
+  consolidate(d.GetInventory(0));
  }
  return local_drills;
 }
@@ -920,8 +920,8 @@ List < IMyTerminalBlock > getGrinders(bool force_update = false) {
   return removeNulls(local_grinders);
  }
  filterLocalGrid < IMyShipGrinder > (local_grinders);
- foreach (var grinder in local_grinders) {
-  consolidate(grinder.GetInventory(0));
+ foreach (var g in local_grinders) {
+  consolidate(g.GetInventory(0));
  }
  return local_grinders;
 }
@@ -931,8 +931,8 @@ List < IMyTerminalBlock > getWelders(bool force_update = false) {
   return removeNulls(local_welders);
  }
  filterLocalGrid < IMyShipWelder > (local_welders);
- foreach (var welder in local_welders) {
-  consolidate(welder.GetInventory(0));
+ foreach (var w in local_welders) {
+  consolidate(w.GetInventory(0));
  }
  return local_welders;
 }
@@ -970,59 +970,59 @@ List < IMyTerminalBlock > getOxygenGenerators(bool force_update = false) {
 }
 
 // find which grid has a block at world_pos, excluding "self"
-IMyCubeGrid findGrid(Vector3D world_pos, IMyCubeGrid self, List < IMyCubeGrid > grids) {
- foreach (var grid in grids) {
-  if (grid == self) {
+IMyCubeGrid findGrid(Vector3D w_p, IMyCubeGrid self, List < IMyCubeGrid > grids) {
+ foreach (var g in grids) {
+  if (g == self) {
    continue;
   }
-  var pos = grid.WorldToGridInteger(world_pos);
-  if (grid.CubeExists(pos)) {
-   return grid;
+  var pos = g.WorldToGridInteger(w_p);
+  if (g.CubeExists(pos)) {
+   return g;
   }
  }
  return null;
 }
 
-IMyCubeGrid getConnectedGrid(IMyShipConnector connector) {
- if (!connector.IsConnected) {
+IMyCubeGrid getConnectedGrid(IMyShipConnector c) {
+ if (!c.IsConnected) {
   return null;
  }
  // skip connectors connecting to the same grid
- var other = connector.OtherConnector;
- if (other.CubeGrid == connector.CubeGrid) {
+ var o = c.OtherConnector;
+ if (o.CubeGrid == c.CubeGrid) {
   return null;
  }
- return other.CubeGrid;
+ return o.CubeGrid;
 }
 
-IMyCubeGrid getConnectedGrid(IMyMotorBase rotor, List < IMyCubeGrid > grids) {
- if (!rotor.IsAttached) {
+IMyCubeGrid getConnectedGrid(IMyMotorBase r, List < IMyCubeGrid > grids) {
+ if (!r.IsAttached) {
   return null;
  }
- var position = rotor.Position;
- var orientation = rotor.Orientation;
- var direction = new Vector3I(0, 1, 0);
- Matrix matrix;
- orientation.GetMatrix(out matrix);
- Vector3I.Transform(ref direction, ref matrix, out direction);
- var world_pos = rotor.CubeGrid.GridIntegerToWorld(position + direction);
- return findGrid(world_pos, rotor.CubeGrid, grids);
+ var pos = r.Position;
+ var or = r.Orientation;
+ var dir = new Vector3I(0, 1, 0);
+ Matrix m;
+ or.GetMatrix(out m);
+ Vector3I.Transform(ref dir, ref m, out dir);
+ var w_p = r.CubeGrid.GridIntegerToWorld(pos + dir);
+ return findGrid(w_p, r.CubeGrid, grids);
 }
 
-IMyCubeGrid getConnectedGrid(IMyPistonBase piston, List < IMyCubeGrid > grids) {
- if (!piston.IsAttached) {
+IMyCubeGrid getConnectedGrid(IMyPistonBase p, List < IMyCubeGrid > grids) {
+ if (!p.IsAttached) {
   return null;
  }
- var position = piston.Position;
- var orientation = piston.Orientation;
- bool is_large = piston.BlockDefinition.ToString().Contains("Large");
- var up = (int) Math.Round(piston.CurrentPosition / (is_large ? 2.5 : 0.5));
- var direction = new Vector3I(0, 2 + up, 0);
- Matrix matrix;
- orientation.GetMatrix(out matrix);
- Vector3I.Transform(ref direction, ref matrix, out direction);
- var world_pos = piston.CubeGrid.GridIntegerToWorld(position + direction);
- return findGrid(world_pos, piston.CubeGrid, grids);
+ var pos = p.Position;
+ var or = p.Orientation;
+ bool is_large = p.BlockDefinition.ToString().Contains("Large");
+ var up = (int) Math.Round(p.CurrentPosition / (is_large ? 2.5 : 0.5));
+ var dir = new Vector3I(0, 2 + up, 0);
+ Matrix m;
+ or.GetMatrix(out m);
+ Vector3I.Transform(ref dir, ref m, out dir);
+ var w_p = p.CubeGrid.GridIntegerToWorld(pos + dir);
+ return findGrid(w_p, p.CubeGrid, grids);
 }
 
 // getting local grids is not trivial, we're basically building a graph of all
@@ -1061,80 +1061,80 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 
  // for each block, get its grid, store data for this grid, and populate respective
  // object list if it's one of the objects we're interested in
- foreach (var block in local_blocks) {
+ foreach (var b in local_blocks) {
   GridData data;
-  if (!tmp_grid_data.TryGetValue(block.CubeGrid, out data)) {
+  if (!tmp_grid_data.TryGetValue(b.CubeGrid, out data)) {
    data = new GridData();
-   tmp_grid_data.Add(block.CubeGrid, data);
+   tmp_grid_data.Add(b.CubeGrid, data);
   }
 
   // fill all lists
-  if (block is IMyReactor) {
-   local_reactors.Add(block);
-  } else if (block is IMyBatteryBlock) {
-   local_batteries.Add(block);
-  } else if (block is IMyRefinery) {
+  if (b is IMyReactor) {
+   local_reactors.Add(b);
+  } else if (b is IMyBatteryBlock) {
+   local_batteries.Add(b);
+  } else if (b is IMyRefinery) {
    // refineries and furnaces are of the same type, but differ in definitions
-   if (block.BlockDefinition.ToString().Contains("LargeRefinery")) {
-    local_refineries.Add(block);
+   if (b.BlockDefinition.ToString().Contains("LargeRefinery")) {
+    local_refineries.Add(b);
    } else {
-    local_arc_furnaces.Add(block);
+    local_arc_furnaces.Add(b);
    }
-  } else if (block is IMyAssembler) {
-   local_assemblers.Add(block);
-  } else if (block is IMyShipConnector) {
-   local_connectors.Add(block);
-  } else if (block is IMyCargoContainer) {
-   local_storage.Add(block);
-  } else if (block is IMyShipDrill) {
-   local_drills.Add(block);
+  } else if (b is IMyAssembler) {
+   local_assemblers.Add(b);
+  } else if (b is IMyShipConnector) {
+   local_connectors.Add(b);
+  } else if (b is IMyCargoContainer) {
+   local_storage.Add(b);
+  } else if (b is IMyShipDrill) {
+   local_drills.Add(b);
    data.has_drills = true;
-  } else if (block is IMyShipGrinder) {
-   local_grinders.Add(block);
+  } else if (b is IMyShipGrinder) {
+   local_grinders.Add(b);
    data.has_grinders = true;
-  } else if (block is IMyShipWelder) {
-   local_welders.Add(block);
+  } else if (b is IMyShipWelder) {
+   local_welders.Add(b);
    data.has_welders = true;
-  } else if (block is IMyAirVent) {
-   local_air_vents.Add(block);
-  } else if (block is IMyOxygenTank) {
+  } else if (b is IMyAirVent) {
+   local_air_vents.Add(b);
+  } else if (b is IMyOxygenTank) {
    // oxygen and hydrogen tanks are of the same type, but differ in definitions
-   if (block.BlockDefinition.ToString().Contains("Hydrogen")) {
-    local_hydrogen_tanks.Add(block);
+   if (b.BlockDefinition.ToString().Contains("Hydrogen")) {
+    local_hydrogen_tanks.Add(b);
    } else {
-    local_oxygen_tanks.Add(block);
+    local_oxygen_tanks.Add(b);
    }
-  } else if (block is IMyOxygenGenerator) {
-   local_oxygen_generators.Add(block);
-  } else if (block is IMyPistonBase) {
-   pistons.Add(block);
-  } else if (block is IMyMotorBase) {
-   rotors.Add(block);
-  } else if (block is IMyMotorSuspension) {
+  } else if (b is IMyOxygenGenerator) {
+   local_oxygen_generators.Add(b);
+  } else if (b is IMyPistonBase) {
+   pistons.Add(b);
+  } else if (b is IMyMotorBase) {
+   rotors.Add(b);
+  } else if (b is IMyMotorSuspension) {
    data.has_wheels = true;
-  } else if (block is IMyThrust) {
+  } else if (b is IMyThrust) {
    data.has_thrusters = true;
-  } else if (block is IMyProgrammableBlock && block != Me && block.CubeGrid != Me.CubeGrid) {
+  } else if (b is IMyProgrammableBlock && b != Me && b.CubeGrid != Me.CubeGrid) {
    // skip disabled CPU's as well
-   if (block.CustomName == "BARABAS Ship CPU") {
+   if (b.CustomName == "BARABAS Ship CPU") {
     data.override_ship = true;
-   } else if (block.CustomName == "BARABAS Base CPU") {
+   } else if (b.CustomName == "BARABAS Base CPU") {
     data.override_base = true;
    }
   }
  }
 
  // now, build a graph of all grids
- var graph = new Graph<IMyCubeGrid>();
+ var gr = new Graph<IMyCubeGrid>();
  var grids = new List < IMyCubeGrid > (tmp_grid_data.Keys);
 
  // first, go through all pistons
- foreach (IMyPistonBase piston in pistons) {
-  var connected_grid = getConnectedGrid(piston, grids);
+ foreach (IMyPistonBase p in pistons) {
+  var connected_grid = getConnectedGrid(p, grids);
 
   if (connected_grid != null) {
    // grids connected to pistons are local to their source
-   graph.addEdge(piston.CubeGrid, connected_grid, false);
+   gr.addEdge(p.CubeGrid, connected_grid, false);
   }
  }
 
@@ -1144,25 +1144,25 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
 
   if (connected_grid != null) {
    // grids connected to locals are local to their source
-   graph.addEdge(rotor.CubeGrid, connected_grid, false);
+   gr.addEdge(rotor.CubeGrid, connected_grid, false);
   }
  }
 
  // do the same for connectors
- foreach (IMyShipConnector connector in local_connectors) {
-  var connected_grid = getConnectedGrid(connector);
+ foreach (IMyShipConnector c in local_connectors) {
+  var connected_grid = getConnectedGrid(c);
 
   if (connected_grid != null) {
    // grids connected to connectors belong to a different ship
-   graph.addEdge(connector.CubeGrid, connected_grid, true);
+   gr.addEdge(c.CubeGrid, connected_grid, true);
   }
  }
 
  // make sure we remove all unnecessary edges from the graph
- graph.validateGraph();
+ gr.validateGraph();
 
  // now, get our actual local grid
- local_grids = graph.getGridRegion(Me.CubeGrid);
+ local_grids = gr.getGridRegion(Me.CubeGrid);
 
  // store our new local grid data
  local_grid_data = new GridData();
@@ -1177,7 +1177,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
  }
 
  // now, go through all the connector-to-connector grid connections
- var connections = graph.getGridConnections();
+ var connections = gr.getGridConnections();
  // we don't want to count known local grids as remote, so mark all local grids
  // as ones we've seen already
  var seen = new HashSet < IMyCubeGrid > (local_grids);
@@ -1193,7 +1193,7 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
    if (!seen.Contains(e_g)) {
     // get all grids that are local to it
     GridData data;
-    var r_grids = graph.getGridRegion(e_g);
+    var r_grids = gr.getGridRegion(e_g);
     if (!remote_grid_data.TryGetValue(e_g, out data)) {
      data = new GridData();
     }
@@ -1228,8 +1228,8 @@ void findRemoteGrids() {
   connected = false;
   return;
  }
- var base_grids = new List < IMyCubeGrid > ();
- var ship_grids = new List < IMyCubeGrid > ();
+ var b_g = new List < IMyCubeGrid > ();
+ var s_g = new List < IMyCubeGrid > ();
  // we need to know how many bases we've found
  var base_grid_info = new HashSet < GridData > ();
 
@@ -1237,19 +1237,19 @@ void findRemoteGrids() {
   var grid = pair.Key;
   var data = pair.Value;
   if (data.override_ship) {
-   ship_grids.Add(grid);
+   s_g.Add(grid);
    continue;
   } else if (data.override_base) {
    base_grid_info.Add(data);
-   base_grids.Add(grid);
+   b_g.Add(grid);
    continue;
   }
   // if we're a base, assume every other grid is a ship unless we're explicitly
   // told that it's another base
   if (data.has_thrusters || data.has_wheels || isBaseMode()) {
-   ship_grids.Add(grid);
+   s_g.Add(grid);
   } else {
-   base_grids.Add(grid);
+   b_g.Add(grid);
    base_grid_info.Add(data);
   }
  }
@@ -1257,10 +1257,10 @@ void findRemoteGrids() {
  if (isShipMode() && base_grid_info.Count > 1) {
   throw new BarabasException("Cannot have more than one base", this);
  }
- remote_base_grids = base_grids;
- remote_ship_grids = ship_grids;
- connected_to_base = base_grids.Count > 0;
- connected_to_ship = ship_grids.Count > 0;
+ remote_base_grids = b_g;
+ remote_ship_grids = s_g;
+ connected_to_base = b_g.Count > 0;
+ connected_to_ship = s_g.Count > 0;
  connected = connected_to_base || connected_to_ship;
 }
 
@@ -1282,8 +1282,8 @@ List < IMyTerminalBlock > getRemoteStorage(bool force_update = false) {
  }
  remote_storage = new List < IMyTerminalBlock > ();
  GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (remote_storage, remoteGridFilter);
- foreach (var storage in remote_storage) {
-  consolidate(storage.GetInventory(0));
+ foreach (var s in remote_storage) {
+  consolidate(s.GetInventory(0));
  }
  return remote_storage;
 }
@@ -1294,8 +1294,8 @@ List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
  }
  remote_ship_storage = new List < IMyTerminalBlock > ();
  GridTerminalSystem.GetBlocksOfType < IMyCargoContainer > (remote_ship_storage, shipFilter);
- foreach (var storage in remote_ship_storage) {
-  consolidate(storage.GetInventory(0));
+ foreach (var s in remote_ship_storage) {
+  consolidate(s.GetInventory(0));
  }
  return remote_ship_storage;
 }
@@ -1309,10 +1309,10 @@ List < IMyTerminalBlock > getTrashConnectors(bool force_update = false) {
  // find our group
  local_trash_connectors = new List < IMyTerminalBlock > ();
 
- var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Trash");
+ var g = GridTerminalSystem.GetBlockGroupWithName("BARABAS Trash");
 
- if (group != null) {
-  group.GetBlocks(local_trash_connectors);
+ if (g != null) {
+  g.GetBlocks(local_trash_connectors);
  }
 
  // we may find multiple Trash groups, as we may have a BARABAS-driven
@@ -1323,9 +1323,9 @@ List < IMyTerminalBlock > getTrashConnectors(bool force_update = false) {
  var blocks = new List < IMyTerminalBlock > ();
  GridTerminalSystem.SearchBlocksOfName("BARABAS Trash", blocks, localGridFilter);
 
- foreach (var block in blocks) {
-  if (!local_trash_connectors.Contains(block)) {
-   local_trash_connectors.Add(block);
+ foreach (var b in blocks) {
+  if (!local_trash_connectors.Contains(b)) {
+   local_trash_connectors.Add(b);
   }
  }
 
@@ -1346,10 +1346,10 @@ List < IMyTerminalBlock > getTrashSensors(bool force_update = false) {
  // find our group
  local_trash_sensors = new List < IMyTerminalBlock > ();
 
- var group = GridTerminalSystem.GetBlockGroupWithName("BARABAS Trash");
+ var g = GridTerminalSystem.GetBlockGroupWithName("BARABAS Trash");
 
- if (group != null) {
-  group.GetBlocks(local_trash_sensors);
+ if (g != null) {
+  g.GetBlocks(local_trash_sensors);
  }
 
  // we may find multiple Trash groups, as we may have a BARABAS-driven
@@ -1360,9 +1360,9 @@ List < IMyTerminalBlock > getTrashSensors(bool force_update = false) {
  var blocks = new List < IMyTerminalBlock > ();
  GridTerminalSystem.SearchBlocksOfName("BARABAS Trash Sensor", blocks, localGridFilter);
 
- foreach (var block in blocks) {
-  if (!local_trash_sensors.Contains(block)) {
-   local_trash_sensors.Add(block);
+ foreach (var b in blocks) {
+  if (!local_trash_sensors.Contains(b)) {
+   local_trash_sensors.Add(b);
   }
  }
 
@@ -1403,9 +1403,9 @@ IMyTextPanel getConfigBlock(bool force_update = false) {
 // check if there are still any disconnected blocks
 bool hasDisconnectedBlocks() {
  var to_delete = new List<IMyTerminalBlock>();
- foreach (var pair in disconnected_blocks) {
-  var src = pair.Key;
-  var dst = pair.Value;
+ foreach (var p in disconnected_blocks) {
+  var src = p.Key;
+  var dst = p.Value;
 
   if (!blockExists(src) || !blockExists(dst)) {
    removeBlockAlert(src, ALERT_DISCONNECTED);
@@ -1428,8 +1428,8 @@ bool hasDisconnectedBlocks() {
 }
 
 // get all ingots of a certain type from a particular inventory
-void getAllIngots(IMyTerminalBlock block, int srcInv, string name, List < ItemHelper > list) {
- var inv = block.GetInventory(srcInv);
+void getAllIngots(IMyTerminalBlock b, int srcInv, string name, List < ItemHelper > list) {
+ var inv = b.GetInventory(srcInv);
  var items = inv.GetItems();
  for (int i = items.Count - 1; i >= 0; i--) {
   var item = items[i];
@@ -1443,14 +1443,14 @@ void getAllIngots(IMyTerminalBlock block, int srcInv, string name, List < ItemHe
   ih.InvIdx = srcInv;
   ih.Item = item;
   ih.Index = i;
-  ih.Owner = block;
+  ih.Owner = b;
   list.Add(ih);
  }
 }
 
 // get all ingots of a certain type from a particular inventory
-void getAllOre(IMyTerminalBlock block, int srcInv, string name, List < ItemHelper > list) {
- var inv = block.GetInventory(srcInv);
+void getAllOre(IMyTerminalBlock b, int srcInv, string name, List < ItemHelper > list) {
+ var inv = b.GetInventory(srcInv);
  var items = inv.GetItems();
  for (int i = items.Count - 1; i >= 0; i--) {
   var item = items[i];
@@ -1464,7 +1464,7 @@ void getAllOre(IMyTerminalBlock block, int srcInv, string name, List < ItemHelpe
   ih.InvIdx = srcInv;
   ih.Item = item;
   ih.Index = i;
-  ih.Owner = block;
+  ih.Owner = b;
   list.Add(ih);
  }
 }
@@ -1473,8 +1473,8 @@ void getAllOre(IMyTerminalBlock block, int srcInv, string name, List < ItemHelpe
 List < ItemHelper > getAllStorageOre(string name = null) {
  List < ItemHelper > list = new List < ItemHelper > ();
  var blocks = getStorage();
- foreach (var block in blocks) {
-  getAllOre(block, 0, name, list);
+ foreach (var b in blocks) {
+  getAllOre(b, 0, name, list);
  }
  return list;
 }
@@ -1482,8 +1482,8 @@ List < ItemHelper > getAllStorageOre(string name = null) {
 List < ItemHelper > getAllStorageIngots(string name = null) {
  List < ItemHelper > list = new List < ItemHelper > ();
  var blocks = getStorage();
- foreach (var block in blocks) {
-  getAllIngots(block, 0, name, list);
+ foreach (var b in blocks) {
+  getAllIngots(b, 0, name, list);
  }
  return list;
 }
@@ -1507,13 +1507,12 @@ bool isComponent(IMyInventoryItem item) {
 }
 
 // get total amount of all ingots (of a particular type) stored in a particular inventory
-Decimal getTotalIngots(IMyTerminalBlock block, int srcInv, string name) {
+Decimal getTotalIngots(IMyTerminalBlock b, int srcInv, string name) {
  var entries = new List < ItemHelper > ();
- getAllIngots(block, srcInv, name, entries);
+ getAllIngots(b, srcInv, name, entries);
  Decimal ingots = 0;
- foreach (var entry in entries) {
-  var item = entry.Item;
-  ingots += (Decimal) item.Amount;
+ foreach (var e in entries) {
+  ingots += (Decimal) e.Item.Amount;
  }
  return ingots;
 }
@@ -1635,15 +1634,14 @@ void pushFront(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) {
  * Volume & storage load functions
  */
 Decimal getTotalStorageLoad() {
- List < IMyTerminalBlock > storage;
- storage = getStorage();
+ var storage = getStorage();
 
  Decimal cur_volume = 0M;
  Decimal max_volume = 0M;
  Decimal ratio;
- foreach (var container in storage) {
-  cur_volume += (Decimal) container.GetInventory(0).CurrentVolume;
-  max_volume += (Decimal) container.GetInventory(0).MaxVolume;
+ foreach (var c in storage) {
+  cur_volume += (Decimal) c.GetInventory(0).CurrentVolume;
+  max_volume += (Decimal) c.GetInventory(0).MaxVolume;
  }
  ratio = Math.Round(cur_volume / max_volume, 2);
 
@@ -1663,8 +1661,8 @@ Decimal getTotalStorageLoad() {
   throw new BarabasException("Unknown mode", this);
  }
  Decimal maxLoad = 0M;
- foreach (var container in storage) {
-   var inv = container.GetInventory(0);
+ foreach (var c in storage) {
+   var inv = c.GetInventory(0);
    var load = (Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume;
    if (load > maxLoad) {
     maxLoad = load;
@@ -1686,8 +1684,8 @@ Decimal getTotalStorageMass() {
  storage.AddRange(getGrinders());
 
  Decimal cur_mass = 0M;
- foreach (var container in storage) {
-  cur_mass += (Decimal) container.GetInventory(0).CurrentMass;
+ foreach (var c in storage) {
+  cur_mass += (Decimal) c.GetInventory(0).CurrentMass;
  }
  return cur_mass;
 }
@@ -1716,11 +1714,11 @@ bool canAcceptOre(IMyInventory inv, string name) {
  Dictionary < string, Decimal > ores = new Dictionary < string, Decimal > ();
  var items = inv.GetItems();
  bool seenCurrent = false;
- foreach (var item in items) {
-  var ore = item.Content.SubtypeName;
+ foreach (var i in items) {
+  var ore = i.Content.SubtypeName;
   Decimal amount;
   ores.TryGetValue(ore, out amount);
-  ores[ore] = amount + (Decimal) item.Amount;
+  ores[ore] = amount + (Decimal) i.Amount;
   if (ore == name) {
    seenCurrent = true;
   }
@@ -1745,8 +1743,8 @@ bool canAcceptOre(IMyInventory inv, string name) {
 
 bool hasOnlyOre(IMyInventory inv) {
  var items = inv.GetItems();
- foreach (var item in items) {
-  if (!isOre(item)) {
+ foreach (var i in items) {
+  if (!isOre(i)) {
    return false;
   }
  }
@@ -1755,8 +1753,8 @@ bool hasOnlyOre(IMyInventory inv) {
 
 bool hasOnlyIngots(IMyInventory inv) {
  var items = inv.GetItems();
- foreach (var item in items) {
-  if (!isIngot(item)) {
+ foreach (var i in items) {
+  if (!isIngot(i)) {
    return false;
   }
  }
@@ -1765,10 +1763,10 @@ bool hasOnlyIngots(IMyInventory inv) {
 
 bool hasOnlyComponents(IMyInventory inv) {
  var items = inv.GetItems();
- foreach (var item in items) {
+ foreach (var i in items) {
   // we don't care about components specifically; rather, we care if it
   // has ore or ingots
-  if (isOre(item) || isIngot(item)) {
+  if (isOre(i) || isIngot(i)) {
    return false;
   }
  }
@@ -1827,7 +1825,7 @@ void checkStorageLoad() {
  char suffix = suffixes[idx];
 
  status_report[STATUS_STORAGE_LOAD] = String.Format("{0}% / {1}{2}",
-  Math.Round(storageLoad * 100M, 0), mass, suffix);
+ Math.Round(storageLoad * 100M, 0), mass, suffix);
 }
 
 string getPowerLoadStr(Decimal value) {
@@ -1896,7 +1894,7 @@ void sortLocalStorage() {
 }
 
 // try pushing something to one of the local storage containers
-bool pushToStorage(IMyTerminalBlock block, int invIdx, int srcIndex, VRage.MyFixedPoint ? amount) {
+bool pushToStorage(IMyTerminalBlock b, int invIdx, int srcIndex, VRage.MyFixedPoint ? amount) {
  var containers = getStorage();
  /*
   * Stage 0: special case for small container numbers, or if sorting is
@@ -1904,10 +1902,9 @@ bool pushToStorage(IMyTerminalBlock block, int invIdx, int srcIndex, VRage.MyFix
   */
 
  if (containers.Count < 3 || !sort_storage) {
-  foreach (var storage in containers) {
-   var container_inv = storage.GetInventory(0);
+  foreach (var s in containers) {
    // try pushing to this container
-   if (Transfer(block, invIdx, storage, 0, srcIndex, null, true, amount)) {
+   if (Transfer(b, invIdx, s, 0, srcIndex, null, true, amount)) {
     return true;
    }
   }
@@ -1917,7 +1914,7 @@ bool pushToStorage(IMyTerminalBlock block, int invIdx, int srcIndex, VRage.MyFix
  /*
   * Stage 1: try to put stuff into designated containers
   */
- var src = block.GetInventory(invIdx);
+ var src = b.GetInventory(invIdx);
  var item = src.GetItems()[srcIndex];
  bool itemIsOre = isOre(item);
  bool itemIsIngot = isIngot(item);
@@ -1932,9 +1929,8 @@ bool pushToStorage(IMyTerminalBlock block, int invIdx, int srcIndex, VRage.MyFix
  }
  int steps = 3;
  for (int i = startStep; i < containers.Count; i += steps) {
-  var container_inv = containers[i].GetInventory(0);
   // try pushing to this container
-  if (Transfer(block, invIdx, containers[i], 0, srcIndex, null, true, amount)) {
+  if (Transfer(b, invIdx, containers[i], 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
@@ -1988,19 +1984,19 @@ bool pushToStorage(IMyTerminalBlock block, int invIdx, int srcIndex, VRage.MyFix
  // now, try pushing into one of the containers we found
  if (overflowIdx != -1) {
   var dst = containers[overflowIdx];
-  if (Transfer(block, invIdx,  dst, 0, srcIndex, null, true, amount)) {
+  if (Transfer(b, invIdx,  dst, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
  if (emptyIdx != -1) {
   var dst = containers[emptyIdx];
-  if (Transfer(block, invIdx, dst, 0, srcIndex, null, true, amount)) {
+  if (Transfer(b, invIdx, dst, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
  if (leastFullIdx != -1) {
   var dst = containers[leastFullIdx];
-  if (Transfer(block, invIdx, dst, 0, srcIndex, null, true, amount)) {
+  if (Transfer(b, invIdx, dst, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
@@ -2008,7 +2004,7 @@ bool pushToStorage(IMyTerminalBlock block, int invIdx, int srcIndex, VRage.MyFix
 }
 
 // try pushing something to one of the remote storage containers
-bool pushToRemoteStorage(IMyTerminalBlock block, int srcInv, int srcIndex, VRage.MyFixedPoint ? amount) {
+bool pushToRemoteStorage(IMyTerminalBlock b, int srcInv, int srcIndex, VRage.MyFixedPoint ? amount) {
  var containers = getRemoteStorage();
  foreach (var container in containers) {
   var container_inv = container.GetInventory(0);
@@ -2017,7 +2013,7 @@ bool pushToRemoteStorage(IMyTerminalBlock block, int srcInv, int srcIndex, VRage
    continue;
   }
   // try pushing to this container
-  if (Transfer(block, srcInv, container, 0, srcIndex, null, true, amount)) {
+  if (Transfer(b, srcInv, container, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
@@ -2025,11 +2021,11 @@ bool pushToRemoteStorage(IMyTerminalBlock block, int srcInv, int srcIndex, VRage
 }
 
 // try pushing something to one of the remote storage containers
-bool pushToRemoteShipStorage(IMyTerminalBlock block, int srcInv, int srcIndex, VRage.MyFixedPoint ? amount) {
+bool pushToRemoteShipStorage(IMyTerminalBlock b, int srcInv, int srcIndex, VRage.MyFixedPoint ? amount) {
  var containers = getRemoteShipStorage();
- foreach (var container in containers) {
+ foreach (var c in containers) {
   // try pushing to this container
-  if (Transfer(block, srcInv, container, 0, srcIndex, null, true, amount)) {
+  if (Transfer(b, srcInv, c, 0, srcIndex, null, true, amount)) {
    return true;
   }
  }
@@ -2039,22 +2035,22 @@ bool pushToRemoteShipStorage(IMyTerminalBlock block, int srcInv, int srcIndex, V
 // send everything from local storage to remote storage
 void pushAllToRemoteStorage() {
  var storage = getStorage();
- foreach (var container in storage) {
-  var inv = container.GetInventory(0);
+ foreach (var c in storage) {
+  var inv = c.GetInventory(0);
   var items = inv.GetItems();
   for (int j = items.Count - 1; j >= 0; j--) {
-   var item = items[j];
-   if (isOre(item) && push_ore_to_base) {
-    pushToRemoteStorage(container, 0, j, null);
+   var i = items[j];
+   if (isOre(i) && push_ore_to_base) {
+    pushToRemoteStorage(c, 0, j, null);
    }
-   if (isIngot(item)) {
-    var type = item.Content.SubtypeName;
+   if (isIngot(i)) {
+    var type = i.Content.SubtypeName;
     if (type != URANIUM && push_ingots_to_base) {
-     pushToRemoteStorage(container, 0, j, null);
+     pushToRemoteStorage(c, 0, j, null);
     }
    }
-   if (isComponent(item) && push_components_to_base) {
-    pushToRemoteStorage(container, 0, j, null);
+   if (isComponent(i) && push_components_to_base) {
+    pushToRemoteStorage(c, 0, j, null);
    }
   }
  }
@@ -2066,25 +2062,25 @@ void pullFromRemoteStorage() {
   return;
  }
  var storage = getRemoteStorage();
- foreach (var container in storage) {
-  var inv = container.GetInventory(0);
+ foreach (var c in storage) {
+  var inv = c.GetInventory(0);
   var items = inv.GetItems();
   for (int j = items.Count - 1; j >= 0; j--) {
    var item = items[j];
    if (isOre(item) && pull_ore_from_base) {
-    pushToStorage(container, 0, j, null);
+    pushToStorage(c, 0, j, null);
    }
    if (isIngot(item)) {
     var type = item.Content.SubtypeName;
     // don't take all uranium from base
     if (type == URANIUM && auto_refuel_ship && !powerAboveHighWatermark()) {
-     pushToStorage(container, 0, j, (VRage.MyFixedPoint) Math.Min(0.5M, (Decimal) item.Amount));
+     pushToStorage(c, 0, j, (VRage.MyFixedPoint) Math.Min(0.5M, (Decimal) item.Amount));
     } else if (type != URANIUM && pull_ingots_from_base) {
-     pushToStorage(container, 0, j, null);
+     pushToStorage(c, 0, j, null);
     }
    }
    if (isComponent(item) && pull_components_from_base) {
-    pushToStorage(container, 0, j, null);
+    pushToStorage(c, 0, j, null);
    }
   }
  }
@@ -2093,22 +2089,22 @@ void pullFromRemoteStorage() {
 // push everything to ship
 void pushToRemoteShipStorage() {
  var storage = getStorage();
- foreach (var container in storage) {
-  var inv = container.GetInventory(0);
+ foreach (var s in storage) {
+  var inv = s.GetInventory(0);
   var items = inv.GetItems();
   for (int j = items.Count - 1; j >= 0; j--) {
    var item = items[j];
    if (isOre(item) && pull_ore_from_base) {
-    pushToRemoteShipStorage(container, 0, j, null);
+    pushToRemoteShipStorage(s, 0, j, null);
    }
    if (isIngot(item)) {
     var type = item.Content.SubtypeName;
     if (type != URANIUM && pull_ingots_from_base) {
-     pushToRemoteShipStorage(container, 0, j, null);
+     pushToRemoteShipStorage(s, 0, j, null);
     }
    }
    if (isComponent(item) && pull_components_from_base) {
-    pushToRemoteShipStorage(container, 0, j, null);
+    pushToRemoteShipStorage(s, 0, j, null);
    }
   }
  }
@@ -2117,23 +2113,23 @@ void pushToRemoteShipStorage() {
 // get everything from ship
 void pullFromRemoteShipStorage() {
  var storage = getRemoteShipStorage();
- foreach (var container in storage) {
-  var inv = container.GetInventory(0);
+ foreach (var c in storage) {
+  var inv = c.GetInventory(0);
   var items = inv.GetItems();
   for (int j = items.Count - 1; j >= 0; j--) {
    var item = items[j];
    if (isOre(item) && push_ore_to_base) {
-    pushToStorage(container, 0, j, null);
+    pushToStorage(c, 0, j, null);
    }
    if (isIngot(item)) {
     var type = item.Content.SubtypeName;
     // don't take all uranium from base
     if (type != URANIUM && push_ingots_to_base) {
-     pushToStorage(container, 0, j, null);
+     pushToStorage(c, 0, j, null);
     }
    }
    if (isComponent(item) && push_components_to_base) {
-    pushToStorage(container, 0, j, null);
+    pushToStorage(c, 0, j, null);
    }
   }
  }
@@ -2141,11 +2137,11 @@ void pullFromRemoteShipStorage() {
 
 // push everything in every block to local storage
 void emptyBlocks(List < IMyTerminalBlock > blocks) {
- foreach (var block in blocks) {
-  var inv = block.GetInventory(0);
+ foreach (var b in blocks) {
+  var inv = b.GetInventory(0);
   var items = inv.GetItems();
   for (int j = items.Count - 1; j >= 0; j--) {
-   pushToStorage(block, 0, j, null);
+   pushToStorage(b, 0, j, null);
   }
  }
 }
@@ -2155,18 +2151,18 @@ void fillWelders() {
  var welders = getWelders();
  int s_index = 0;
 
- foreach (var welder in welders) {
-  Decimal cur_vol = (Decimal) welder.GetInventory(0).CurrentVolume * 1000M;
-  Decimal max_vol = (Decimal) welder.GetInventory(0).MaxVolume * 1000M;
+ foreach (var w in welders) {
+  Decimal cur_vol = (Decimal) w.GetInventory(0).CurrentVolume * 1000M;
+  Decimal max_vol = (Decimal) w.GetInventory(0).MaxVolume * 1000M;
   Decimal target_volume = max_vol - 400M - cur_vol;
   if (target_volume <= 0) {
    continue;
   }
-  var dst_inv = welder.GetInventory(0);
+  var dst_inv = w.GetInventory(0);
   var storage = getStorage();
   for (; s_index < storage.Count; s_index++) {
-   var container = storage[s_index];
-   var src_inv = container.GetInventory(0);
+   var c = storage[s_index];
+   var src_inv = c.GetInventory(0);
    var items = src_inv.GetItems();
    for (int j = items.Count - 1; j >= 0; j--) {
     var item = items[j];
@@ -2185,7 +2181,7 @@ void fillWelders() {
 
     // send one and check load
     Decimal old_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-    if (!Transfer(welder, 0, container, 0, j, null, true, (VRage.MyFixedPoint) 1)) {
+    if (!Transfer(w, 0, c, 0, j, null, true, (VRage.MyFixedPoint) 1)) {
      continue;
     }
     Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
@@ -2204,10 +2200,10 @@ void fillWelders() {
 // push all ore from refineries to storage
 void pushOreToStorage() {
  var refineries = getAllRefineries();
- foreach (var refinery in refineries) {
-  var inv = refinery.GetInventory(0);
+ foreach (var r in refineries) {
+  var inv = r.GetInventory(0);
   for (int j = inv.GetItems().Count - 1; j >= 0; j--) {
-   pushToStorage(refinery, 0, j, null);
+   pushToStorage(r, 0, j, null);
   }
  }
 }
@@ -2215,14 +2211,14 @@ void pushOreToStorage() {
 // push ice from refineries to storage (we never push ice from oxygen generators)
 void pushIceToStorage() {
  var refineries = getRefineries();
- foreach (var refinery in refineries) {
-  var inv = refinery.GetInventory(0);
+ foreach (var r in refineries) {
+  var inv = r.GetInventory(0);
   for (int j = inv.GetItems().Count - 1; j >= 0; j--) {
    var item = inv.GetItems()[j];
    if (item.Content.SubtypeName != ICE) {
     continue;
    }
-   pushToStorage(refinery, 0, j, null);
+   pushToStorage(r, 0, j, null);
   }
  }
 }
@@ -2237,8 +2233,8 @@ Decimal getMaxReactorPowerOutput(bool force_update = false) {
 
  max_reactor_output = 0;
  var reactors = getReactors();
- foreach (IMyReactor reactor in reactors) {
-  max_reactor_output += (Decimal) reactor.MaxOutput * 1000M;
+ foreach (IMyReactor r in reactors) {
+  max_reactor_output += (Decimal) r.MaxOutput * 1000M;
  }
 
  return max_reactor_output;
@@ -2251,9 +2247,10 @@ Decimal getCurReactorPowerOutput(bool force_update = false) {
 
  cur_reactor_output = 0;
  var reactors = getReactors();
- foreach (IMyReactor reactor in reactors) {
-  if (reactor.IsWorking)
-   cur_reactor_output += (Decimal) reactor.MaxOutput * 1000M;
+ foreach (IMyReactor r in reactors) {
+  if (r.IsWorking) {
+   cur_reactor_output += (Decimal) r.MaxOutput * 1000M;
+  }
  }
 
  return cur_reactor_output;
@@ -2266,8 +2263,8 @@ Decimal getMaxBatteryPowerOutput(bool force_update = false) {
 
  max_battery_output = 0;
  var batteries = getBatteries();
- foreach (IMyBatteryBlock battery in batteries) {
-  if (battery.HasCapacityRemaining) {
+ foreach (IMyBatteryBlock b in batteries) {
+  if (b.HasCapacityRemaining) {
    // there's no API function to provide this information, and parsing
    // DetailedInfo is kinda overkill for this, so just hard-code the value
    max_battery_output += large_grid ? 12000M : 4320M;
@@ -2280,9 +2277,9 @@ Decimal getMaxBatteryPowerOutput(bool force_update = false) {
 Decimal getBatteryStoredPower() {
  var batteries = getBatteries();
  Decimal stored_power = 0;
- foreach (IMyBatteryBlock battery in batteries) {
+ foreach (IMyBatteryBlock b in batteries) {
   // unlike reactors, batteries' kWh are _actual_ kWh, not kWm
-  stored_power += (Decimal) battery.CurrentStoredPower * 1000M * 60M;
+  stored_power += (Decimal) b.CurrentStoredPower * 1000M * 60M;
  }
  return stored_power;
 }
@@ -2304,11 +2301,11 @@ Decimal getCurPowerDraw(bool force_update = false) {
  Decimal power_draw = 0;
 
  // go through all reactors and batteries
- foreach (IMyReactor block in getReactors()) {
-  power_draw += (Decimal) block.CurrentOutput * 1000M;
+ foreach (IMyReactor b in getReactors()) {
+  power_draw += (Decimal) b.CurrentOutput * 1000M;
  }
- foreach (IMyBatteryBlock block in getBatteries()) {
-  power_draw += (Decimal) (block.CurrentOutput - block.CurrentInput) * 1000M;
+ foreach (IMyBatteryBlock b in getBatteries()) {
+  power_draw += (Decimal) (b.CurrentOutput - b.CurrentInput) * 1000M;
  }
 
  cur_power_draw = power_draw;
@@ -2325,18 +2322,18 @@ Decimal getMaxPowerDraw(bool force_update = false) {
  Decimal power_draw = 0;
 
  // go through all the blocks
- foreach (var block in getBlocks()) {
-   if (block is IMyBatteryBlock)
+ foreach (var b in getBlocks()) {
+   if (b is IMyBatteryBlock)
     continue;
    // if this is a thruster
-   if (block is IMyThrust) {
-    var typename = block.BlockDefinition.ToString();
+   if (b is IMyThrust) {
+    var typename = b.BlockDefinition.ToString();
     Decimal thrust_draw;
     bool found = thrust_power.TryGetValue(typename, out thrust_draw);
     if (found) {
      power_draw += thrust_draw;
     } else {
-     thrust_draw = getBlockPowerUse(block);
+     thrust_draw = getBlockPowerUse(b);
      if (thrust_draw == 0) {
       throw new BarabasException("Unknown thrust type", this);
      } else {
@@ -2346,7 +2343,7 @@ Decimal getMaxPowerDraw(bool force_update = false) {
    }
    // it's a regular block
    else {
-    power_draw += getBlockPowerUse(block);
+    power_draw += getBlockPowerUse(b);
    }
   }
   // add 5% to account for various misc stuff like conveyors etc
@@ -2364,11 +2361,11 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 
 // parse DetailedInfo for power use information - this shouldn't exist, but
 // the API is deficient, sooo...
-Decimal getBlockPowerUse(IMyTerminalBlock block) {
+Decimal getBlockPowerUse(IMyTerminalBlock b) {
  var power_regex = new System.Text.RegularExpressions.Regex("Max Required Input: ([\\d\\.]+) (\\w?)W");
  var cur_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+) (\\w?)W");
- var power_match = power_regex.Match(block.DetailedInfo);
- var cur_match = cur_regex.Match(block.DetailedInfo);
+ var power_match = power_regex.Match(b.DetailedInfo);
+ var cur_match = cur_regex.Match(b.DetailedInfo);
  if (!power_match.Success && !cur_match.Success) {
   return 0;
  }
@@ -2901,8 +2898,8 @@ RebalanceResult findMinMax(List < IMyTerminalBlock > blocks) {
  Decimal minL = Decimal.MaxValue, maxL = 0, minAL = Decimal.MaxValue, maxAL = 0;
 
  for (int i = 0; i < blocks.Count; i++) {
-  var block = blocks[i];
-  var inv = block.GetInventory(0);
+  var b = blocks[i];
+  var inv = b.GetInventory(0);
   rebalance(inv);
   Decimal arcload = 0M;
   var items = inv.GetItems();
@@ -3647,8 +3644,8 @@ string generateConfiguration() {
 }
 
 void rebuildConfiguration() {
- var block = getConfigBlock();
- if (block == null) {
+ var b = getConfigBlock();
+ if (b == null) {
   return;
  }
 
@@ -3656,10 +3653,10 @@ void rebuildConfiguration() {
  string text = generateConfiguration();
 
  // put text back into the text block
- block.WritePrivateText(text);
- block.WritePublicText(String.Format(" BARABAS v{0} Configuration", VERSION));
- block.WritePrivateTitle("BARABAS Configuration");
- block.ShowPublicTextOnScreen();
+ b.WritePrivateText(text);
+ b.WritePublicText(String.Format(" BARABAS v{0} Configuration", VERSION));
+ b.WritePrivateTitle("BARABAS Configuration");
+ b.ShowPublicTextOnScreen();
 }
 
 void parseLine(string line) {
@@ -3882,19 +3879,19 @@ void parseLine(string line) {
 // this will find a BARABAS Config block and read its configuration
 void parseConfiguration() {
  // find the block, blah blah
- var block = getConfigBlock();
- if (block == null) {
+ var b = getConfigBlock();
+ if (b == null) {
   return;
  }
  string text;
 
  // update from older versions, move config to private text
- if (block.GetPublicTitle() == "BARABAS Configuration") {
-  text = block.GetPublicText();
-  block.WritePublicText("");
-  block.WritePublicTitle("");
+ if (b.GetPublicTitle() == "BARABAS Configuration") {
+  text = b.GetPublicText();
+  b.WritePublicText("");
+  b.WritePublicTitle("");
  } else {
-  text = block.GetPrivateText();
+  text = b.GetPrivateText();
  }
 
  // check if the text is empty
@@ -3930,50 +3927,50 @@ string getBlockAlerts(int ids) {
  return sb.ToString();
 }
 
-void displayBlockAlerts(IMyTerminalBlock block) {
+void displayBlockAlerts(IMyTerminalBlock b) {
  if (!hud_notifications) {
   return;
  }
- var name = getBlockName(block);
- if (!blocks_to_alerts.ContainsKey(block)) {
-  setBlockName(block, name, "");
-  hideFromHud(block);
+ var name = getBlockName(b);
+ if (!blocks_to_alerts.ContainsKey(b)) {
+  setBlockName(b, name, "");
+  hideFromHud(b);
   return;
  }
- var cur = blocks_to_alerts[block];
+ var cur = blocks_to_alerts[b];
  var alerts = getBlockAlerts(cur);
- setBlockName(block, name, alerts);
- showOnHud(block);
+ setBlockName(b, name, alerts);
+ showOnHud(b);
 }
 
-void addBlockAlert(IMyTerminalBlock block, int id) {
+void addBlockAlert(IMyTerminalBlock b, int id) {
  if (!hud_notifications) {
   return;
  }
- if (blocks_to_alerts.ContainsKey(block)) {
-  blocks_to_alerts[block] |= id;
+ if (blocks_to_alerts.ContainsKey(b)) {
+  blocks_to_alerts[b] |= id;
  } else {
-  blocks_to_alerts.Add(block, id);
+  blocks_to_alerts.Add(b, id);
  }
 }
 
-void removeBlockAlert(IMyTerminalBlock block, int id) {
+void removeBlockAlert(IMyTerminalBlock b, int id) {
  if (!hud_notifications) {
   return;
  }
- if (blocks_to_alerts.ContainsKey(block)) {
-  var cur = blocks_to_alerts[block];
+ if (blocks_to_alerts.ContainsKey(b)) {
+  var cur = blocks_to_alerts[b];
   cur &= ~id;
   if (cur != 0) {
-   blocks_to_alerts[block] = cur;
+   blocks_to_alerts[b] = cur;
   } else {
-   blocks_to_alerts.Remove(block);
+   blocks_to_alerts.Remove(b);
   }
  }
 }
 
-string getBlockName(IMyTerminalBlock block) {
- var name = block.CustomName;
+string getBlockName(IMyTerminalBlock b) {
+ var name = b.CustomName;
  var regex = new System.Text.RegularExpressions.Regex("\\[BARABAS");
  var match = regex.Match(name);
  if (!match.Success) {
@@ -3990,15 +3987,15 @@ void setBlockName(IMyTerminalBlock antenna, string name, string alert) {
  }
 }
 
-void showOnHud(IMyTerminalBlock block) {
- if (block.GetProperty("ShowOnHUD") != null) {
-  block.SetValue("ShowOnHUD", true);
+void showOnHud(IMyTerminalBlock b) {
+ if (b.GetProperty("ShowOnHUD") != null) {
+  b.SetValue("ShowOnHUD", true);
  }
 }
 
-void hideFromHud(IMyTerminalBlock block) {
- if (block.GetProperty("ShowOnHUD") != null) {
-  block.SetValue("ShowOnHUD", false);
+void hideFromHud(IMyTerminalBlock b) {
+ if (b.GetProperty("ShowOnHUD") != null) {
+  b.SetValue("ShowOnHUD", false);
  }
 }
 
@@ -4058,17 +4055,17 @@ void hideAlertColor() {
 void turnOffConveyors() {
  var blocks = getBlocks();
  // go through all blocks and set "use conveyor" to off
- foreach (var block in blocks) {
-  if (block is IMyAssembler) {
+ foreach (var b in blocks) {
+  if (b is IMyAssembler) {
    continue;
   }
-  if (block is IMyShipWelder) {
+  if (b is IMyShipWelder) {
    continue;
   }
 
-  var prod = block as IMyProductionBlock;
+  var prod = b as IMyProductionBlock;
   if (prod != null && prod.UseConveyorSystem) {
-   block.ApplyAction("UseConveyor");
+   b.ApplyAction("UseConveyor");
   }
  }
 }
@@ -4416,13 +4413,13 @@ void s_updateMaterialStats() {
   storage_ingot_status[ore] = 0;
  }
  var blocks = getBlocks();
- foreach (var block in blocks) {
-  for (int i = 0; i < block.GetInventoryCount(); i++) {
-   var inv = block.GetInventory(i);
+ foreach (var b in blocks) {
+  for (int i = 0; i < b.GetInventoryCount(); i++) {
+   var inv = b.GetInventory(i);
    var items = inv.GetItems();
    foreach (var item in items) {
-    bool isStorage = block is IMyCargoContainer;
-    bool isReactor = block is IMyReactor;
+    bool isStorage = b is IMyCargoContainer;
+    bool isReactor = b is IMyReactor;
     if (isOre(item)) {
      string name = item.Content.SubtypeName;
      if (item.Content.SubtypeName == SCRAP) {
@@ -4592,16 +4589,16 @@ bool canRun() {
  var pbs = new List < IMyTerminalBlock > ();
  GridTerminalSystem.GetBlocksOfType < IMyProgrammableBlock > (pbs, localGridFilter);
 
- foreach (var block in pbs) {
-  if (block == Me) {
+ foreach (var b in pbs) {
+  if (b == Me) {
    continue;
   }
-  if (!block.CustomName.Contains("BARABAS")) {
+  if (!b.CustomName.Contains("BARABAS")) {
    continue;
   }
   // if we aren't disabled, disable all rival BARABAS instances
-  if (!isDisabled && !block.CustomName.Contains("DISABLED")) {
-   block.SetCustomName(block.CustomName + " [DISABLED]");
+  if (!isDisabled && !b.CustomName.Contains("DISABLED")) {
+   b.SetCustomName(b.CustomName + " [DISABLED]");
   } else if (isDisabled) {
    return false;
   }
