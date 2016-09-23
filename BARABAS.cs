@@ -558,6 +558,9 @@ class BarabasException: Exception {
  * Filters
  */
 bool excludeBlock(IMyTerminalBlock b) {
+ if (slimBlock(b) != null) {
+  return true;
+ }
  if (b.CustomName.StartsWith("X")) {
   return true;
  }
@@ -597,8 +600,7 @@ public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks) {
  var grids = getLocalGrids();
  for (int i = blocks.Count - 1; i >= 0; i--) {
   var b = blocks[i];
-  var grid = b.CubeGrid;
-  if (!(b is T) || !grids.Contains(grid)) {
+  if (slimBlock(b) == null || !(b is T) || !grids.Contains(b.CubeGrid)) {
    blocks.RemoveAt(i);
   }
  }
@@ -613,7 +615,7 @@ List < IMyTerminalBlock > removeNulls(List < IMyTerminalBlock > list) {
  null_list.Add(list);
  for (int i = list.Count - 1; i >= 0; i--) {
   var b = list[i];
-  if (!blockExists(b)) {
+  if (slimBlock(b) == null || !blockExists(b)) {
    blocks_to_alerts.Remove(b);
    list.RemoveAt(i);
   }
