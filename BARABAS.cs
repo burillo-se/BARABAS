@@ -558,7 +558,7 @@ class BarabasException: Exception {
  * Filters
  */
 bool excludeBlock(IMyTerminalBlock b) {
- if (slimBlock(b) != null) {
+ if (slimBlock(b) == null) {
   return true;
  }
  if (b.CustomName.StartsWith("X")) {
