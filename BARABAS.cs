@@ -247,8 +247,6 @@ List < IMyTerminalBlock > local_trash_sensors = null;
 List < IMyTerminalBlock > local_antennas = null;
 List < IMyTerminalBlock > remote_storage = null;
 List < IMyTerminalBlock > remote_ship_storage = null;
-List < IMyTerminalBlock > remote_oxygen_tanks = null;
-List < IMyTerminalBlock > remote_hydrogen_tanks = null;
 IMyTextPanel config_block = null;
 List < IMyCubeGrid > local_grids = null;
 List < IMyCubeGrid > remote_base_grids = null;
@@ -343,6 +341,8 @@ bool can_use_ingots;
 bool can_use_oxygen;
 bool can_refine;
 bool can_refine_ice;
+bool can_refuel_hydrogen;
+bool can_refuel_oxygen;
 bool large_grid;
 bool has_air_vents;
 bool has_status_panels;
@@ -1072,6 +1072,9 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
  // for each block, get its grid, store data for this grid, and populate respective
  // object list if it's one of the objects we're interested in
  foreach (var b in local_blocks) {
+  if (slimBlock(b) == null) {
+   continue;
+  }
   GridData data;
   if (!tmp_grid_data.TryGetValue(b.CubeGrid, out data)) {
    data = new GridData();
@@ -1310,34 +1313,28 @@ List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
  return remote_ship_storage;
 }
 
-List < IMyTerminalBlock > getRemoteOxygenTanks(bool force_update = false) {
- if (remote_oxygen_tanks != null && !force_update) {
-  return removeNulls(remote_oxygen_tanks);
- }
- remote_oxygen_tanks = new List < IMyTerminalBlock > ();
- GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (remote_oxygen_tanks, remoteGridFilter);
- for (int i = remote_oxygen_tanks.Count - 1; i >= 0; i--) {
-  var b = remote_oxygen_tanks[i] as IMyOxygenTank;
-  if (b.BlockDefinition.ToString().Contains("Hydrogen") || b.GetValue < bool > ("Stockpile") || b.GetOxygenLevel() == 0) {
-   remote_oxygen_tanks.RemoveAt(i);
+void getRemoteOxyHydroLevels() {
+ var blocks = new List < IMyTerminalBlock > ();
+ GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (blocks, remoteGridFilter);
+ Decimal o_level = 0;
+ Decimal h_level = 0;
+ for (int i = blocks.Count - 1; i >= 0; i--) {
+  var b = blocks[i] as IMyOxygenTank;
+  if (b.GetValue < bool > ("Stockpile") || slimBlock(b) == null) {
+   continue;
   }
- }
- return remote_oxygen_tanks;
-}
 
-List < IMyTerminalBlock > getRemoteHydrogenTanks(bool force_update = false) {
- if (remote_hydrogen_tanks != null && !force_update) {
-  return removeNulls(remote_hydrogen_tanks);
- }
- remote_hydrogen_tanks = new List < IMyTerminalBlock > ();
- GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (remote_hydrogen_tanks, remoteGridFilter);
- for (int i = remote_oxygen_tanks.Count - 1; i >= 0; i--) {
-  var b = remote_oxygen_tanks[i] as IMyOxygenTank;
-  if (!b.BlockDefinition.ToString().Contains("Hydrogen") || b.GetValue < bool > ("Stockpile") || b.GetOxygenLevel() == 0) {
-   remote_hydrogen_tanks.RemoveAt(i);
+  bool sz = b.BlockDefinition.ToString().Contains("Large");
+
+  if (b.BlockDefinition.ToString().Contains("Hydrogen")) {
+   h_level += (Decimal) b.GetOxygenLevel() * (sz ? 2500000M : 40000M);
+  } else {
+   o_level += (Decimal) b.GetOxygenLevel() * (sz ? 100000M : 50000M);
   }
  }
- return remote_hydrogen_tanks;
+ // if we have at least half a tank, we can refuel
+ can_refuel_hydrogen = h_level > (large_grid ? 1250000M : 20000M);
+ can_refuel_oxygen = o_level > (large_grid ? 50000M : 25000M);
 }
 
 // get local trash disposal connector
@@ -4274,8 +4271,7 @@ void s_refreshRemote() {
  if (connected) {
   getRemoteStorage(true);
   getRemoteShipStorage(true);
-  getRemoteOxygenTanks(true);
-  getRemoteHydrogenTanks(true);
+  getRemoteOxyHydroLevels();
   addAlert(GREEN_ALERT);
  } else {
   removeAlert(GREEN_ALERT);
@@ -4385,10 +4381,10 @@ void s_refuelIce() {
   toggleStockpile(h, h_s);
   return;
  }
- if (refuel_oxygen && getRemoteOxygenTanks().Count != 0 && !oxygenAboveHighWatermark()) {
+ if (refuel_oxygen && can_refuel_oxygen && !oxygenAboveHighWatermark()) {
   o_s = true;
  }
- if (refuel_hydrogen && getRemoteHydrogenTanks().Count != 0 && !hydrogenAboveHighWatermark()) {
+ if (refuel_hydrogen && can_refuel_hydrogen && !hydrogenAboveHighWatermark()) {
   h_s = true;
  }
  toggleStockpile(o, o_s);
