@@ -761,14 +761,14 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
  }
  arc_furnaces_clogged = false;
  filterLocalGrid < IMyRefinery > (local_arc_furnaces);
- foreach (IMyRefinery r in local_arc_furnaces) {
-  if (!r.IsQueueEmpty && !r.IsProducing) {
-   addBlockAlert(r, ALERT_CLOGGED);
+ foreach (IMyRefinery f in local_arc_furnaces) {
+  if (!f.IsQueueEmpty && !f.IsProducing) {
+   addBlockAlert(f, ALERT_CLOGGED);
    arc_furnaces_clogged = true;
   } else {
-   removeBlockAlert(r, ALERT_CLOGGED);
+   removeBlockAlert(f, ALERT_CLOGGED);
   }
-  displayBlockAlerts(r);
+  displayBlockAlerts(f);
  }
  if (!null_list.Contains(local_arc_furnaces_subset)) {
   local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 40);
@@ -3663,11 +3663,6 @@ string generateConfiguration() {
 
  // these values only apply to ships
  if (isShipMode()) {
-  sb.AppendLine("#");
-  sb.AppendLine("# Values below this line are only applicable to");
-  sb.AppendLine("# ships when connected to base or other ships.");
-  sb.AppendLine("#");
-  sb.AppendLine();
   key = CONFIGSTR_PUSH_ORE;
   sb.AppendLine("# Push ore to base storage.");
   sb.AppendLine("# In tug mode, also pull ore from ships.");
@@ -4145,6 +4140,10 @@ void turnOffConveyors() {
 
 void displayStatusReport() {
  var panels = getTextPanels();
+
+ if (panels.Count == 0) {
+  return;
+ }
 
  removeAntennaAlert(ALERT_CRISIS_LOCKUP);
  removeAntennaAlert(ALERT_CRISIS_STANDBY);
