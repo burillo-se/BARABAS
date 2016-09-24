@@ -617,6 +617,7 @@ List < IMyTerminalBlock > removeNulls(List < IMyTerminalBlock > list) {
   var b = list[i];
   if (slimBlock(b) == null || !blockExists(b)) {
    blocks_to_alerts.Remove(b);
+   hideFromHud(b);
    list.RemoveAt(i);
   }
  }
@@ -677,7 +678,7 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
   } else {
    removeBlockAlert(b, ALERT_DAMAGED);
   }
-  displayBlockAlerts(b);
+  updateBlockName(b);
  }
  if (alert) {
   addAlert(PINK_ALERT);
@@ -743,7 +744,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
   } else {
    removeBlockAlert(r, ALERT_CLOGGED);
   }
-  displayBlockAlerts(r);
+  updateBlockName(r);
  }
  if (!null_list.Contains(local_refineries_subset)) {
   local_refineries_subset = randomSubset(local_refineries, 40);
@@ -768,7 +769,7 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
   } else {
    removeBlockAlert(f, ALERT_CLOGGED);
   }
-  displayBlockAlerts(f);
+  updateBlockName(f);
  }
  if (!null_list.Contains(local_arc_furnaces_subset)) {
   local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 40);
@@ -815,7 +816,7 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
     addBlockAlert(a, ALERT_MATERIALS_MISSING);
     assemblers_clogged = true;
    }
-   displayBlockAlerts(a);
+   updateBlockName(a);
   }
  }
  return local_assemblers;
@@ -3235,7 +3236,7 @@ void checkOxygenLeaks() {
   } else {
    removeBlockAlert(vent, ALERT_OXYGEN_LEAK);
   }
-  displayBlockAlerts(vent);
+  updateBlockName(vent);
  }
  if (alert) {
   addAlert(BROWN_ALERT);
@@ -3992,20 +3993,18 @@ string getBlockAlerts(int ids) {
  return sb.ToString();
 }
 
-void displayBlockAlerts(IMyTerminalBlock b) {
+void updateBlockName(IMyTerminalBlock b) {
  if (!hud_notifications) {
   return;
  }
  var name = getBlockName(b);
  if (!blocks_to_alerts.ContainsKey(b)) {
   setBlockName(b, name, "");
-  hideFromHud(b);
   return;
  }
  var cur = blocks_to_alerts[b];
  var alerts = getBlockAlerts(cur);
  setBlockName(b, name, alerts);
- showOnHud(b);
 }
 
 void addBlockAlert(IMyTerminalBlock b, int id) {
@@ -4016,6 +4015,9 @@ void addBlockAlert(IMyTerminalBlock b, int id) {
   blocks_to_alerts[b] |= id;
  } else {
   blocks_to_alerts.Add(b, id);
+ }
+ if (hud_notifications) {
+  showOnHud(b);
  }
 }
 
@@ -4030,6 +4032,7 @@ void removeBlockAlert(IMyTerminalBlock b, int id) {
    blocks_to_alerts[b] = cur;
   } else {
    blocks_to_alerts.Remove(b);
+   hideFromHud(b);
   }
  }
 }
@@ -4070,7 +4073,7 @@ void displayAntennaAlerts() {
  }
  var antennas = getAntennas();
  foreach (var antenna in antennas) {
-  displayBlockAlerts(antenna);
+  updateBlockName(antenna);
  }
 }
 
