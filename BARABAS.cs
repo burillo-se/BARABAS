@@ -1827,7 +1827,18 @@ void checkStorageLoad() {
   addAlert(RED_ALERT);
   removeAlert(YELLOW_ALERT);
   // if we're a base, enter crisis mode
-  if (isBaseMode() && has_refineries && refineriesClogged()) {
+  bool have_ore = false;
+  foreach (var ore in ore_types) {
+   if (ore == ICE) {
+    continue;
+   }
+   if (storage_ore_status[ore] > 0) {
+    have_ore = true;
+   }
+  }
+  bool try_crisis = have_ore && refineriesClogged();
+  try_crisis |= !have_ore;
+  if (isBaseMode() && has_refineries && try_crisis) {
    if (tried_throwing) {
     storeTrash(true);
     crisis_mode = CRISIS_MODE_LOCKUP;
@@ -1844,6 +1855,7 @@ void checkStorageLoad() {
   // have just thrown out ore - if we end up in a crisis again, we'll
   // go lockup instead of throwing ore
   crisis_mode = CRISIS_MODE_NONE;
+  tried_throwing = true;
   storeTrash(true);
  }
  if (storageLoad >= 0.75M && storageLoad < 0.98M) {
@@ -4427,7 +4439,6 @@ void s_materialsCrisis() {
    }
   }
  } else if (crisis_mode == CRISIS_MODE_THROW_ORE) {
-  tried_throwing = true;
   // if we can't even throw out ore, well, all bets are off
   string ore = getBiggestOre();
   if ((ore != null && !throwOutOre(ore, 0, true)) || ore == null) {
