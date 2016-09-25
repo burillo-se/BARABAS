@@ -596,11 +596,15 @@ bool shipFilter(IMyTerminalBlock b) {
  * Grid and block functions
  */
 // filter blocks by type and locality
-public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks) {
+public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks, bool ignore_exclude = false) {
  var grids = getLocalGrids();
  for (int i = blocks.Count - 1; i >= 0; i--) {
   var b = blocks[i];
-  if (slimBlock(b) == null || !(b is T) || !grids.Contains(b.CubeGrid)) {
+  bool exclude = false;
+  if (!ignore_exclude) {
+   exclude = excludeBlock(b);
+  }
+  if (exclude || !(b is T) || !grids.Contains(b.CubeGrid)) {
    blocks.RemoveAt(i);
   }
  }
@@ -662,7 +666,7 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
  if (local_blocks != null && !force_update) {
   return removeNulls(local_blocks);
  }
- filterLocalGrid < IMyTerminalBlock > (local_blocks);
+ filterLocalGrid < IMyTerminalBlock > (local_blocks, true);
 
  bool alert = false;
 
