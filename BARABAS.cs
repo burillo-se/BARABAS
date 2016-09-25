@@ -4764,6 +4764,8 @@ public Program() {
  var bd = Me.BlockDefinition.ToString();
  large_grid = bd.Contains("Large");
 
+ hideFromHud(Me);
+
  // find config block
  if (Storage.Length > 0) {
   long id;
