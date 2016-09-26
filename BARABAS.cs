@@ -343,6 +343,8 @@ bool can_use_ingots;
 bool can_use_oxygen;
 bool can_refine;
 bool can_refine_ice;
+bool can_refuel_hydrogen;
+bool can_refuel_oxygen;
 bool large_grid;
 bool has_air_vents;
 bool has_status_panels;
@@ -558,6 +560,9 @@ class BarabasException: Exception {
  * Filters
  */
 bool excludeBlock(IMyTerminalBlock b) {
+ if (slimBlock(b) == null) {
+  return true;
+ }
  if (b.CustomName.StartsWith("X")) {
   return true;
  }
@@ -593,12 +598,15 @@ bool shipFilter(IMyTerminalBlock b) {
  * Grid and block functions
  */
 // filter blocks by type and locality
-public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks) {
+public void filterLocalGrid < T > (List < IMyTerminalBlock > blocks, bool ignore_exclude = false) {
  var grids = getLocalGrids();
  for (int i = blocks.Count - 1; i >= 0; i--) {
   var b = blocks[i];
-  var grid = b.CubeGrid;
-  if (!(b is T) || !grids.Contains(grid)) {
+  bool exclude = false;
+  if (!ignore_exclude) {
+   exclude = excludeBlock(b);
+  }
+  if (exclude || !(b is T) || !grids.Contains(b.CubeGrid)) {
    blocks.RemoveAt(i);
   }
  }
@@ -613,8 +621,9 @@ List < IMyTerminalBlock > removeNulls(List < IMyTerminalBlock > list) {
  null_list.Add(list);
  for (int i = list.Count - 1; i >= 0; i--) {
   var b = list[i];
-  if (!blockExists(b)) {
+  if (slimBlock(b) == null || !blockExists(b)) {
    blocks_to_alerts.Remove(b);
+   hideFromHud(b);
    list.RemoveAt(i);
   }
  }
@@ -659,7 +668,7 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
  if (local_blocks != null && !force_update) {
   return removeNulls(local_blocks);
  }
- filterLocalGrid < IMyTerminalBlock > (local_blocks);
+ filterLocalGrid < IMyTerminalBlock > (local_blocks, true);
 
  bool alert = false;
 
@@ -675,7 +684,7 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
   } else {
    removeBlockAlert(b, ALERT_DAMAGED);
   }
-  displayBlockAlerts(b);
+  updateBlockName(b);
  }
  if (alert) {
   addAlert(PINK_ALERT);
@@ -741,7 +750,7 @@ List < IMyTerminalBlock > getRefineries(bool force_update = false) {
   } else {
    removeBlockAlert(r, ALERT_CLOGGED);
   }
-  displayBlockAlerts(r);
+  updateBlockName(r);
  }
  if (!null_list.Contains(local_refineries_subset)) {
   local_refineries_subset = randomSubset(local_refineries, 40);
@@ -759,14 +768,14 @@ List < IMyTerminalBlock > getArcFurnaces(bool force_update = false) {
  }
  arc_furnaces_clogged = false;
  filterLocalGrid < IMyRefinery > (local_arc_furnaces);
- foreach (IMyRefinery r in local_arc_furnaces) {
-  if (!r.IsQueueEmpty && !r.IsProducing) {
-   addBlockAlert(r, ALERT_CLOGGED);
+ foreach (IMyRefinery f in local_arc_furnaces) {
+  if (!f.IsQueueEmpty && !f.IsProducing) {
+   addBlockAlert(f, ALERT_CLOGGED);
    arc_furnaces_clogged = true;
   } else {
-   removeBlockAlert(r, ALERT_CLOGGED);
+   removeBlockAlert(f, ALERT_CLOGGED);
   }
-  displayBlockAlerts(r);
+  updateBlockName(f);
  }
  if (!null_list.Contains(local_arc_furnaces_subset)) {
   local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 40);
@@ -813,7 +822,7 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
     addBlockAlert(a, ALERT_MATERIALS_MISSING);
     assemblers_clogged = true;
    }
-   displayBlockAlerts(a);
+   updateBlockName(a);
   }
  }
  return local_assemblers;
@@ -1070,6 +1079,9 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
  // for each block, get its grid, store data for this grid, and populate respective
  // object list if it's one of the objects we're interested in
  foreach (var b in local_blocks) {
+  if (slimBlock(b) == null) {
+   continue;
+  }
   GridData data;
   if (!tmp_grid_data.TryGetValue(b.CubeGrid, out data)) {
    data = new GridData();
@@ -1308,34 +1320,28 @@ List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
  return remote_ship_storage;
 }
 
-List < IMyTerminalBlock > getRemoteOxygenTanks(bool force_update = false) {
- if (remote_oxygen_tanks != null && !force_update) {
-  return removeNulls(remote_oxygen_tanks);
- }
- remote_oxygen_tanks = new List < IMyTerminalBlock > ();
- GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (remote_oxygen_tanks, remoteGridFilter);
- for (int i = remote_oxygen_tanks.Count - 1; i >= 0; i--) {
-  var b = remote_oxygen_tanks[i] as IMyOxygenTank;
-  if (b.BlockDefinition.ToString().Contains("Hydrogen") || b.GetValue < bool > ("Stockpile") || b.GetOxygenLevel() == 0) {
-   remote_oxygen_tanks.RemoveAt(i);
+void getRemoteOxyHydroLevels() {
+ var blocks = new List < IMyTerminalBlock > ();
+ GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (blocks, remoteGridFilter);
+ Decimal o_level = 0;
+ Decimal h_level = 0;
+ for (int i = blocks.Count - 1; i >= 0; i--) {
+  var b = blocks[i] as IMyOxygenTank;
+  if (b.GetValue < bool > ("Stockpile") || slimBlock(b) == null) {
+   continue;
   }
- }
- return remote_oxygen_tanks;
-}
 
-List < IMyTerminalBlock > getRemoteHydrogenTanks(bool force_update = false) {
- if (remote_hydrogen_tanks != null && !force_update) {
-  return removeNulls(remote_hydrogen_tanks);
- }
- remote_hydrogen_tanks = new List < IMyTerminalBlock > ();
- GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (remote_hydrogen_tanks, remoteGridFilter);
- for (int i = remote_oxygen_tanks.Count - 1; i >= 0; i--) {
-  var b = remote_oxygen_tanks[i] as IMyOxygenTank;
-  if (!b.BlockDefinition.ToString().Contains("Hydrogen") || b.GetValue < bool > ("Stockpile") || b.GetOxygenLevel() == 0) {
-   remote_hydrogen_tanks.RemoveAt(i);
+  bool sz = b.BlockDefinition.ToString().Contains("Large");
+
+  if (b.BlockDefinition.ToString().Contains("Hydrogen")) {
+   h_level += (Decimal) b.GetOxygenLevel() * (sz ? 2500000M : 40000M);
+  } else {
+   o_level += (Decimal) b.GetOxygenLevel() * (sz ? 100000M : 50000M);
   }
  }
- return remote_hydrogen_tanks;
+ // if we have at least half a tank, we can refuel
+ can_refuel_hydrogen = h_level > (large_grid ? 1250000M : 20000M);
+ can_refuel_oxygen = o_level > (large_grid ? 50000M : 25000M);
 }
 
 // get local trash disposal connector
@@ -1823,7 +1829,18 @@ void checkStorageLoad() {
   addAlert(RED_ALERT);
   removeAlert(YELLOW_ALERT);
   // if we're a base, enter crisis mode
-  if (isBaseMode() && has_refineries && refineriesClogged()) {
+  bool have_ore = false;
+  foreach (var ore in ore_types) {
+   if (ore == ICE) {
+    continue;
+   }
+   if (storage_ore_status[ore] > 0) {
+    have_ore = true;
+   }
+  }
+  bool try_crisis = have_ore && refineriesClogged();
+  try_crisis |= !have_ore;
+  if (isBaseMode() && has_refineries && try_crisis) {
    if (tried_throwing) {
     storeTrash(true);
     crisis_mode = CRISIS_MODE_LOCKUP;
@@ -1840,6 +1857,7 @@ void checkStorageLoad() {
   // have just thrown out ore - if we end up in a crisis again, we'll
   // go lockup instead of throwing ore
   crisis_mode = CRISIS_MODE_NONE;
+  tried_throwing = true;
   storeTrash(true);
  }
  if (storageLoad >= 0.75M && storageLoad < 0.98M) {
@@ -3236,7 +3254,7 @@ void checkOxygenLeaks() {
   } else {
    removeBlockAlert(vent, ALERT_OXYGEN_LEAK);
   }
-  displayBlockAlerts(vent);
+  updateBlockName(vent);
  }
  if (alert) {
   addAlert(BROWN_ALERT);
@@ -3661,11 +3679,6 @@ string generateConfiguration() {
 
  // these values only apply to ships
  if (isShipMode()) {
-  sb.AppendLine("#");
-  sb.AppendLine("# Values below this line are only applicable to");
-  sb.AppendLine("# ships when connected to base or other ships.");
-  sb.AppendLine("#");
-  sb.AppendLine();
   key = CONFIGSTR_PUSH_ORE;
   sb.AppendLine("# Push ore to base storage.");
   sb.AppendLine("# In tug mode, also pull ore from ships.");
@@ -3998,20 +4011,18 @@ string getBlockAlerts(int ids) {
  return sb.ToString();
 }
 
-void displayBlockAlerts(IMyTerminalBlock b) {
+void updateBlockName(IMyTerminalBlock b) {
  if (!hud_notifications) {
   return;
  }
  var name = getBlockName(b);
  if (!blocks_to_alerts.ContainsKey(b)) {
   setBlockName(b, name, "");
-  hideFromHud(b);
   return;
  }
  var cur = blocks_to_alerts[b];
  var alerts = getBlockAlerts(cur);
  setBlockName(b, name, alerts);
- showOnHud(b);
 }
 
 void addBlockAlert(IMyTerminalBlock b, int id) {
@@ -4022,6 +4033,9 @@ void addBlockAlert(IMyTerminalBlock b, int id) {
   blocks_to_alerts[b] |= id;
  } else {
   blocks_to_alerts.Add(b, id);
+ }
+ if (hud_notifications) {
+  showOnHud(b);
  }
 }
 
@@ -4036,6 +4050,7 @@ void removeBlockAlert(IMyTerminalBlock b, int id) {
    blocks_to_alerts[b] = cur;
   } else {
    blocks_to_alerts.Remove(b);
+   hideFromHud(b);
   }
  }
 }
@@ -4076,7 +4091,7 @@ void displayAntennaAlerts() {
  }
  var antennas = getAntennas();
  foreach (var antenna in antennas) {
-  displayBlockAlerts(antenna);
+  updateBlockName(antenna);
  }
 }
 
@@ -4143,6 +4158,10 @@ void turnOffConveyors() {
 
 void displayStatusReport() {
  var panels = getTextPanels();
+
+ if (panels.Count == 0) {
+  return;
+ }
 
  removeAntennaAlert(ALERT_CRISIS_LOCKUP);
  removeAntennaAlert(ALERT_CRISIS_STANDBY);
@@ -4273,8 +4292,7 @@ void s_refreshRemote() {
  if (connected) {
   getRemoteStorage(true);
   getRemoteShipStorage(true);
-  getRemoteOxygenTanks(true);
-  getRemoteHydrogenTanks(true);
+  getRemoteOxyHydroLevels();
   addAlert(GREEN_ALERT);
  } else {
   removeAlert(GREEN_ALERT);
@@ -4384,10 +4402,10 @@ void s_refuelIce() {
   toggleStockpile(h, h_s);
   return;
  }
- if (refuel_oxygen && getRemoteOxygenTanks().Count != 0 && !oxygenAboveHighWatermark()) {
+ if (refuel_oxygen && can_refuel_oxygen && !oxygenAboveHighWatermark()) {
   o_s = true;
  }
- if (refuel_hydrogen && getRemoteHydrogenTanks().Count != 0 && !hydrogenAboveHighWatermark()) {
+ if (refuel_hydrogen && can_refuel_hydrogen && !hydrogenAboveHighWatermark()) {
   h_s = true;
  }
  toggleStockpile(o, o_s);
@@ -4423,7 +4441,6 @@ void s_materialsCrisis() {
    }
   }
  } else if (crisis_mode == CRISIS_MODE_THROW_ORE) {
-  tried_throwing = true;
   // if we can't even throw out ore, well, all bets are off
   string ore = getBiggestOre();
   if ((ore != null && !throwOutOre(ore, 0, true)) || ore == null) {
@@ -4748,6 +4765,8 @@ public Program() {
  // determine grid size
  var bd = Me.BlockDefinition.ToString();
  large_grid = bd.Contains("Large");
+
+ hideFromHud(Me);
 
  // find config block
  if (Storage.Length > 0) {
