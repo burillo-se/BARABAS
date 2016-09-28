@@ -204,7 +204,7 @@ readonly Dictionary < string, float > ore_to_ingot_ratios = new Dictionary < str
 };
 
 // statuses for ore and ingots
-static readonly Dictionary < string, float > ore_status = new Dictionary < string, float > {
+readonly Dictionary < string, float > ore_status = new Dictionary < string, float > {
   { COBALT, 0 },
   { GOLD, 0 },
   { ICE, 0 },
@@ -217,9 +217,9 @@ static readonly Dictionary < string, float > ore_status = new Dictionary < strin
   { URANIUM, 0 },
   { STONE, 0 },
 };
-readonly Dictionary < string, float > ingot_status = new Dictionary < string, float > (ore_status);
-readonly Dictionary < string, float > storage_ore_status = new Dictionary < string, float > (ore_status);
-readonly Dictionary < string, float > storage_ingot_status = new Dictionary < string, float > (ore_status);
+readonly Dictionary < string, float > ingot_status;
+readonly Dictionary < string, float > storage_ore_status;
+readonly Dictionary < string, float > storage_ingot_status;
 
 /* local data storage, updated once every few cycles */
 List < IMyTerminalBlock > local_blocks = null;
@@ -4773,6 +4773,11 @@ public Program() {
    config_block = GridTerminalSystem.GetBlockWithId(id) as IMyTextPanel;
   }
  }
+
+ // initialize readonly vars
+ ingot_status = new Dictionary < string, float > (ore_status);
+ storage_ore_status = new Dictionary < string, float > (ore_status);
+ storage_ingot_status = new Dictionary < string, float > (ore_status);
 }
 
 public void Main() {
