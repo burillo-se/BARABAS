@@ -85,12 +85,14 @@ bool refuel_hydrogen = false;
 
 // state variables
 int current_state;
-int crisis_mode;
 
 // crisis mode levels
-const int CRISIS_MODE_NONE = 0;
-const int CRISIS_MODE_THROW_ORE = 1;
-const int CRISIS_MODE_LOCKUP = 2;
+enum CrisisMode {
+ CRISIS_MODE_NONE = 0,
+ CRISIS_MODE_THROW_ORE,
+ CRISIS_MODE_LOCKUP
+};
+CrisisMode crisis_mode;
 
 Action[] states = null;
 
@@ -1841,20 +1843,20 @@ void checkStorageLoad() {
   if (isBaseMode() && has_refineries && try_crisis) {
    if (tried_throwing) {
     storeTrash(true);
-    crisis_mode = CRISIS_MODE_LOCKUP;
+    crisis_mode = CrisisMode.CRISIS_MODE_LOCKUP;
    } else {
-    crisis_mode = CRISIS_MODE_THROW_ORE;
+    crisis_mode = CrisisMode.CRISIS_MODE_THROW_ORE;
    }
   }
  } else {
   removeAlert(RED_ALERT);
  }
 
- if (crisis_mode == CRISIS_MODE_THROW_ORE && storageLoad < 0.98F) {
+ if (crisis_mode == CrisisMode.CRISIS_MODE_THROW_ORE && storageLoad < 0.98F) {
   // exit crisis mode, but "tried_throwing" still reminds us that we
   // have just thrown out ore - if we end up in a crisis again, we'll
   // go lockup instead of throwing ore
-  crisis_mode = CRISIS_MODE_NONE;
+  crisis_mode = CrisisMode.CRISIS_MODE_NONE;
   tried_throwing = true;
   storeTrash(true);
  }
@@ -3811,36 +3813,36 @@ void parseLine(string line) {
   if (strval == "base") {
    if (!isBaseMode()) {
     setMode(OP_MODE_BASE);
-    crisis_mode = CRISIS_MODE_NONE;
+    crisis_mode = CrisisMode.CRISIS_MODE_NONE;
    }
   } else if (strval == "ship") {
    if (!isGenericShipMode()) {
     setMode(OP_MODE_SHIP);
-    crisis_mode = CRISIS_MODE_NONE;
+    crisis_mode = CrisisMode.CRISIS_MODE_NONE;
    }
   } else if (strval == "drill") {
    if (!isDrillMode()) {
     setMode(OP_MODE_DRILL);
-    crisis_mode = CRISIS_MODE_NONE;
+    crisis_mode = CrisisMode.CRISIS_MODE_NONE;
    }
   } else if (strval == "welder") {
    if (!isWelderMode()) {
     setMode(OP_MODE_WELDER);
-    crisis_mode = CRISIS_MODE_NONE;
+    crisis_mode = CrisisMode.CRISIS_MODE_NONE;
    }
   } else if (strval == "grinder") {
    if (!isGrinderMode()) {
     setMode(OP_MODE_GRINDER);
-    crisis_mode = CRISIS_MODE_NONE;
+    crisis_mode = CrisisMode.CRISIS_MODE_NONE;
    }
   } else if (strval == "tug") {
    if (!isTugMode()) {
     setMode(OP_MODE_TUG);
-    crisis_mode = CRISIS_MODE_NONE;
+    crisis_mode = CrisisMode.CRISIS_MODE_NONE;
    }
   } else if (strval == "auto") {
    setMode(OP_MODE_AUTO);
-   crisis_mode = CRISIS_MODE_NONE;
+   crisis_mode = CrisisMode.CRISIS_MODE_NONE;
   } else {
    fail = true;
   }
@@ -4165,15 +4167,15 @@ void displayStatusReport() {
  removeAntennaAlert(ALERT_CRISIS_STANDBY);
  removeAntennaAlert(ALERT_CRISIS_THROW_OUT);
 
- if (crisis_mode == CRISIS_MODE_NONE && tried_throwing) {
+ if (crisis_mode == CrisisMode.CRISIS_MODE_NONE && tried_throwing) {
   status_report[STATUS_CRISIS_MODE] = "Standby";
   addAntennaAlert(ALERT_CRISIS_STANDBY);
- } else if (crisis_mode == CRISIS_MODE_NONE) {
+ } else if (crisis_mode == CrisisMode.CRISIS_MODE_NONE) {
   status_report[STATUS_CRISIS_MODE] = "";
- } else if (crisis_mode == CRISIS_MODE_THROW_ORE) {
+ } else if (crisis_mode == CrisisMode.CRISIS_MODE_THROW_ORE) {
   status_report[STATUS_CRISIS_MODE] = "Ore throwout";
   addAntennaAlert(ALERT_CRISIS_THROW_OUT);
- } else if (crisis_mode == CRISIS_MODE_LOCKUP) {
+ } else if (crisis_mode == CrisisMode.CRISIS_MODE_LOCKUP) {
   status_report[STATUS_CRISIS_MODE] = "Lockup";
   addAntennaAlert(ALERT_CRISIS_LOCKUP);
  }
@@ -4357,7 +4359,7 @@ void s_power() {
   status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
  }
 
- if (crisis_mode == CRISIS_MODE_NONE) {
+ if (crisis_mode == CrisisMode.CRISIS_MODE_NONE) {
   bool can_refuel = isShipMode() && connected_to_base;
   if (refillReactors()) {
    pushSpareUraniumToStorage();
@@ -4370,7 +4372,7 @@ void s_power() {
 }
 
 void s_refineries() {
- if (crisis_mode == CRISIS_MODE_NONE && can_refine) {
+ if (crisis_mode == CrisisMode.CRISIS_MODE_NONE && can_refine) {
   // if we're a ship and we're connected, push ore to storage
   if (isShipMode() && push_ore_to_base && connected_to_base) {
    pushOreToStorage();
@@ -4424,7 +4426,7 @@ void s_materialsRebalance() {
 }
 
 void s_materialsCrisis() {
- if (crisis_mode == CRISIS_MODE_NONE && throw_out_stone) {
+ if (crisis_mode == CrisisMode.CRISIS_MODE_NONE && throw_out_stone) {
   // check if we want to throw out extra stone
   if (storage_ore_status[STONE] > 0 || storage_ingot_status[STONE] > 0) {
    var excessStone = storage_ingot_status[STONE] + storage_ore_status[STONE] * ore_to_ingot_ratios[STONE] - material_thresholds[STONE] * 5;
@@ -4438,12 +4440,12 @@ void s_materialsCrisis() {
     storeTrash();
    }
   }
- } else if (crisis_mode == CRISIS_MODE_THROW_ORE) {
+ } else if (crisis_mode == CrisisMode.CRISIS_MODE_THROW_ORE) {
   // if we can't even throw out ore, well, all bets are off
   string ore = getBiggestOre();
   if ((ore != null && !throwOutOre(ore, 0, true)) || ore == null) {
    storeTrash(true);
-   crisis_mode = CRISIS_MODE_LOCKUP;
+   crisis_mode = CrisisMode.CRISIS_MODE_LOCKUP;
   }
  }
 }
@@ -4725,8 +4727,6 @@ public void Save() {
   sb.Append("0");
  }
  sb.Append(":");
- sb.Append(crisis_mode.ToString());
- sb.Append(":");
  sb.Append(tried_throwing.ToString());
  Storage = sb.ToString();
 }
@@ -4761,7 +4761,6 @@ public Program() {
   s_remoteStorage
  };
  current_state = 0;
- bool reset_crisis = true;
  state_cycle_counts = new int[states.Length];
 
  for (int i = 0; i < state_cycle_counts.Length; i++) {
@@ -4777,24 +4776,18 @@ public Program() {
  // find config block
  if (Storage.Length > 0) {
   string[] strs = Storage.Split(':');
-  if (strs.Length == 3) {
+  if (strs.Length == 2) {
    long id;
    if (long.TryParse(strs[0], out id) &&
-       Int32.TryParse(strs[1], out crisis_mode) &&
-       Boolean.TryParse(strs[2], out tried_throwing)) {
+       Boolean.TryParse(strs[1], out tried_throwing)) {
     if (id != 0) {
      config_block = GridTerminalSystem.GetBlockWithId(id) as IMyTextPanel;
     }
-    reset_crisis = false;
    } else {
     // erase Storage as it contains invalid data
     Storage = "";
    }
   }
- }
- if (reset_crisis) {
-  tried_throwing = false;
-  crisis_mode = CRISIS_MODE_NONE;
  }
 
  // initialize readonly vars
