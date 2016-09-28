@@ -257,15 +257,17 @@ Dictionary < IMyCubeGrid, GridData > remote_grid_data = null;
 GridData local_grid_data = null;
 
 // alert levels, in priority order
-const int RED_ALERT = 0;
-const int YELLOW_ALERT = 1;
-const int BLUE_ALERT = 2;
-const int CYAN_ALERT = 3;
-const int MAGENTA_ALERT = 4;
-const int WHITE_ALERT = 5;
-const int PINK_ALERT = 6;
-const int BROWN_ALERT = 7;
-const int GREEN_ALERT = 8;
+enum AlertLevel {
+ RED_ALERT = 0,
+ YELLOW_ALERT,
+ BLUE_ALERT,
+ CYAN_ALERT,
+ MAGENTA_ALERT,
+ WHITE_ALERT,
+ PINK_ALERT,
+ BROWN_ALERT,
+ GREEN_ALERT
+};
 
 public class Alert {
  public Alert(Color c, string t) {
@@ -687,9 +689,9 @@ List < IMyTerminalBlock > getBlocks(bool force_update = false) {
   updateBlockName(b);
  }
  if (alert) {
-  addAlert(PINK_ALERT);
+  addAlert(AlertLevel.PINK_ALERT);
  } else {
-  removeAlert(PINK_ALERT);
+  removeAlert(AlertLevel.PINK_ALERT);
  }
  return local_blocks;
 }
@@ -1820,14 +1822,14 @@ bool hasOnlyComponents(IMyInventory inv) {
 void checkStorageLoad() {
  if (getStorage().Count == 0) {
   status_report[STATUS_STORAGE_LOAD] = "No storage found";
-  removeAlert(YELLOW_ALERT);
-  removeAlert(RED_ALERT);
+  removeAlert(AlertLevel.YELLOW_ALERT);
+  removeAlert(AlertLevel.RED_ALERT);
   return;
  }
  float storageLoad = getTotalStorageLoad();
  if (storageLoad >= 0.98F) {
-  addAlert(RED_ALERT);
-  removeAlert(YELLOW_ALERT);
+  addAlert(AlertLevel.RED_ALERT);
+  removeAlert(AlertLevel.YELLOW_ALERT);
   // if we're a base, enter crisis mode
   bool have_ore = false;
   foreach (var ore in ore_types) {
@@ -1849,7 +1851,7 @@ void checkStorageLoad() {
    }
   }
  } else {
-  removeAlert(RED_ALERT);
+  removeAlert(AlertLevel.RED_ALERT);
  }
 
  if (crisis_mode == CrisisMode.CRISIS_MODE_THROW_ORE && storageLoad < 0.98F) {
@@ -1862,9 +1864,9 @@ void checkStorageLoad() {
  }
  if (storageLoad >= 0.75F && storageLoad < 0.98F) {
   storeTrash();
-  addAlert(YELLOW_ALERT);
+  addAlert(AlertLevel.YELLOW_ALERT);
  } else if (storageLoad < 0.75F) {
-  removeAlert(YELLOW_ALERT);
+  removeAlert(AlertLevel.YELLOW_ALERT);
   storeTrash();
   if (storageLoad < 0.98F && isBaseMode()) {
    tried_throwing = false;
@@ -3257,9 +3259,9 @@ void checkOxygenLeaks() {
   updateBlockName(vent);
  }
  if (alert) {
-  addAlert(BROWN_ALERT);
+  addAlert(AlertLevel.BROWN_ALERT);
  } else {
-  removeAlert(BROWN_ALERT);
+  removeAlert(AlertLevel.BROWN_ALERT);
  }
 }
 
@@ -3503,13 +3505,13 @@ void displayAlerts() {
  bool first = true;
  for (int i = 0; i < text_alerts.Count; i++) {
   if (text_alerts[i].enabled) {
-   if (i == BLUE_ALERT) {
+   if (i == (int) AlertLevel.BLUE_ALERT) {
     addAntennaAlert(ALERT_LOW_POWER);
-   } else if (i == YELLOW_ALERT) {
+   } else if (i == (int) AlertLevel.YELLOW_ALERT) {
     addAntennaAlert(ALERT_LOW_STORAGE);
-   } else if (i == RED_ALERT) {
+   } else if (i == (int) AlertLevel.RED_ALERT) {
     addAntennaAlert(ALERT_VERY_LOW_STORAGE);
-   } else if (i == WHITE_ALERT) {
+   } else if (i == (int) AlertLevel.WHITE_ALERT) {
     addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
    }
    var alert = text_alerts[i];
@@ -3532,8 +3534,8 @@ void displayAlerts() {
  }
 }
 
-void addAlert(int level) {
- var alert = text_alerts[level];
+void addAlert(AlertLevel level) {
+ var alert = text_alerts[(int) level];
  // this alert is already enabled
  if (alert.enabled) {
   return;
@@ -3543,9 +3545,9 @@ void addAlert(int level) {
  displayAlerts();
 }
 
-void removeAlert(int level) {
+void removeAlert(AlertLevel level) {
  // disable the alert
- var alert = text_alerts[level];
+ var alert = text_alerts[(int) level];
  alert.enabled = false;
 
  displayAlerts();
@@ -4293,9 +4295,9 @@ void s_refreshRemote() {
   getRemoteStorage(true);
   getRemoteShipStorage(true);
   getRemoteOxyHydroLevels();
-  addAlert(GREEN_ALERT);
+  addAlert(AlertLevel.GREEN_ALERT);
  } else {
-  removeAlert(GREEN_ALERT);
+  removeAlert(AlertLevel.GREEN_ALERT);
  }
 }
 
@@ -4314,12 +4316,12 @@ void s_power() {
   }
 
   if (!above_low_watermark && max_pwr_output != 0) {
-   addAlert(BLUE_ALERT);
+   addAlert(AlertLevel.BLUE_ALERT);
   } else {
-   removeAlert(BLUE_ALERT);
+   removeAlert(AlertLevel.BLUE_ALERT);
   }
  } else {
-  removeAlert(BLUE_ALERT);
+  removeAlert(AlertLevel.BLUE_ALERT);
   prioritize_uranium = false;
  }
  status_report[STATUS_POWER_STATS] = "No power sources";
@@ -4597,9 +4599,9 @@ void s_updateMaterialStats() {
   }
  }
  if (alert) {
-  addAlert(WHITE_ALERT);
+  addAlert(AlertLevel.WHITE_ALERT);
  } else {
-  removeAlert(WHITE_ALERT);
+  removeAlert(AlertLevel.WHITE_ALERT);
  }
  alert = false;
  status_report[STATUS_MATERIAL] = sb.ToString();
@@ -4640,17 +4642,17 @@ void s_updateMaterialStats() {
   if (alert) {
    status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1} WARNING!",
     oxy_str, hydro_str);
-   addAlert(CYAN_ALERT);
+   addAlert(AlertLevel.CYAN_ALERT);
   } else {
    status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1}",
     oxy_str, hydro_str);
-   removeAlert(CYAN_ALERT);
+   removeAlert(AlertLevel.CYAN_ALERT);
   }
  } else {
   removeAntennaAlert(ALERT_LOW_OXYGEN);
   removeAntennaAlert(ALERT_LOW_HYDROGEN);
   status_report[STATUS_OXYHYDRO_LEVEL] = "";
-  removeAlert(CYAN_ALERT);
+  removeAlert(AlertLevel.CYAN_ALERT);
  }
 }
 
@@ -4835,9 +4837,9 @@ public void Main() {
  }
 
  if (refineries_clogged || arc_furnaces_clogged || assemblers_clogged) {
-  addAlert(MAGENTA_ALERT);
+  addAlert(AlertLevel.MAGENTA_ALERT);
  } else {
-  removeAlert(MAGENTA_ALERT);
+  removeAlert(AlertLevel.MAGENTA_ALERT);
  }
 
  // display status updates
