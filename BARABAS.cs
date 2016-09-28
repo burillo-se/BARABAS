@@ -4827,6 +4827,7 @@ public void Main() {
   Runtime.CurrentInstructionCount,
   Runtime.MaxInstructionCount,
   Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100);
+ Echo(String.Format("BARABAS version {0}", VERSION));
  Echo(String.Format("States executed: {0}", num_states));
  Echo(il_str);
 }
