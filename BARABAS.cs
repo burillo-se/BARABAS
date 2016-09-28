@@ -4831,7 +4831,7 @@ public void Main() {
  string il_str = String.Format("IL Count: {0}/{1} ({2:0.0}%)",
   Runtime.CurrentInstructionCount,
   Runtime.MaxInstructionCount,
-  Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100);
+  (float) Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100F);
  Echo(String.Format("BARABAS version {0}", VERSION));
  Echo(String.Format("States executed: {0}", num_states));
  Echo(il_str);
