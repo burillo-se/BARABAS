@@ -60,16 +60,16 @@ const int OP_MODE_TUG = 0x10;
 const int OP_MODE_BASE = 0x100;
 
 int op_mode = OP_MODE_AUTO;
-Decimal power_high_watermark = 0M;
-Decimal power_low_watermark = 0M;
-Decimal oxygen_high_watermark = 0M;
-Decimal oxygen_low_watermark = 0M;
-Decimal hydrogen_high_watermark = 0M;
-Decimal hydrogen_low_watermark = 0M;
+float power_high_watermark = 0;
+float power_low_watermark = 0;
+float oxygen_high_watermark = 0;
+float oxygen_low_watermark = 0;
+float hydrogen_high_watermark = 0;
+float hydrogen_low_watermark = 0;
 bool throw_out_stone = false;
 bool sort_storage = true;
 bool hud_notifications = true;
-Decimal prev_pwr_draw = 0M;
+float prev_pwr_draw = 0;
 bool refineries_clogged = false;
 bool arc_furnaces_clogged = false;
 bool assemblers_clogged = false;
@@ -112,8 +112,8 @@ const string CONFIGSTR_REFUEL_OXYGEN = "refuel oxygen";
 const string CONFIGSTR_REFUEL_HYDROGEN = "refuel hydrogen";
 
 // ore_volume
-const Decimal VOLUME_ORE = 0.37M;
-const Decimal VOLUME_SCRAP = 0.254M;
+const float VOLUME_ORE = 0.37F;
+const float VOLUME_SCRAP = 0.254F;
 
 // ore names
 const string COBALT = "Cobalt";
@@ -137,7 +137,7 @@ const string STATUS_ALERT = "Alerts";
 const string STATUS_CRISIS_MODE = "Crisis mode";
 const string STATUS_OXYHYDRO_LEVEL = "O2/H2";
 
-const Decimal CHUNK_SIZE = 1000M;
+const float CHUNK_SIZE = 1000;
 
 // config options, caseless dictionary
 readonly Dictionary < string, string > config_options = new Dictionary < string, string > (StringComparer.OrdinalIgnoreCase) {
@@ -177,34 +177,34 @@ readonly List < string > arc_furnace_ores = new List < string > {
 };
 
 // ballpark values of "just enough" for each material
-readonly Dictionary < string, Decimal > material_thresholds = new Dictionary < string, Decimal > {
-  { COBALT, 500M },
-  { GOLD, 100M },
-  { IRON, 5000M },
-  { MAGNESIUM, 100M },
-  { NICKEL, 1000M },
-  { PLATINUM, 10M },
-  { SILICON, 1000M },
-  { SILVER, 1000M },
-  { URANIUM, 10M },
-  { STONE, 5000M },
+readonly Dictionary < string, float > material_thresholds = new Dictionary < string, float > {
+  { COBALT, 500 },
+  { GOLD, 100 },
+  { IRON, 5000 },
+  { MAGNESIUM, 100 },
+  { NICKEL, 1000 },
+  { PLATINUM, 10 },
+  { SILICON, 1000 },
+  { SILVER, 1000 },
+  { URANIUM, 10 },
+  { STONE, 5000 },
 };
 
-readonly Dictionary < string, Decimal > ore_to_ingot_ratios = new Dictionary < string, Decimal > {
-  { COBALT, 0.24M },
-  { GOLD, 0.008M },
-  { IRON, 0.56M },
-  { MAGNESIUM, 0.0056M },
-  { NICKEL, 0.32M },
-  { PLATINUM, 0.004M },
-  { SILICON, 0.56M },
-  { SILVER, 0.08M },
-  { URANIUM, 0.0056M },
-  { STONE, 0.72M }
+readonly Dictionary < string, float > ore_to_ingot_ratios = new Dictionary < string, float > {
+  { COBALT, 0.24F },
+  { GOLD, 0.008F },
+  { IRON, 0.56F },
+  { MAGNESIUM, 0.0056F },
+  { NICKEL, 0.32F },
+  { PLATINUM, 0.004F },
+  { SILICON, 0.56F },
+  { SILVER, 0.08F },
+  { URANIUM, 0.0056F },
+  { STONE, 0.72F }
 };
 
 // statuses for ore and ingots
-static readonly Dictionary < string, Decimal > ore_status = new Dictionary < string, Decimal > {
+static readonly Dictionary < string, float > ore_status = new Dictionary < string, float > {
   { COBALT, 0 },
   { GOLD, 0 },
   { ICE, 0 },
@@ -217,9 +217,9 @@ static readonly Dictionary < string, Decimal > ore_status = new Dictionary < str
   { URANIUM, 0 },
   { STONE, 0 },
 };
-readonly Dictionary < string, Decimal > ingot_status = new Dictionary < string, Decimal > (ore_status);
-readonly Dictionary < string, Decimal > storage_ore_status = new Dictionary < string, Decimal > (ore_status);
-readonly Dictionary < string, Decimal > storage_ingot_status = new Dictionary < string, Decimal > (ore_status);
+readonly Dictionary < string, float > ingot_status = new Dictionary < string, float > (ore_status);
+readonly Dictionary < string, float > storage_ore_status = new Dictionary < string, float > (ore_status);
+readonly Dictionary < string, float > storage_ingot_status = new Dictionary < string, float > (ore_status);
 
 /* local data storage, updated once every few cycles */
 List < IMyTerminalBlock > local_blocks = null;
@@ -326,13 +326,13 @@ readonly Dictionary < int, string > block_alerts = new Dictionary < int, string 
 
 /* misc local data */
 bool power_above_threshold = false;
-Decimal cur_power_draw;
-Decimal max_power_draw;
-Decimal max_battery_output;
-Decimal max_reactor_output;
-Decimal cur_reactor_output;
-Decimal cur_oxygen_level;
-Decimal cur_hydrogen_level;
+float cur_power_draw;
+float max_power_draw;
+float max_battery_output;
+float max_reactor_output;
+float cur_reactor_output;
+float cur_oxygen_level;
+float cur_hydrogen_level;
 bool tried_throwing = false;
 bool auto_refuel_ship;
 bool prioritize_uranium = false;
@@ -360,23 +360,23 @@ bool connected_to_base;
 bool connected_to_ship;
 
 // thrust block definitions
-Dictionary < string, Decimal > thrust_power = new Dictionary < string, Decimal > () {
-  { "MyObjectBuilder_Thrust/SmallBlockSmallThrust", 33.6M },
-  { "MyObjectBuilder_Thrust/SmallBlockLargeThrust", 400M },
-  { "MyObjectBuilder_Thrust/LargeBlockSmallThrust", 560M },
-  { "MyObjectBuilder_Thrust/LargeBlockLargeThrust", 6720M },
-  { "MyObjectBuilder_Thrust/SmallBlockSmallHydrogenThrust", 0M },
-  { "MyObjectBuilder_Thrust/SmallBlockLargeHydrogenThrust", 0M },
-  { "MyObjectBuilder_Thrust/LargeBlockSmallHydrogenThrust", 0M },
-  { "MyObjectBuilder_Thrust/LargeBlockLargeHydrogenThrust", 0M },
-  { "MyObjectBuilder_Thrust/SmallBlockSmallAtmosphericThrust", 700M },
-  { "MyObjectBuilder_Thrust/SmallBlockLargeAtmosphericThrust", 2400M },
-  { "MyObjectBuilder_Thrust/LargeBlockSmallAtmosphericThrust", 2360M },
-  { "MyObjectBuilder_Thrust/LargeBlockLargeAtmosphericThrust", 16360M }
+Dictionary < string, float > thrust_power = new Dictionary < string, float > () {
+  { "MyObjectBuilder_Thrust/SmallBlockSmallThrust", 33.6F },
+  { "MyObjectBuilder_Thrust/SmallBlockLargeThrust", 400 },
+  { "MyObjectBuilder_Thrust/LargeBlockSmallThrust", 560 },
+  { "MyObjectBuilder_Thrust/LargeBlockLargeThrust", 6720 },
+  { "MyObjectBuilder_Thrust/SmallBlockSmallHydrogenThrust", 0 },
+  { "MyObjectBuilder_Thrust/SmallBlockLargeHydrogenThrust", 0 },
+  { "MyObjectBuilder_Thrust/LargeBlockSmallHydrogenThrust", 0 },
+  { "MyObjectBuilder_Thrust/LargeBlockLargeHydrogenThrust", 0 },
+  { "MyObjectBuilder_Thrust/SmallBlockSmallAtmosphericThrust", 700 },
+  { "MyObjectBuilder_Thrust/SmallBlockLargeAtmosphericThrust", 2400 },
+  { "MyObjectBuilder_Thrust/LargeBlockSmallAtmosphericThrust", 2360 },
+  { "MyObjectBuilder_Thrust/LargeBlockLargeAtmosphericThrust", 16360 }
 };
 
 // power constants - in kWatts
-const Decimal URANIUM_INGOT_POWER = 68760M;
+const float URANIUM_INGOT_POWER = 68760;
 
 public class ItemHelper {
  public IMyTerminalBlock Owner;
@@ -808,12 +808,12 @@ List < IMyTerminalBlock > getAssemblers(bool force_update = false) {
    consolidate(a.GetInventory(1));
    var input_inv = a.GetInventory(0);
    var output_inv = a.GetInventory(1);
-   Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
-   Decimal output_load = (Decimal) output_inv.CurrentVolume / (Decimal) output_inv.MaxVolume;
+   float input_load = (float) input_inv.CurrentVolume / (float) input_inv.MaxVolume;
+   float output_load = (float) output_inv.CurrentVolume / (float) output_inv.MaxVolume;
    bool isWaiting = !a.IsQueueEmpty && !a.IsProducing;
    removeBlockAlert(a, ALERT_MATERIALS_MISSING);
    removeBlockAlert(a, ALERT_CLOGGED);
-   if ((input_load > 0.98M || output_load > 0.98M) && isWaiting) {
+   if ((input_load > 0.98F || output_load > 0.98F) && isWaiting) {
     addBlockAlert(a, ALERT_CLOGGED);
     assemblers_clogged = true;
    } else if (isWaiting) {
@@ -1031,7 +1031,7 @@ IMyCubeGrid getConnectedGrid(IMyPistonBase p, List < IMyCubeGrid > grids) {
  var pos = p.Position;
  var or = p.Orientation;
  bool is_large = p.BlockDefinition.ToString().Contains("Large");
- var up = (int) Math.Round(p.CurrentPosition / (is_large ? 2.5 : 0.5));
+ var up = (int) Math.Round(p.CurrentPosition / (is_large ? 2.5F : 0.5F));
  var dir = new Vector3I(0, 2 + up, 0);
  Matrix m;
  or.GetMatrix(out m);
@@ -1321,8 +1321,8 @@ List < IMyTerminalBlock > getRemoteShipStorage(bool force_update = false) {
 void getRemoteOxyHydroLevels() {
  var blocks = new List < IMyTerminalBlock > ();
  GridTerminalSystem.GetBlocksOfType < IMyOxygenTank > (blocks, remoteGridFilter);
- Decimal o_level = 0;
- Decimal h_level = 0;
+ float o_level = 0;
+ float h_level = 0;
  for (int i = blocks.Count - 1; i >= 0; i--) {
   var b = blocks[i] as IMyOxygenTank;
   if (b.GetValue < bool > ("Stockpile") || slimBlock(b) == null) {
@@ -1332,14 +1332,14 @@ void getRemoteOxyHydroLevels() {
   bool sz = b.BlockDefinition.ToString().Contains("Large");
 
   if (b.BlockDefinition.ToString().Contains("Hydrogen")) {
-   h_level += (Decimal) b.GetOxygenLevel() * (sz ? 2500000M : 40000M);
+   h_level += b.GetOxygenLevel() * (sz ? 2500000 : 40000);
   } else {
-   o_level += (Decimal) b.GetOxygenLevel() * (sz ? 100000M : 50000M);
+   o_level += b.GetOxygenLevel() * (sz ? 100000 : 50000);
   }
  }
  // if we have at least half a tank, we can refuel
- can_refuel_hydrogen = h_level > (large_grid ? 1250000M : 20000M);
- can_refuel_oxygen = o_level > (large_grid ? 50000M : 25000M);
+ can_refuel_hydrogen = h_level > (large_grid ? 1250000 : 20000);
+ can_refuel_oxygen = o_level > (large_grid ? 50000 : 25000);
 }
 
 // get local trash disposal connector
@@ -1549,12 +1549,12 @@ bool isComponent(IMyInventoryItem i) {
 }
 
 // get total amount of all ingots (of a particular type) stored in a particular inventory
-Decimal getTotalIngots(IMyTerminalBlock b, int srcInv, string name) {
+float getTotalIngots(IMyTerminalBlock b, int srcInv, string name) {
  var entries = new List < ItemHelper > ();
  getAllIngots(b, srcInv, name, entries);
- Decimal ingots = 0;
+ float ingots = 0;
  foreach (var e in entries) {
-  ingots += (Decimal) e.Item.Amount;
+  ingots += (float) e.Item.Amount;
  }
  return ingots;
 }
@@ -1592,9 +1592,9 @@ void consolidate(IMyInventory inv) {
 // make sure we process ore in chunks, prevent one ore clogging the refinery
 void rebalance(IMyInventory inv) {
  // make note of how much was the first item
- Decimal ? first_amount = null;
+ float ? first_amount = null;
  if (inv.GetItems().Count > 1) {
-  first_amount = Math.Min((Decimal) inv.GetItems()[0].Amount, CHUNK_SIZE);
+  first_amount = (float) Math.Min((float) inv.GetItems()[0].Amount, CHUNK_SIZE);
  }
  consolidate(inv);
  var items = inv.GetItems();
@@ -1603,29 +1603,29 @@ void rebalance(IMyInventory inv) {
   return;
  }
 
- for (int i = 0; i < Math.Min(items.Count, ore_types.Count); i++) {
+ for (int i = 0; i < (float) Math.Min(items.Count, ore_types.Count); i++) {
   var item = items[i];
 
   // check if we have enough ore
-  if ((Decimal) item.Amount > CHUNK_SIZE) {
-   Decimal amount = 0;
+  if ((float) item.Amount > CHUNK_SIZE) {
+   float amount = 0;
    if (i == 0 && first_amount.HasValue) {
-    amount = (Decimal) item.Amount - first_amount.Value;
+    amount = (float) item.Amount - first_amount.Value;
    } else {
-    amount = (Decimal) item.Amount - CHUNK_SIZE;
+    amount = (float) item.Amount - CHUNK_SIZE;
    }
    pushBack(inv, i, (VRage.MyFixedPoint) Math.Round(amount, 4));
   }
  }
 }
 
-Decimal TryTransfer(IMyTerminalBlock src, int srcInv, IMyTerminalBlock dst, int dstInv,
-                    int srcIndex, int ? dstIndex, bool ? stack, VRage.MyFixedPoint ? amount) {
+float TryTransfer(IMyTerminalBlock src, int srcInv, IMyTerminalBlock dst, int dstInv,
+                  int srcIndex, int ? dstIndex, bool ? stack, VRage.MyFixedPoint ? amount) {
  var src_inv = src.GetInventory(srcInv);
  var dst_inv = dst.GetInventory(dstInv);
  var src_items = src_inv.GetItems();
  var src_count = src_items.Count;
- var src_amount = src_items[srcIndex].Amount;
+ var src_amount = (float) src_items[srcIndex].Amount;
 
  if (!src_inv.TransferItemTo(dst_inv, srcIndex, dstIndex, stack, amount)) {
   var sb = new StringBuilder();
@@ -1647,13 +1647,13 @@ Decimal TryTransfer(IMyTerminalBlock src, int srcInv, IMyTerminalBlock dst, int 
 
  // if count changed, we transferred all of it
  if (src_count != src_items.Count) {
-  return (Decimal) src_amount;
+  return src_amount;
  }
 
  // if count didn't change, return the difference between src and cur amount
- var cur_amount = src_items[srcIndex].Amount;
+ var cur_amount = (float) src_items[srcIndex].Amount;
 
- return (Decimal)(src_amount - cur_amount);
+ return src_amount - cur_amount;
 }
 
 bool Transfer(IMyTerminalBlock src, int srcInv, IMyTerminalBlock dst, int dstInv,
@@ -1675,20 +1675,20 @@ void pushFront(IMyInventory src, int srcIndex, VRage.MyFixedPoint ? amount) {
 /**
  * Volume & storage load functions
  */
-Decimal getTotalStorageLoad() {
+float getTotalStorageLoad() {
  var s = getStorage();
 
- Decimal cur_volume = 0M;
- Decimal max_volume = 0M;
- Decimal ratio;
+ float cur_volume = 0;
+ float max_volume = 0;
+ float ratio;
  foreach (var c in s) {
-  cur_volume += (Decimal) c.GetInventory(0).CurrentVolume;
-  max_volume += (Decimal) c.GetInventory(0).MaxVolume;
+  cur_volume += (float) c.GetInventory(0).CurrentVolume;
+  max_volume += (float) c.GetInventory(0).MaxVolume;
  }
- ratio = Math.Round(cur_volume / max_volume, 2);
+ ratio = (float) Math.Round(cur_volume / max_volume, 2);
 
  if (isSpecializedShipMode()) {
-  ratio = Math.Round(ratio * 0.75M, 4);
+  ratio = (float) Math.Round(ratio * 0.75F, 4);
  } else {
   return ratio;
  }
@@ -1702,10 +1702,10 @@ Decimal getTotalStorageLoad() {
  } else {
   throw new BarabasException("Unknown mode", this);
  }
- Decimal maxLoad = 0M;
+ float maxLoad = 0;
  foreach (var c in s) {
    var inv = c.GetInventory(0);
-   var load = (Decimal) inv.CurrentVolume / (Decimal) inv.MaxVolume;
+   var load = (float) inv.CurrentVolume / (float) inv.MaxVolume;
    if (load > maxLoad) {
     maxLoad = load;
    }
@@ -1713,21 +1713,21 @@ Decimal getTotalStorageLoad() {
   // scale the drill/grinder load to fit in the last 25% of the storage
   // the result of this is, when the storage is full, yellow alert goes off,
   // when drills/grinders are full, red alert goes off
- ratio = ratio + maxLoad * 0.25M;
+ ratio = ratio + maxLoad * 0.25F;
  return ratio;
 }
 
 // we are interested only in stuff stored in storage and in tools
-Decimal getTotalStorageMass() {
+float getTotalStorageMass() {
  var s = new List<IMyTerminalBlock>();
  s.AddRange(getStorage());
  s.AddRange(getDrills());
  s.AddRange(getWelders());
  s.AddRange(getGrinders());
 
- Decimal cur_mass = 0M;
+ float cur_mass = 0;
  foreach (var c in s) {
-  cur_mass += (Decimal) c.GetInventory(0).CurrentMass;
+  cur_mass += (float) c.GetInventory(0).CurrentMass;
  }
  return cur_mass;
 }
@@ -1735,11 +1735,11 @@ Decimal getTotalStorageMass() {
 // decide if a refinery can accept certain ore - this is done to prevent
 // clogging all refineries with single ore
 bool canAcceptOre(IMyInventory inv, string name) {
- Decimal volumeLeft = ((Decimal) inv.MaxVolume - (Decimal) inv.CurrentVolume) * 1000M;
- if (volumeLeft > 1500M) {
+ float volumeLeft = ((float) inv.MaxVolume - (float) inv.CurrentVolume) * 1000;
+ if (volumeLeft > 1500) {
   return true;
  }
- if (volumeLeft < 100M || name == ICE) {
+ if (volumeLeft < 100 || name == ICE) {
   return false;
  }
 
@@ -1748,19 +1748,19 @@ bool canAcceptOre(IMyInventory inv, string name) {
   return true;
  }
  // if no ore is priority, don't clog the refinery
- if (volumeLeft < 600M) {
+ if (volumeLeft < 600) {
   return false;
  }
 
  // aim for equal spread
- Dictionary < string, Decimal > ores = new Dictionary < string, Decimal > ();
+ var ores = new Dictionary < string, float > ();
  var items = inv.GetItems();
  bool seenCurrent = false;
  foreach (var i in items) {
   var ore = i.Content.SubtypeName;
-  Decimal amount;
+  float amount;
   ores.TryGetValue(ore, out amount);
-  ores[ore] = amount + (Decimal) i.Amount;
+  ores[ore] = amount + (float) i.Amount;
   if (ore == name) {
    seenCurrent = true;
   }
@@ -1771,15 +1771,15 @@ bool canAcceptOre(IMyInventory inv, string name) {
  }
  // don't clog refinery with single ore
  if (keyCount < 2) {
-  if (volumeLeft < 1000M) {
+  if (volumeLeft < 1000) {
    return false;
   } else {
    return true;
   }
  }
- Decimal cur_amount;
+ float cur_amount;
  ores.TryGetValue(name, out cur_amount);
- Decimal target_amount = ((Decimal) inv.CurrentVolume * 1000M) / keyCount;
+ float target_amount = ((float) inv.CurrentVolume * 1000) / keyCount;
  return cur_amount < target_amount;
 }
 
@@ -1822,8 +1822,8 @@ void checkStorageLoad() {
   removeAlert(RED_ALERT);
   return;
  }
- Decimal storageLoad = getTotalStorageLoad();
- if (storageLoad >= 0.98M) {
+ float storageLoad = getTotalStorageLoad();
+ if (storageLoad >= 0.98F) {
   addAlert(RED_ALERT);
   removeAlert(YELLOW_ALERT);
   // if we're a base, enter crisis mode
@@ -1850,7 +1850,7 @@ void checkStorageLoad() {
   removeAlert(RED_ALERT);
  }
 
- if (crisis_mode == CRISIS_MODE_THROW_ORE && storageLoad < 0.98M) {
+ if (crisis_mode == CRISIS_MODE_THROW_ORE && storageLoad < 0.98F) {
   // exit crisis mode, but "tried_throwing" still reminds us that we
   // have just thrown out ore - if we end up in a crisis again, we'll
   // go lockup instead of throwing ore
@@ -1858,35 +1858,35 @@ void checkStorageLoad() {
   tried_throwing = true;
   storeTrash(true);
  }
- if (storageLoad >= 0.75M && storageLoad < 0.98M) {
+ if (storageLoad >= 0.75F && storageLoad < 0.98F) {
   storeTrash();
   addAlert(YELLOW_ALERT);
- } else if (storageLoad < 0.75M) {
+ } else if (storageLoad < 0.75F) {
   removeAlert(YELLOW_ALERT);
   storeTrash();
-  if (storageLoad < 0.98M && isBaseMode()) {
+  if (storageLoad < 0.98F && isBaseMode()) {
    tried_throwing = false;
   }
  }
- Decimal mass = getTotalStorageMass();
+ float mass = getTotalStorageMass();
  int idx = 0;
  string suffixes = " kMGTPEZY";
- while (mass >= 1000M) {
-  mass /= 1000M;
+ while (mass >= 1000) {
+  mass /= 1000;
   idx++;
  }
- mass = Math.Round(mass, 1);
+ mass = (float) Math.Round(mass, 1);
  char suffix = suffixes[idx];
 
  status_report[STATUS_STORAGE_LOAD] = String.Format("{0}% / {1}{2}",
- Math.Round(storageLoad * 100M, 0), mass, suffix);
+ (float) Math.Round(storageLoad * 100, 0), mass, suffix);
 }
 
-string getPowerLoadStr(Decimal value) {
+string getPowerLoadStr(float value) {
  var pwrs = "kMGTPEZY";
  int pwr_idx = 0;
- while (value >= 1000M) {
-  value /= 1000M;
+ while (value >= 1000) {
+  value /= 1000;
   pwr_idx++;
  }
  if (value >= 100)
@@ -1914,7 +1914,7 @@ void sortLocalStorage() {
   var container = s[c];
   var inv = container.GetInventory(0);
   var items = inv.GetItems();
-  var curVolume = inv.CurrentVolume;
+  var curVolume = (float) inv.CurrentVolume;
 
   for (int i = items.Count - 1; i >= 0; i--) {
    var item = items[i];
@@ -1935,9 +1935,9 @@ void sortLocalStorage() {
 
    // we don't check for success because we may end up sending stuff to
    // the same container; rather, we check if volume has changed
-   if (curVolume != inv.CurrentVolume) {
+   if (curVolume != (float) inv.CurrentVolume) {
     sorted_items++;
-    curVolume = inv.CurrentVolume;
+    curVolume = (float) inv.CurrentVolume;
    }
    // sort ten items per run
    if (sorted_items == 10) {
@@ -1997,7 +1997,7 @@ bool pushToStorage(IMyTerminalBlock b, int invIdx, int srcIndex, VRage.MyFixedPo
  int overflowIdx = -1;
  int emptyIdx = -1;
  int leastFullIdx = -1;
- Decimal maxFreeVolume = 0M;
+ float maxFreeVolume = 0;
  for (int i = 0; i < c.Count; i++) {
   // skip containers we already saw in a previous loop
   if (i % steps == startStep) {
@@ -2006,12 +2006,12 @@ bool pushToStorage(IMyTerminalBlock b, int invIdx, int srcIndex, VRage.MyFixedPo
 
   // skip full containers
   var container_inv = c[i].GetInventory(0);
-  Decimal freeVolume = ((Decimal) container_inv.MaxVolume - (Decimal) container_inv.CurrentVolume) * 1000M;
-  if (freeVolume < 1M) {
+  float freeVolume = ((float) container_inv.MaxVolume - (float) container_inv.CurrentVolume) * 1000;
+  if (freeVolume < 1) {
    continue;
   }
 
-  if (emptyIdx == -1 && container_inv.CurrentVolume == 0) {
+  if (emptyIdx == -1 && (float) container_inv.CurrentVolume == 0) {
    emptyIdx = i;
    continue;
   }
@@ -2062,8 +2062,8 @@ bool pushToRemoteStorage(IMyTerminalBlock b, int srcInv, int srcIndex, VRage.MyF
  var s = getRemoteStorage();
  foreach (var c in s) {
   var container_inv = c.GetInventory(0);
-  Decimal freeVolume = ((Decimal) container_inv.MaxVolume - (Decimal) container_inv.CurrentVolume) * 1000M;
-  if (freeVolume < 1M) {
+  float freeVolume = ((float) container_inv.MaxVolume - (float) container_inv.CurrentVolume) * 1000;
+  if (freeVolume < 1) {
    continue;
   }
   // try pushing to this container
@@ -2127,7 +2127,7 @@ void pullFromRemoteStorage() {
     var type = i.Content.SubtypeName;
     // don't take all uranium from base
     if (type == URANIUM && auto_refuel_ship && !powerAboveHighWatermark()) {
-     pushToStorage(c, 0, j, (VRage.MyFixedPoint) Math.Min(0.5M, (Decimal) i.Amount));
+     pushToStorage(c, 0, j, (VRage.MyFixedPoint) Math.Min(0.5F, (float) i.Amount));
     } else if (type != URANIUM && pull_ingots_from_base) {
      pushToStorage(c, 0, j, null);
     }
@@ -2205,9 +2205,9 @@ void fillWelders() {
  int s_index = 0;
 
  foreach (var w in welders) {
-  Decimal cur_vol = (Decimal) w.GetInventory(0).CurrentVolume * 1000M;
-  Decimal max_vol = (Decimal) w.GetInventory(0).MaxVolume * 1000M;
-  Decimal target_volume = max_vol - 400M - cur_vol;
+  float cur_vol = (float) w.GetInventory(0).CurrentVolume * 1000;
+  float max_vol = (float) w.GetInventory(0).MaxVolume * 1000;
+  float target_volume = max_vol - 400 - cur_vol;
   if (target_volume <= 0) {
    continue;
   }
@@ -2225,23 +2225,23 @@ void fillWelders() {
     if (target_volume <= 0) {
      break;
     }
-    Decimal amount = (Decimal) i.Amount - 1M;
+    float amount = (float) i.Amount - 1;
     // if it's peanuts, just send out everthing
-    if (amount < 2M) {
+    if (amount < 2) {
      src_inv.TransferItemTo(dst_inv, j, null, true, null);
      continue;
     }
 
     // send one and check load
-    Decimal old_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
+    float old_vol = (float) dst_inv.CurrentVolume * 1000;
     if (!Transfer(w, 0, c, 0, j, null, true, (VRage.MyFixedPoint) 1)) {
      continue;
     }
-    Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-    Decimal item_vol = new_vol - old_vol;
+    float new_vol = (float) dst_inv.CurrentVolume * 1000;
+    float item_vol = new_vol - old_vol;
     int target_amount = (int) Math.Floor(target_volume / item_vol);
     src_inv.TransferItemTo(dst_inv, j, null, true, (VRage.MyFixedPoint) target_amount);
-    target_volume -= Math.Min(target_amount, amount) * item_vol;
+    target_volume -= (float) Math.Min(target_amount, amount) * item_vol;
    }
    if (target_volume <= 0) {
     break;
@@ -2279,7 +2279,7 @@ void pushIceToStorage() {
 /**
  * Uranium, reactors & batteries
  */
-Decimal getMaxReactorPowerOutput(bool force_update = false) {
+float getMaxReactorPowerOutput(bool force_update = false) {
  if (!force_update) {
   return max_reactor_output;
  }
@@ -2287,13 +2287,13 @@ Decimal getMaxReactorPowerOutput(bool force_update = false) {
  max_reactor_output = 0;
  var reactors = getReactors();
  foreach (IMyReactor r in reactors) {
-  max_reactor_output += (Decimal) r.MaxOutput * 1000M;
+  max_reactor_output += r.MaxOutput * 1000;
  }
 
  return max_reactor_output;
 }
 
-Decimal getCurReactorPowerOutput(bool force_update = false) {
+float getCurReactorPowerOutput(bool force_update = false) {
  if (!force_update) {
   return cur_reactor_output;
  }
@@ -2302,14 +2302,14 @@ Decimal getCurReactorPowerOutput(bool force_update = false) {
  var reactors = getReactors();
  foreach (IMyReactor r in reactors) {
   if (r.IsWorking) {
-   cur_reactor_output += (Decimal) r.MaxOutput * 1000M;
+   cur_reactor_output += r.MaxOutput * 1000;
   }
  }
 
  return cur_reactor_output;
 }
 
-Decimal getMaxBatteryPowerOutput(bool force_update = false) {
+float getMaxBatteryPowerOutput(bool force_update = false) {
  if (!force_update) {
   return max_battery_output;
  }
@@ -2320,24 +2320,24 @@ Decimal getMaxBatteryPowerOutput(bool force_update = false) {
   if (b.HasCapacityRemaining) {
    // there's no API function to provide this information, and parsing
    // DetailedInfo is kinda overkill for this, so just hard-code the value
-   max_battery_output += large_grid ? 12000M : 4320M;
+   max_battery_output += large_grid ? 12000 : 4320;
   }
  }
 
  return max_battery_output;
 }
 
-Decimal getBatteryStoredPower() {
+float getBatteryStoredPower() {
  var batteries = getBatteries();
- Decimal stored_power = 0;
+ float stored_power = 0;
  foreach (IMyBatteryBlock b in batteries) {
   // unlike reactors, batteries' kWh are _actual_ kWh, not kWm
-  stored_power += (Decimal) b.CurrentStoredPower * 1000M * 60M;
+  stored_power += b.CurrentStoredPower * 1000 * 60;
  }
  return stored_power;
 }
 
-Decimal getReactorStoredPower() {
+float getReactorStoredPower() {
  if (has_reactors) {
   return URANIUM_INGOT_POWER * ingot_status[URANIUM];
  }
@@ -2346,19 +2346,19 @@ Decimal getReactorStoredPower() {
 
 // since blocks don't report their power draw, we look at what reactors/batteries
 // are outputting instead. we don't count solar as those are transient power sources
-Decimal getCurPowerDraw(bool force_update = false) {
+float getCurPowerDraw(bool force_update = false) {
  if (!force_update) {
   return cur_power_draw;
  }
 
- Decimal power_draw = 0;
+ float power_draw = 0;
 
  // go through all reactors and batteries
  foreach (IMyReactor b in getReactors()) {
-  power_draw += (Decimal) b.CurrentOutput * 1000M;
+  power_draw += b.CurrentOutput * 1000;
  }
  foreach (IMyBatteryBlock b in getBatteries()) {
-  power_draw += (Decimal) (b.CurrentOutput - b.CurrentInput) * 1000M;
+  power_draw += (b.CurrentOutput - b.CurrentInput) * 1000;
  }
 
  cur_power_draw = power_draw;
@@ -2367,12 +2367,12 @@ Decimal getCurPowerDraw(bool force_update = false) {
 }
 
 // blocks don't report their max power draw, so we're forced to parse DetailedInfo
-Decimal getMaxPowerDraw(bool force_update = false) {
+float getMaxPowerDraw(bool force_update = false) {
  if (!force_update) {
   return max_power_draw;
  }
 
- Decimal power_draw = 0;
+ float power_draw = 0;
 
  // go through all the blocks
  foreach (var b in getBlocks()) {
@@ -2381,7 +2381,7 @@ Decimal getMaxPowerDraw(bool force_update = false) {
    // if this is a thruster
    if (b is IMyThrust) {
     var typename = b.BlockDefinition.ToString();
-    Decimal thrust_draw;
+    float thrust_draw;
     bool found = thrust_power.TryGetValue(typename, out thrust_draw);
     if (found) {
      power_draw += thrust_draw;
@@ -2400,13 +2400,13 @@ Decimal getMaxPowerDraw(bool force_update = false) {
    }
   }
   // add 5% to account for various misc stuff like conveyors etc
- power_draw *= 1.05M;
+ power_draw *= 1.05F;
 
  if (getMaxBatteryPowerOutput() + getCurReactorPowerOutput() == 0) {
   max_power_draw = power_draw;
  } else {
   // now, check if we're not overflowing the reactors and batteries
-  max_power_draw = Math.Min(power_draw, getMaxBatteryPowerOutput() + getCurReactorPowerOutput());
+  max_power_draw = (float) Math.Min(power_draw, getMaxBatteryPowerOutput() + getCurReactorPowerOutput());
  }
 
  return max_power_draw;
@@ -2414,7 +2414,7 @@ Decimal getMaxPowerDraw(bool force_update = false) {
 
 // parse DetailedInfo for power use information - this shouldn't exist, but
 // the API is deficient, sooo...
-Decimal getBlockPowerUse(IMyTerminalBlock b) {
+float getBlockPowerUse(IMyTerminalBlock b) {
  var power_regex = new System.Text.RegularExpressions.Regex("Max Required Input: ([\\d\\.]+) (\\w?)W");
  var cur_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+) (\\w?)W");
  var power_match = power_regex.Match(b.DetailedInfo);
@@ -2423,29 +2423,29 @@ Decimal getBlockPowerUse(IMyTerminalBlock b) {
   return 0;
  }
 
- Decimal cur = 0, max = 0;
+ float cur = 0, max = 0;
  if (power_match.Groups[1].Success && power_match.Groups[2].Success) {
-  bool result = Decimal.TryParse(power_match.Groups[1].Value, out max);
+  bool result = float.TryParse(power_match.Groups[1].Value, out max);
   if (!result) {
    throw new BarabasException("Invalid detailed info format!", this);
   }
-  max *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(power_match.Groups[2].Value) - 1);
+  max *= (float) Math.Pow(1000, " kMGTPEZY".IndexOf(power_match.Groups[2].Value) - 1);
  }
  if (cur_match.Groups[1].Success && cur_match.Groups[2].Success) {
-  bool result = Decimal.TryParse(cur_match.Groups[1].Value, out cur);
+  bool result = float.TryParse(cur_match.Groups[1].Value, out cur);
   if (!result) {
    throw new BarabasException("Invalid detailed info format!", this);
   }
-  cur *= (Decimal) Math.Pow(1000.0, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
+  cur *= (float) Math.Pow(1000, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
  }
  return Math.Max(cur, max);
 }
 
-Decimal getPowerHighWatermark(Decimal power_use) {
+float getPowerHighWatermark(float power_use) {
  return power_use * power_high_watermark;
 }
 
-Decimal getPowerLowWatermark(Decimal power_use) {
+float getPowerLowWatermark(float power_use) {
  return power_use * power_low_watermark;
 }
 
@@ -2454,14 +2454,14 @@ bool powerAboveHighWatermark() {
 
  // check if we have enough uranium ingots to fill all local reactors and
  // have a few spare ones
- Decimal power_draw;
+ float power_draw;
  if (isShipMode() && connected_to_base) {
   power_draw = getMaxPowerDraw();
  } else {
   power_draw = getCurPowerDraw();
  }
- Decimal power_needed = getPowerHighWatermark(power_draw);
- Decimal totalPowerNeeded = power_needed * 1.3M;
+ float power_needed = getPowerHighWatermark(power_draw);
+ float totalPowerNeeded = power_needed * 1.3F;
 
  if (stored_power > totalPowerNeeded) {
   power_above_threshold = true;
@@ -2483,7 +2483,7 @@ bool powerAboveHighWatermark() {
 
 // check if we don't have much power left
 bool powerAboveLowWatermark() {
- Decimal power_draw;
+ float power_draw;
  if (isShipMode() && connected_to_base) {
   power_draw = getMaxPowerDraw();
  } else {
@@ -2496,16 +2496,16 @@ bool powerAboveLowWatermark() {
 bool refillReactors(bool force = false) {
  bool refilled = true;
  ItemHelper ingot = null;
- Decimal orig_amount = 0M, cur_amount = 0M;
+ float orig_amount = 0, cur_amount = 0;
  int s_index = 0;
  // check if we can put some more uranium into reactors
  var reactors = getReactors();
  foreach (IMyReactor reactor in reactors) {
   var rinv = reactor.GetInventory(0);
-  Decimal r_proportion = (Decimal) reactor.MaxOutput * 1000M / getMaxReactorPowerOutput();
-  Decimal r_power_draw = getMaxPowerDraw() * (r_proportion);
-  Decimal ingots_per_reactor = getPowerHighWatermark(r_power_draw) / URANIUM_INGOT_POWER;
-  Decimal ingots_in_reactor = getTotalIngots(reactor, 0, URANIUM);
+  float r_proportion = reactor.MaxOutput * 1000 / getMaxReactorPowerOutput();
+  float r_power_draw = getMaxPowerDraw() * (r_proportion);
+  float ingots_per_reactor = getPowerHighWatermark(r_power_draw) / URANIUM_INGOT_POWER;
+  float ingots_in_reactor = getTotalIngots(reactor, 0, URANIUM);
   if ((ingots_in_reactor < ingots_per_reactor) || force) {
    // find us an ingot
    if (ingot == null) {
@@ -2521,7 +2521,7 @@ bool refillReactors(bool force = false) {
        ingot.Index = j;
        ingot.Item = item;
        ingot.Owner = storage[s_index];
-       orig_amount = (Decimal) item.Amount;
+       orig_amount = (float) item.Amount;
        cur_amount = orig_amount;
        break;
       }
@@ -2535,16 +2535,16 @@ bool refillReactors(bool force = false) {
      return false;
     }
    }
-   Decimal amount;
-   Decimal p_amount = (Decimal) Math.Round(orig_amount * r_proportion, 4);
+   float amount;
+   float p_amount = (float) Math.Round(orig_amount * r_proportion, 4);
    if (force) {
     amount = p_amount;
    } else {
-    amount = (Decimal) Math.Min(p_amount, ingots_per_reactor - ingots_in_reactor);
+    amount = (float) Math.Min(p_amount, ingots_per_reactor - ingots_in_reactor);
    }
 
    // don't leave change, we've expended this ingot
-   if (cur_amount - amount <= 0.05M) {
+   if (cur_amount - amount <= 0.05F) {
     cur_amount = 0;
     rinv.TransferItemFrom(ingot.Owner.GetInventory(ingot.InvIdx), ingot.Index, null, true, null);
     ingot = null;
@@ -2570,12 +2570,12 @@ void pushSpareUraniumToStorage() {
   if (inv.GetItems().Count > 1) {
    consolidate(inv);
   }
-  Decimal ingots = getTotalIngots(r, 0, URANIUM);
-  Decimal r_power_draw = getMaxPowerDraw() *
-   (((Decimal) r.MaxOutput * 1000M) / (getMaxReactorPowerOutput() + getMaxBatteryPowerOutput()));
-  Decimal ingots_per_reactor = getPowerHighWatermark(r_power_draw);
+  float ingots = getTotalIngots(r, 0, URANIUM);
+  float r_power_draw = getMaxPowerDraw() *
+   ((r.MaxOutput * 1000) / (getMaxReactorPowerOutput() + getMaxBatteryPowerOutput()));
+  float ingots_per_reactor = getPowerHighWatermark(r_power_draw);
   if (ingots > ingots_per_reactor) {
-   Decimal amount = ingots - ingots_per_reactor;
+   float amount = ingots - ingots_per_reactor;
    pushToStorage(r, 0, 0, (VRage.MyFixedPoint) amount);
   }
  }
@@ -2659,15 +2659,15 @@ bool trashSensorsActive() {
  return false;
 }
 
-bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
+bool throwOutOre(string name, float ore_amount = 0, bool force = false) {
  var connectors = getTrashConnectors();
  var skip_list = new List < IMyTerminalBlock > ();
 
  if (connectors.Count == 0) {
   return false;
  }
- Decimal orig_target = ore_amount == 0 ? 5 * CHUNK_SIZE : ore_amount;
- Decimal target_amount = orig_target;
+ float orig_target = ore_amount == 0 ? 5 * CHUNK_SIZE : ore_amount;
+ float target_amount = orig_target;
 
  // first, go through list of connectors and enable throw
  foreach (IMyShipConnector connector in connectors) {
@@ -2684,14 +2684,14 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
   var srcObj = entry.Owner;
   var invIdx = entry.InvIdx;
   var index = entry.Index;
-  var orig_amount = Math.Min(target_amount, (Decimal) entry.Item.Amount);
+  var orig_amount = (float) Math.Min(target_amount, (float) entry.Item.Amount);
   var cur_amount = orig_amount;
 
   foreach (IMyShipConnector connector in connectors) {
    if (skip_list.Contains(connector)) {
     continue;
    }
-   var amount = Math.Min(orig_amount / getTrashConnectors().Count, cur_amount);
+   var amount = (float) Math.Min(orig_amount / getTrashConnectors().Count, cur_amount);
 
    // send it to connector
    var transferred = TryTransfer(srcObj, invIdx, connector, 0, index, null, true,
@@ -2712,15 +2712,15 @@ bool throwOutOre(string name, Decimal ore_amount = 0, bool force = false) {
  return target_amount != orig_target || entries.Count == 0;
 }
 
-bool throwOutIngots(string name, Decimal ingot_amount = 0, bool force = false) {
+bool throwOutIngots(string name, float ingot_amount = 0, bool force = false) {
  var connectors = getTrashConnectors();
  var skip_list = new List < IMyTerminalBlock > ();
 
  if (connectors.Count == 0) {
   return false;
  }
- Decimal orig_target = ingot_amount == 0 ? 5 * CHUNK_SIZE : ingot_amount;
- Decimal target_amount = orig_target;
+ float orig_target = ingot_amount == 0 ? 5 * CHUNK_SIZE : ingot_amount;
+ float target_amount = orig_target;
 
  // first, go through list of connectors and enable throw
  foreach (IMyShipConnector connector in connectors) {
@@ -2737,14 +2737,14 @@ bool throwOutIngots(string name, Decimal ingot_amount = 0, bool force = false) {
   var srcObj = entry.Owner;
   var invIdx = entry.InvIdx;
   var index = entry.Index;
-  var orig_amount = Math.Min(target_amount, (Decimal) entry.Item.Amount);
+  var orig_amount = (float) Math.Min(target_amount, (float) entry.Item.Amount);
   var cur_amount = orig_amount;
 
   foreach (IMyShipConnector connector in connectors) {
    if (skip_list.Contains(connector)) {
     continue;
    }
-   var amount = Math.Min(orig_amount / getTrashConnectors().Count, cur_amount);
+   var amount = (float) Math.Min(orig_amount / getTrashConnectors().Count, cur_amount);
 
    // send it to connector
    var transferred = TryTransfer(srcObj, invIdx, connector, 0, index, null, true,
@@ -2819,8 +2819,8 @@ void refineOre() {
    continue;
   }
 
-  Decimal orig_amount = Math.Round((Decimal) item.Item.Amount / (Decimal) rs.Count, 4);
-  Decimal amount = (Decimal) Math.Min(CHUNK_SIZE, orig_amount);
+  float orig_amount = (float) Math.Round((float) item.Item.Amount / rs.Count, 4);
+  float amount = (float) Math.Min(CHUNK_SIZE, orig_amount);
   // now, go through every refinery and do the transfer
   for (int r = 0; r < rs.Count; r++) {
    // if we're last in the list, send it all
@@ -2831,7 +2831,7 @@ void refineOre() {
    removeBlockAlert(refinery, ALERT_CLOGGED);
    var input_inv = refinery.GetInventory(0);
    var output_inv = refinery.GetInventory(1);
-   Decimal input_load = (Decimal) input_inv.CurrentVolume / (Decimal) input_inv.MaxVolume;
+   float input_load = (float) input_inv.CurrentVolume / (float) input_inv.MaxVolume;
    if (canAcceptOre(input_inv, ore) || ore == ICE) {
     // if we've got a very small amount, send it all
     var item_inv = item.Owner.GetInventory(item.InvIdx);
@@ -2841,8 +2841,8 @@ void refineOre() {
      }
     }
     // if refinery is almost empty, send a lot
-    else if (input_load < 0.2M) {
-     amount = Math.Min(CHUNK_SIZE * 5, orig_amount);
+    else if (input_load < 0.2F) {
+     amount = (float) Math.Min(CHUNK_SIZE * 5, orig_amount);
      item_inv.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
     } else {
      item_inv.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint) amount);
@@ -2936,25 +2936,25 @@ void reprioritizeOre() {
 public class RebalanceResult {
  public int minIndex;
  public int maxIndex;
- public Decimal minLoad;
- public Decimal maxLoad;
+ public float minLoad;
+ public float maxLoad;
  public int minArcIndex;
  public int maxArcIndex;
- public Decimal minArcLoad;
- public Decimal maxArcLoad;
+ public float minArcLoad;
+ public float maxArcLoad;
 }
 
 // go through a list of blocks and find most and least utilized
 RebalanceResult findMinMax(List < IMyTerminalBlock > blocks) {
  RebalanceResult r = new RebalanceResult();
  int minI = 0, maxI = 0, minAI = 0, maxAI = 0;
- Decimal minL = Decimal.MaxValue, maxL = 0, minAL = Decimal.MaxValue, maxAL = 0;
+ float minL = float.MaxValue, maxL = 0, minAL = float.MaxValue, maxAL = 0;
 
  for (int i = 0; i < blocks.Count; i++) {
   var b = blocks[i];
   var inv = b.GetInventory(0);
   rebalance(inv);
-  Decimal arcload = 0M;
+  float arcload = 0;
   var items = inv.GetItems();
   foreach (var item in items) {
    var name = item.Content.SubtypeName;
@@ -2962,10 +2962,10 @@ RebalanceResult findMinMax(List < IMyTerminalBlock > blocks) {
     name = IRON;
    }
    if (arc_furnace_ores.Contains(name)) {
-    arcload += (Decimal) item.Amount * VOLUME_ORE;
+    arcload += (float) item.Amount * VOLUME_ORE;
    }
   }
-  Decimal load = (Decimal) inv.CurrentVolume * 1000M;
+  float load = (float) inv.CurrentVolume * 1000;
 
   if (load < minL) {
    minI = i;
@@ -3001,22 +3001,22 @@ bool spreadOre(IMyTerminalBlock src, int srcIdx, IMyTerminalBlock dst, int dstId
 
  var src_inv = src.GetInventory(srcIdx);
  var dst_inv = dst.GetInventory(dstIdx);
- var maxLoad = (Decimal) src_inv.CurrentVolume * 1000M;
- var minLoad = (Decimal) dst_inv.CurrentVolume * 1000M;
+ var maxLoad = (float) src_inv.CurrentVolume * 1000;
+ var minLoad = (float) dst_inv.CurrentVolume * 1000;
 
  var items = src_inv.GetItems();
- var target_volume = (Decimal)(maxLoad - minLoad) / 2M;
+ var target_volume = (float)(maxLoad - minLoad) / 2;
  // spread all ore equally
  for (int i = items.Count - 1; i >= 0; i--) {
   var volume = items[i].Content.SubtypeName == SCRAP ? VOLUME_SCRAP : VOLUME_ORE;
-  var cur_amount = (Decimal) items[i].Amount;
-  var cur_vol = (cur_amount * volume) / 2M;
-  Decimal amount = Math.Min(target_volume, cur_vol) / volume;
+  var cur_amount = (float) items[i].Amount;
+  var cur_vol = (cur_amount * volume) / 2;
+  float amount = (float) Math.Min(target_volume, cur_vol) / volume;
   VRage.MyFixedPoint ? tmp = (VRage.MyFixedPoint) amount;
   // if there's peanuts, send it all
-  if (cur_amount < 250M) {
+  if (cur_amount < 250) {
    tmp = null;
-   amount = (Decimal) items[i].Amount;
+   amount = (float) items[i].Amount;
   }
   amount = TryTransfer(src, srcIdx, dst, dstIdx, i, null, true, tmp);
   if (amount > 0) {
@@ -3039,7 +3039,7 @@ bool spreadOre(IMyTerminalBlock src, int srcIdx, IMyTerminalBlock dst, int dstId
 void rebalanceRefineries() {
  bool refsuccess = false;
  bool arcsuccess = false;
- var ratio = 1.25M;
+ var ratio = 1.25F;
 
  // balance oxygen generators
  var ogs = getOxygenGenerators();
@@ -3060,7 +3060,7 @@ void rebalanceRefineries() {
  RebalanceResult refresult = findMinMax(rs);
  RebalanceResult arcresult = findMinMax(furnaces);
 
- if (refresult.maxLoad > 250M) {
+ if (refresult.maxLoad > 250) {
   bool trySpread = refresult.minLoad == 0 || refresult.maxLoad / refresult.minLoad > ratio;
   if (refresult.minIndex != refresult.maxIndex && trySpread) {
    var src = rs[refresult.maxIndex];
@@ -3070,7 +3070,7 @@ void rebalanceRefineries() {
    }
   }
  }
- if (arcresult.maxLoad > 250M) {
+ if (arcresult.maxLoad > 250) {
   bool trySpread = arcresult.minLoad == 0 || (arcresult.maxLoad / arcresult.minLoad) > ratio;
   if (arcresult.minIndex != arcresult.maxIndex && trySpread) {
    var src = furnaces[arcresult.maxIndex];
@@ -3086,7 +3086,7 @@ void rebalanceRefineries() {
  }
 
  // cross pollination: spread load from ref to arc
- Decimal refToArcRatio = 0;
+ float refToArcRatio = 0;
  if (arcresult.minLoad != 0) {
   refToArcRatio = refresult.maxArcLoad / arcresult.minLoad;
  }
@@ -3101,7 +3101,7 @@ void rebalanceRefineries() {
  }
 
  // spread load from arc to ref
- Decimal arcToRefRatio = 0;
+ float arcToRefRatio = 0;
  if (refresult.minLoad != 0) {
   arcToRefRatio = arcresult.maxLoad / refresult.minLoad;
  }
@@ -3116,7 +3116,7 @@ void rebalanceRefineries() {
 
 // find ore of which we have the most amount of
 string getBiggestOre() {
- Decimal max = 0;
+ float max = 0;
  string name = "";
  foreach (var ore in ore_types) {
    // skip uranium
@@ -3190,51 +3190,51 @@ void declogRefineries() {
 // find least and most utilized block, and spread load between them (used for
 // drills, grinders and welders)
 void spreadLoad(List < IMyTerminalBlock > blocks) {
- Decimal minLoad = 100, maxLoad = 0;
- Decimal minVol = 0, maxVol = 0;
+ float minLoad = 100, maxLoad = 0;
+ float minVol = 0, maxVol = 0;
  int minIndex = 0, maxIndex = 0;
  for (int i = 0; i < blocks.Count; i++) {
-  Decimal load = (Decimal) blocks[i].GetInventory(0).CurrentVolume / (Decimal) blocks[i].GetInventory(0).MaxVolume;
+  float load = (float) blocks[i].GetInventory(0).CurrentVolume / (float) blocks[i].GetInventory(0).MaxVolume;
   if (load < minLoad) {
    minIndex = i;
    minLoad = load;
-   minVol = (Decimal) blocks[i].GetInventory(0).CurrentVolume * 1000M;
+   minVol = (float) blocks[i].GetInventory(0).CurrentVolume * 1000;
   }
   if (load > maxLoad) {
    maxIndex = i;
    maxLoad = load;
-   maxVol = (Decimal) blocks[i].GetInventory(0).CurrentVolume * 1000M;
+   maxVol = (float) blocks[i].GetInventory(0).CurrentVolume * 1000;
   }
  }
  // even out the load between biggest loaded block
- if (minIndex != maxIndex && (minLoad == 0 || maxLoad / minLoad > 1.1M)) {
+ if (minIndex != maxIndex && (minLoad == 0 || maxLoad / minLoad > 1.1F)) {
   var src = blocks[maxIndex];
   var dst = blocks[minIndex];
   var src_inv = blocks[maxIndex].GetInventory(0);
   var dst_inv = blocks[minIndex].GetInventory(0);
-  var target_volume = (maxVol - minVol) / 2M;
+  var target_volume = (maxVol - minVol) / 2;
   var items = src_inv.GetItems();
   for (int i = items.Count - 1; i >= 0; i--) {
    if (target_volume <= 0) {
     return;
    }
-   Decimal amount = (Decimal) items[i].Amount - 1M;
+   float amount = (float) items[i].Amount - 1;
    // if it's peanuts, just send out everything
-   if (amount < 1M) {
+   if (amount < 1) {
     src_inv.TransferItemTo(dst_inv, i, null, true, null);
     continue;
    }
 
    // send one and check load
-   Decimal cur_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
+   float cur_vol = (float) dst_inv.CurrentVolume * 1000;
    if (!Transfer(src, 0, dst, 0, i, null, true, (VRage.MyFixedPoint) 1)) {
     continue;
    }
-   Decimal new_vol = (Decimal) dst_inv.CurrentVolume * 1000M;
-   Decimal item_vol = new_vol - cur_vol;
+   float new_vol = (float) dst_inv.CurrentVolume * 1000;
+   float item_vol = new_vol - cur_vol;
    int target_amount = (int) Math.Floor(target_volume / item_vol);
    src_inv.TransferItemTo(dst_inv, i, null, true, (VRage.MyFixedPoint) target_amount);
-   target_volume -= Math.Min(target_amount, amount) * item_vol;
+   target_volume -= (float) Math.Min(target_amount, amount) * item_vol;
   }
  }
 }
@@ -3292,28 +3292,28 @@ bool iceAboveHighWatermark() {
  return oxygenAboveHighWatermark() && hydrogenAboveHighWatermark();
 }
 
-Decimal getStoredOxygen() {
+float getStoredOxygen() {
  if (!can_refine_ice) {
-  return 0M;
+  return 0;
  }
  int n_oxygen_tanks = getOxygenTanks().Count;
- Decimal capacity = large_grid ? 100000M : 50000M;
- Decimal total_capacity = n_oxygen_tanks * capacity;
- Decimal ice_to_oxygen_ratio = 9M;
- Decimal stored_oxygen = ore_status[ICE] * ice_to_oxygen_ratio;
- return stored_oxygen / total_capacity * 100M;
+ float capacity = large_grid ? 100000 : 50000;
+ float total_capacity = n_oxygen_tanks * capacity;
+ float ice_to_oxygen_ratio = 9;
+ float stored_oxygen = ore_status[ICE] * ice_to_oxygen_ratio;
+ return stored_oxygen / total_capacity * 100;
 }
 
-Decimal getStoredHydrogen() {
+float getStoredHydrogen() {
  if (!can_refine_ice) {
-  return 0M;
+  return 0;
  }
  int n_hydrogen_tanks = getHydrogenTanks().Count;
- Decimal capacity = large_grid ? 2500000M : 40000M;
- Decimal total_capacity = n_hydrogen_tanks * capacity;
- Decimal ice_to_hydrogen_ratio = large_grid ? 9M : 4M;
- Decimal stored_hydrogen = ore_status[ICE] * ice_to_hydrogen_ratio;
- return stored_hydrogen / total_capacity * 100M;
+ float capacity = large_grid ? 2500000 : 40000;
+ float total_capacity = n_hydrogen_tanks * capacity;
+ float ice_to_hydrogen_ratio = large_grid ? 9 : 4;
+ float stored_hydrogen = ore_status[ICE] * ice_to_hydrogen_ratio;
+ return stored_hydrogen / total_capacity * 100;
 }
 
 /**
@@ -3386,7 +3386,7 @@ void resetConfig() {
  refuel_oxygen = false;
  refuel_hydrogen = false;
  throw_out_stone = true;
- material_thresholds[STONE] = 5000M;
+ material_thresholds[STONE] = 5000;
  power_low_watermark = 0;
  power_high_watermark = 0;
  oxygen_high_watermark = 0;
@@ -3553,11 +3553,11 @@ bool clStrCompare(string str1, string str2) {
  return String.Equals(str1, str2, StringComparison.OrdinalIgnoreCase);
 }
 
-string getWatermarkStr(Decimal low, Decimal high) {
+string getWatermarkStr(float low, float high) {
  return String.Format("{0:0} {1:0}", low, high);
 }
 
-bool parseWatermarkStr(string val, out Decimal low, out Decimal high) {
+bool parseWatermarkStr(string val, out float low, out float high) {
  low = 0;
  high = 0;
 
@@ -3570,10 +3570,10 @@ bool parseWatermarkStr(string val, out Decimal low, out Decimal high) {
  if (strs.Length != 2) {
   return false;
  }
- if (!Decimal.TryParse(strs[0], out low)) {
+ if (!float.TryParse(strs[0], out low)) {
   return false;
  }
- if (!Decimal.TryParse(strs[1], out high)) {
+ if (!float.TryParse(strs[1], out high)) {
   return false;
  }
  return true;
@@ -3751,47 +3751,47 @@ void parseLine(string line) {
    material_thresholds[STONE] = 0;
   } else {
    throw_out_stone = true;
-   material_thresholds[STONE] = 5000M;
+   material_thresholds[STONE] = 5000;
   }
   return;
  }
  if (str == "reactor low watermark" || str == "power low watermark") {
-  if (Decimal.TryParse(strval, out power_low_watermark)) {
+  if (float.TryParse(strval, out power_low_watermark)) {
    return;
   } else {
    throw new BarabasException("Invalid config value: " + strval, this);
   }
  }
  if (str == "reactor high watermark" || str == "power high watermark") {
-  if (Decimal.TryParse(strval, out power_high_watermark)) {
+  if (float.TryParse(strval, out power_high_watermark)) {
    return;
   } else {
    throw new BarabasException("Invalid config value: " + strval, this);
   }
  }
  if (str == "oxygen threshold") {
-  Decimal tmp;
+  float tmp;
   if (strval == "none") {
    oxygen_low_watermark = -1;
    oxygen_high_watermark = -1;
    return;
-  } else if (Decimal.TryParse(strval, out tmp) && tmp >= 0 && tmp <= 100) {
+  } else if (float.TryParse(strval, out tmp) && tmp >= 0 && tmp <= 100) {
    oxygen_low_watermark = tmp;
-   oxygen_high_watermark = Math.Min(tmp * 2, 100);
+   oxygen_high_watermark = (float) Math.Min(tmp * 2, 100);
    return;
   } else {
    throw new BarabasException("Invalid config value: " + strval, this);
   }
  }
  if (str == "hydrogen threshold") {
-  Decimal tmp;
+  float tmp;
   if (strval == "none") {
    hydrogen_low_watermark = -1;
    hydrogen_high_watermark = -1;
    return;
-  } else if (Decimal.TryParse(strval, out tmp) && tmp >= 0 && tmp <= 100) {
+  } else if (float.TryParse(strval, out tmp) && tmp >= 0 && tmp <= 100) {
    hydrogen_low_watermark = tmp;
-   hydrogen_high_watermark = Math.Min(tmp * 2, 100);
+   hydrogen_high_watermark = (float) Math.Min(tmp * 2, 100);
    return;
   } else {
    throw new BarabasException("Invalid config value: " + strval, this);
@@ -3803,9 +3803,9 @@ void parseLine(string line) {
  // now, try to parse it
  bool fail = false;
  bool bval, bparse, fparse;
- Decimal fval;
+ float fval;
  bparse = Boolean.TryParse(strval, out bval);
- fparse = Decimal.TryParse(strval, out fval);
+ fparse = float.TryParse(strval, out fval);
  // op mode
  if (clStrCompare(str, CONFIGSTR_OP_MODE)) {
   if (strval == "base") {
@@ -3845,7 +3845,7 @@ void parseLine(string line) {
    fail = true;
   }
  } else if (clStrCompare(str, CONFIGSTR_POWER_WATERMARKS)) {
-  Decimal low, high;
+  float low, high;
   if (strval == "auto") {
    power_low_watermark = 0;
    power_high_watermark = 0;
@@ -3866,21 +3866,21 @@ void parseLine(string line) {
  } else if (clStrCompare(str, CONFIGSTR_KEEP_STONE)) {
   if (fparse && fval > 0) {
    throw_out_stone = true;
-   material_thresholds[STONE] = (Decimal) Math.Floor((fval * 1000M) / 5);
+   material_thresholds[STONE] = (float) Math.Floor((fval * 1000) / 5);
   } else if (strval == "all") {
    throw_out_stone = false;
-   material_thresholds[STONE] = 5000M;
+   material_thresholds[STONE] = 5000;
   } else if (strval == "none") {
    throw_out_stone = true;
    material_thresholds[STONE] = 0;
   } else if (strval == "auto") {
    throw_out_stone = true;
-   material_thresholds[STONE] = 5000M;
+   material_thresholds[STONE] = 5000;
   } else {
    fail = true;
   }
  } else if (clStrCompare(str, CONFIGSTR_OXYGEN_WATERMARKS)) {
-  Decimal low, high;
+  float low, high;
   if (strval == "auto") {
    oxygen_low_watermark = 0;
    oxygen_high_watermark = 0;
@@ -3902,7 +3902,7 @@ void parseLine(string line) {
    fail = true;
   }
  } else if (clStrCompare(str, CONFIGSTR_HYDROGEN_WATERMARKS)) {
-  Decimal low, high;
+  float low, high;
   if (strval == "auto") {
    hydrogen_low_watermark = 0;
    hydrogen_high_watermark = 0;
@@ -4324,23 +4324,23 @@ void s_power() {
 
  if (max_pwr_output != 0) {
   // figure out how much time we have on batteries and reactors
-  Decimal stored_power = getBatteryStoredPower() + getReactorStoredPower();
+  float stored_power = getBatteryStoredPower() + getReactorStoredPower();
   // prevent division by zero
-  var max_pwr_draw = Math.Max(getMaxPowerDraw(), 0.001M);
-  var cur_pwr_draw = Math.Max(getCurPowerDraw(), 0.001M);
-  var adjusted_pwr_draw = (cur_pwr_draw + prev_pwr_draw) / 2M;
+  var max_pwr_draw = (float) Math.Max(getMaxPowerDraw(), 0.001F);
+  var cur_pwr_draw = (float) Math.Max(getCurPowerDraw(), 0.001F);
+  var adjusted_pwr_draw = (cur_pwr_draw + prev_pwr_draw) / 2;
   prev_pwr_draw = cur_pwr_draw;
-  Decimal time;
+  float time;
   string time_str;
   if (isShipMode() && connected_to_base) {
-   time = Math.Round(stored_power / max_pwr_draw, 0);
+   time = (float) Math.Round(stored_power / max_pwr_draw, 0);
   } else {
-   time = Math.Round(stored_power / adjusted_pwr_draw, 0);
+   time = (float) Math.Round(stored_power / adjusted_pwr_draw, 0);
   }
   if (time > 300) {
-   time = Math.Floor(time / 60M);
+   time = (float) Math.Floor(time / 60);
    if (time > 48) {
-    time = Math.Floor(time / 24M);
+    time = (float) Math.Floor(time / 24);
     if (time > 30) {
      time_str = "lots";
     } else {
@@ -4428,7 +4428,7 @@ void s_materialsCrisis() {
   // check if we want to throw out extra stone
   if (storage_ore_status[STONE] > 0 || storage_ingot_status[STONE] > 0) {
    var excessStone = storage_ingot_status[STONE] + storage_ore_status[STONE] * ore_to_ingot_ratios[STONE] - material_thresholds[STONE] * 5;
-   excessStone = Math.Min(excessStone / ore_to_ingot_ratios[STONE], storage_ore_status[STONE]);
+   excessStone = (float) Math.Min(excessStone / ore_to_ingot_ratios[STONE], storage_ore_status[STONE]);
    var excessGravel = storage_ingot_status[STONE] - material_thresholds[STONE] * 5;
    if (excessStone > 0) {
     throwOutOre(STONE, excessStone);
@@ -4501,11 +4501,11 @@ void s_remoteStorage() {
  }
 }
 
-string roundStr(Decimal val) {
- if (val >= 10000M) {
-  return String.Format("{0}k", Math.Floor(val / 1000M));
- } else if (val >= 1000M) {
-  return String.Format("{0:0.#}k", val / 1000M);
+string roundStr(float val) {
+ if (val >= 10000) {
+  return String.Format("{0}k", Math.Floor(val / 1000));
+ } else if (val >= 1000) {
+  return String.Format("{0:0.#}k", val / 1000);
  } else if (val >= 100) {
   return String.Format("{0}", Math.Floor(val));
  } else {
@@ -4514,7 +4514,7 @@ string roundStr(Decimal val) {
 }
 
 void s_updateMaterialStats() {
- Decimal uranium_in_reactors = 0;
+ float uranium_in_reactors = 0;
  // clear stats
  foreach (var ore in ore_types) {
   ore_status[ore] = 0;
@@ -4535,13 +4535,13 @@ void s_updateMaterialStats() {
      if (i.Content.SubtypeName == SCRAP) {
       name = IRON;
      }
-     ore_status[name] += (Decimal) i.Amount;
+     ore_status[name] += (float) i.Amount;
      if (isStorage) {
-      storage_ore_status[name] += (Decimal) i.Amount;
+      storage_ore_status[name] += (float) i.Amount;
      }
     } else if (isIngot(i)) {
      string name = i.Content.SubtypeName;
-     var amount = (Decimal) i.Amount;
+     var amount = (float) i.Amount;
      ingot_status[name] += amount;
      if (isStorage) {
       storage_ingot_status[name] += amount;
@@ -4556,9 +4556,9 @@ void s_updateMaterialStats() {
  bool alert = false;
  var sb = new StringBuilder();
  foreach (var ore in ore_types) {
-  Decimal total_ingots = 0;
-  Decimal total_ore = ore_status[ore];
-  Decimal total = 0;
+  float total_ingots = 0;
+  float total_ore = ore_status[ore];
+  float total = 0;
   if (ore != ICE) {
    total_ingots = ingot_status[ore];
    if (ore == URANIUM) {
@@ -4604,20 +4604,20 @@ void s_updateMaterialStats() {
 
  // display oxygen and hydrogen stats
  if (has_oxygen_tanks || has_hydrogen_tanks) {
-  Decimal oxy_cur = 0, oxy_total = 0;
-  Decimal hydro_cur = 0, hydro_total = 0;
+  float oxy_cur = 0, oxy_total = 0;
+  float hydro_cur = 0, hydro_total = 0;
   var tanks = getOxygenTanks();
   foreach (IMyOxygenTank tank in tanks) {
-   oxy_cur += (Decimal) tank.GetOxygenLevel();
-   oxy_total += 1M;
+   oxy_cur += tank.GetOxygenLevel();
+   oxy_total += 1;
   }
   tanks = getHydrogenTanks();
   foreach (IMyOxygenTank tank in tanks) {
-   hydro_cur += (Decimal) tank.GetOxygenLevel();
-   hydro_total += 1M;
+   hydro_cur += tank.GetOxygenLevel();
+   hydro_total += 1;
   }
-  cur_oxygen_level = has_oxygen_tanks ? (oxy_cur / oxy_total) * 100M : 0;
-  cur_hydrogen_level = has_hydrogen_tanks ? (hydro_cur / hydro_total) * 100M : 0;
+  cur_oxygen_level = has_oxygen_tanks ? (oxy_cur / oxy_total) * 100 : 0;
+  cur_hydrogen_level = has_hydrogen_tanks ? (hydro_cur / hydro_total) * 100 : 0;
   string oxy_str = !has_oxygen_tanks ? "N/A" : String.Format("{0:0.0}%",
    cur_oxygen_level);
   string hydro_str = !has_hydrogen_tanks ? "N/A" : String.Format("{0:0.0}%",
@@ -4674,13 +4674,13 @@ bool canContinue() {
  int projected_cycle_count = cur_i + last_cycle_count;
 
  // given our estimate, how are we doing with regards to IL count limits?
- Decimal cycle_p = (Decimal) projected_cycle_count / Runtime.MaxInstructionCount;
+ float cycle_p = projected_cycle_count / Runtime.MaxInstructionCount;
 
  // if we never executed the next state, we leave 60% headroom for our next
  // state (for all we know it could be a big state), otherwise leave at 20%
  // because we already know how much it usually takes and it's unlikely to
  // suddenly become much bigger than what we've seen before
- var cycle_thresh = canEstimate ? 0.8M : 0.4M;
+ var cycle_thresh = canEstimate ? 0.8F : 0.4F;
 
  // check if we are exceeding our stated thresholds (projected 80% cycle
  // count for known states, or 40% up to this point for unknown states)
@@ -4826,7 +4826,7 @@ public void Main() {
  string il_str = String.Format("IL Count: {0}/{1} ({2:0.0}%)",
   Runtime.CurrentInstructionCount,
   Runtime.MaxInstructionCount,
-  (Decimal) Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100M);
+  Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100);
  Echo(String.Format("States executed: {0}", num_states));
  Echo(il_str);
 }
