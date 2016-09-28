@@ -4717,10 +4717,18 @@ bool canRun() {
 }
 
 public void Save() {
+ var sb = new StringBuilder();
  // save config block ID to storage
  if (config_block != null) {
-  Storage = config_block.EntityId.ToString();
+  sb.Append(config_block.EntityId.ToString());
+ } else {
+  sb.Append("0");
  }
+ sb.Append(":");
+ sb.Append(crisis_mode.ToString());
+ sb.Append(":");
+ sb.Append(tried_throwing.ToString());
+ Storage = sb.ToString();
 }
 
 // constructor
@@ -4753,7 +4761,7 @@ public Program() {
   s_remoteStorage
  };
  current_state = 0;
- crisis_mode = CRISIS_MODE_NONE;
+ bool reset_crisis = true;
  state_cycle_counts = new int[states.Length];
 
  for (int i = 0; i < state_cycle_counts.Length; i++) {
@@ -4768,10 +4776,25 @@ public Program() {
 
  // find config block
  if (Storage.Length > 0) {
-  long id;
-  if (long.TryParse(Storage, out id)) {
-   config_block = GridTerminalSystem.GetBlockWithId(id) as IMyTextPanel;
+  string[] strs = Storage.Split(':');
+  if (strs.Length == 3) {
+   long id;
+   if (long.TryParse(strs[0], out id) &&
+       Int32.TryParse(strs[1], out crisis_mode) &&
+       Boolean.TryParse(strs[2], out tried_throwing)) {
+    if (id != 0) {
+     config_block = GridTerminalSystem.GetBlockWithId(id) as IMyTextPanel;
+    }
+    reset_crisis = false;
+   } else {
+    // erase Storage as it contains invalid data
+    Storage = "";
+   }
   }
+ }
+ if (reset_crisis) {
+  tried_throwing = false;
+  crisis_mode = CRISIS_MODE_NONE;
  }
 
  // initialize readonly vars
