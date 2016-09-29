@@ -2590,6 +2590,9 @@ void pushSpareUraniumToStorage() {
  */
 bool startThrowing(IMyShipConnector connector, bool force = false) {
  // if connector is locked, it's in use, so don't do anything
+ if (!connector.Enabled) {
+  return false;
+ }
  if (connector.IsLocked) {
   return false;
  }
