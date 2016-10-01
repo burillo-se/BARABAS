@@ -1130,10 +1130,10 @@ List < IMyCubeGrid > getLocalGrids(bool force_update = false) {
    local_oxygen_generators.Add(b);
   } else if (b is IMyPistonBase) {
    pistons.Add(b);
-  } else if (b is IMyMotorBase) {
-   rotors.Add(b);
   } else if (b is IMyMotorSuspension) {
    data.has_wheels = true;
+  } else if (b is IMyMotorBase) {
+   rotors.Add(b);
   } else if (b is IMyThrust) {
    data.has_thrusters = true;
   } else if (b is IMyProgrammableBlock && b != Me && b.CubeGrid != Me.CubeGrid) {
