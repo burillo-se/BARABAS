@@ -1,5 +1,5 @@
 /*
- * BARABAS v1.54
+ * BARABAS v1.55
  *
  * (Burillo's Automatic Resource Administration for BAses and Ships)
  *
@@ -46,7 +46,7 @@
  *
  */
 
-const string VERSION = "1.54";
+const string VERSION = "1.55";
 
 // configuration
 const int OP_MODE_AUTO = 0x0;
@@ -989,14 +989,14 @@ IMyCubeGrid getConnectedGrid(IMyShipConnector c) {
     return o.CubeGrid;
 }
 
-IMyCubeGrid getConnectedGrid(IMyMotorBase r, List<IMyCubeGrid> grids) {
+IMyCubeGrid getConnectedGrid(IMyMotorBase r) {
     if (!r.IsAttached) {
         return null;
     }
     return r.TopGrid;
 }
 
-IMyCubeGrid getConnectedGrid(IMyPistonBase p, List<IMyCubeGrid> grids) {
+IMyCubeGrid getConnectedGrid(IMyPistonBase p) {
     if (!p.IsAttached) {
         return null;
     }
@@ -1065,6 +1065,14 @@ List<IMyCubeGrid> getLocalGrids(bool force_update = false) {
             local_assemblers.Add(b);
         } else if (b is IMyShipConnector) {
             local_connectors.Add(b);
+			
+			// also add connected grid
+			var c = b as IMyShipConnector;
+			var g = getConnectedGrid(c);
+			if (g != null && !tmp_grid_data.TryGetValue(g, out data)) {
+				data = new GridData();
+				tmp_grid_data.Add(g, data);
+			}
         } else if (b is IMyCargoContainer) {
             local_storage.Add(b);
         } else if (b is IMyShipDrill) {
@@ -1089,10 +1097,26 @@ List<IMyCubeGrid> getLocalGrids(bool force_update = false) {
             local_oxygen_generators.Add(b);
         } else if (b is IMyPistonBase) {
             pistons.Add(b);
+			
+			// also add connected grid
+			var p = b as IMyPistonBase;
+			var g = getConnectedGrid(p);
+			if (g != null && !tmp_grid_data.TryGetValue(g, out data)) {
+				data = new GridData();
+				tmp_grid_data.Add(g, data);
+			}
         } else if (b is IMyMotorSuspension) {
             data.has_wheels = true;
         } else if (b is IMyMotorBase) {
             rotors.Add(b);
+			
+			// also add connected grid
+			var r = b as IMyMotorBase;
+			var g = getConnectedGrid(r);
+			if (g != null && !tmp_grid_data.TryGetValue(g, out data)) {
+				data = new GridData();
+				tmp_grid_data.Add(g, data);
+			}
         } else if (b is IMyThrust) {
             data.has_thrusters = true;
         } else if (b is IMyProgrammableBlock && b != Me && b.CubeGrid != Me.CubeGrid) {
@@ -1111,7 +1135,7 @@ List<IMyCubeGrid> getLocalGrids(bool force_update = false) {
 
     // first, go through all pistons
     foreach (IMyPistonBase p in pistons) {
-        var connected_grid = getConnectedGrid(p, grids);
+        var connected_grid = getConnectedGrid(p);
 
         if (connected_grid != null) {
             // grids connected to pistons are local to their source
@@ -1121,7 +1145,7 @@ List<IMyCubeGrid> getLocalGrids(bool force_update = false) {
 
     // do the same for rotors
     foreach (IMyMotorBase rotor in rotors) {
-        var connected_grid = getConnectedGrid(rotor, grids);
+        var connected_grid = getConnectedGrid(rotor);
 
         if (connected_grid != null) {
             // grids connected to locals are local to their source
