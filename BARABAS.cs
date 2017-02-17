@@ -3207,7 +3207,7 @@ void checkOxygenLeaks() {
     var blocks = getAirVents();
     bool alert = false;
     foreach (IMyAirVent vent in blocks) {
-        if (vent.Status != VentStatus.Depressurizing && vent.CanPressurize) {
+        if (vent.Status == VentStatus.Pressurizing && !vent.CanPressurize) {
             addBlockAlert(vent, ALERT_OXYGEN_LEAK);
             alert = true;
         } else {
