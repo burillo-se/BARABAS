@@ -1,5 +1,5 @@
 /*
- * BARABAS v1.53
+ * BARABAS v1.54
  *
  * (Burillo's Automatic Resource Administration for BAses and Ships)
  *
@@ -46,7 +46,7 @@
  *
  */
 
-const string VERSION = "1.53";
+const string VERSION = "1.54";
 
 // configuration
 const int OP_MODE_AUTO = 0x0;
