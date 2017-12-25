@@ -118,6 +118,7 @@ namespace SpaceEngineers
         };
         CrisisMode crisis_mode;
         bool timer_mode = false;
+        int pause_idx = 0; // we execute every 60 ticks or so
 
         Action[] states = null;
 
@@ -5826,7 +5827,7 @@ namespace SpaceEngineers
         // constructor
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.Update100;
+            Runtime.UpdateFrequency = UpdateFrequency.Update10;
 
             // kick off state machine
             states = new Action[] {
@@ -5923,6 +5924,11 @@ namespace SpaceEngineers
             {
                 return;
             }
+            if (!timer_mode && pause_idx != 0)
+            {
+                pause_idx = (pause_idx + 1) % 6;
+                return;
+            }
             int num_states = 0;
 
             // if we're activated by a timer, go into timer mode and do not ever
@@ -5934,7 +5940,7 @@ namespace SpaceEngineers
             } else
             {
                 timer_mode = false;
-                Runtime.UpdateFrequency = UpdateFrequency.Update100;
+                Runtime.UpdateFrequency = UpdateFrequency.Update10;
             }
 
             // zero out IL counters
