@@ -117,6 +117,7 @@ namespace SpaceEngineers
             CRISIS_MODE_LOCKUP
         };
         CrisisMode crisis_mode;
+        bool timer_mode = false;
 
         Action[] states = null;
 
@@ -5825,6 +5826,8 @@ namespace SpaceEngineers
         // constructor
         public Program()
         {
+            Runtime.UpdateFrequency = UpdateFrequency.Update100;
+
             // kick off state machine
             states = new Action[] {
                 s_refreshGrids,
@@ -5914,13 +5917,25 @@ namespace SpaceEngineers
             storage_ingot_status = new Dictionary<string, float>(ore_status);
         }
 
-        public void Main()
+        public void Main(string arg, UpdateType ut)
         {
             if (!canRun())
             {
                 return;
             }
             int num_states = 0;
+
+            // if we're activated by a timer, go into timer mode and do not ever
+            // update the UpdateFrequency
+            if (ut == UpdateType.Trigger)
+            {
+                timer_mode = true;
+                Runtime.UpdateFrequency = UpdateFrequency.None;
+            } else
+            {
+                timer_mode = false;
+                Runtime.UpdateFrequency = UpdateFrequency.Update100;
+            }
 
             // zero out IL counters
             cur_cycle_count = 0;
