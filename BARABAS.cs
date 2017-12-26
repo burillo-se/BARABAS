@@ -119,9 +119,10 @@ namespace SpaceEngineers
             CRISIS_MODE_LOCKUP
         };
         CrisisMode crisis_mode;
-        bool timer_mode = false;
-        int pause_idx = 0; // we execute every 60 ticks or so
-
+        bool trigger_mode = false;
+        int update_counter = 0;
+        int update_period = 6; // default to 1 second
+        
         // config options
         const string CONFIGSTR_OP_MODE = "mode";
         const string CONFIGSTR_POWER_WATERMARKS = "power watermarks";
@@ -5954,9 +5955,9 @@ namespace SpaceEngineers
             {
                 return;
             }
-            if (!timer_mode && pause_idx != 0)
+            if (!trigger_mode && update_counter != 0)
             {
-                pause_idx = (pause_idx + 1) % 6;
+                update_counter = (update_counter + 1) % update_counter;
                 return;
             }
             int num_states = 0;
@@ -5965,11 +5966,11 @@ namespace SpaceEngineers
             // update the UpdateFrequency
             if (ut == UpdateType.Trigger)
             {
-                timer_mode = true;
+                trigger_mode = true;
                 Runtime.UpdateFrequency = UpdateFrequency.None;
             } else
             {
-                timer_mode = false;
+                trigger_mode = false;
                 Runtime.UpdateFrequency = UpdateFrequency.Update10;
             }
 
