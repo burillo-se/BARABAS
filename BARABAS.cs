@@ -121,8 +121,9 @@ namespace SpaceEngineers
         CrisisMode crisis_mode;
         bool green_mode = false;
         bool trigger_mode = false;
+        float update_period = 1.0f; // default to 1 second
         int update_counter = 0;
-        int update_period = 6; // default to 1 second
+        int update_counter_max;
         
         // config options
         const string CONFIGSTR_OP_MODE = "mode";
@@ -650,11 +651,10 @@ namespace SpaceEngineers
             else
                 return String.Format("{0:0.00}", value) + pwrs[pwr_idx];
         }
-
-        /* this rounds to nearest 10 */
+        
         int secondsToTicks(float val)
         {
-            return (int) Math.Ceiling(6.0 * val) * 10;
+            return (int) Math.Round(60.0 * val);
         }
 
         /* rounds to 0.1 */
@@ -4156,6 +4156,40 @@ namespace SpaceEngineers
             }
         }
 
+        void configureAutoUpdate()
+        {
+            if (trigger_mode)
+            {
+                Runtime.UpdateFrequency = UpdateFrequency.None;
+            } else if (green_mode)
+            {
+                Runtime.UpdateFrequency = UpdateFrequency.Update100;
+                int ticks = secondsToTicks(update_period);
+
+                // can't be less than 100
+                ticks = Math.Max(ticks, 100);
+
+                // round to nearest 100
+                ticks = (int) Math.Round(ticks / 100.0) * 100;
+
+                update_period = ticksToSeconds(ticks);
+                update_counter_max = ticks / 100;
+            } else
+            {
+                Runtime.UpdateFrequency = UpdateFrequency.Update10;
+                int ticks = secondsToTicks(update_period);
+                
+                // can't be less than 10
+                ticks = Math.Max(ticks, 10);
+
+                // round to nearest 10
+                ticks = (int)Math.Round(ticks / 10.0) * 10;
+
+                update_period = ticksToSeconds(ticks);
+                update_counter_max = ticks / 10;
+            }
+        }
+
         void configureWatermarks()
         {
             if (isShipMode())
@@ -4366,7 +4400,7 @@ namespace SpaceEngineers
             config_options[CONFIGSTR_OXYGEN_WATERMARKS] = String.Format("{0}", oxygen_high_watermark >= 0 ? getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark) : "none");
             config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = String.Format("{0}", hydrogen_high_watermark >= 0 ? getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark) : "none");
             config_options[CONFIGSTR_GREEN_MODE] = Convert.ToString(green_mode);
-            config_options[CONFIGSTR_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", ticksToSeconds(update_period * 10));
+            config_options[CONFIGSTR_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", update_period);
 
             // currently selected operation mode
             sb.AppendLine("# Operation mode.");
@@ -4705,12 +4739,10 @@ namespace SpaceEngineers
                 if (strval == "trigger")
                 {
                     trigger_mode = true;
-                    Runtime.UpdateFrequency = UpdateFrequency.None;
                 } else if (fval >= 0.1f)
                 {
                     trigger_mode = false;
-                    Runtime.UpdateFrequency = UpdateFrequency.Update10;
-                    update_period = secondsToTicks(fval) / 10;
+                    update_period = fval;
                 } else
                 {
                     fail = true;
@@ -5194,6 +5226,7 @@ namespace SpaceEngineers
             {
                 Me.CustomName = "BARABAS Base CPU";
             }
+            configureAutoUpdate();
             configureWatermarks();
             rebuildConfiguration();
 
@@ -5789,8 +5822,6 @@ namespace SpaceEngineers
         // constructor
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.Update10;
-
             // kick off state machine
             states = new Action[] {
                 s_refreshGrids,
@@ -5870,7 +5901,7 @@ namespace SpaceEngineers
             }
             if (!trigger_mode && update_counter != 0)
             {
-                update_counter = (update_counter + 1) % update_period;
+                update_counter = (update_counter + 1) % update_counter_max;
                 return;
             }
             int num_states = 0;
@@ -5933,7 +5964,7 @@ namespace SpaceEngineers
                 Runtime.CurrentInstructionCount,
                 Runtime.MaxInstructionCount,
                 (float)Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100F);
-            string update_str = trigger_mode ? "triggered" : String.Format("{0:0.0} seconds", ticksToSeconds(update_period * 10));
+            string update_str = trigger_mode ? "triggered" : String.Format("{0:0.0} seconds", update_period);
             Echo(String.Format("BARABAS version {0}", VERSION));
             Echo(String.Format("States executed: {0}", num_states));
             Echo(String.Format("Update period: {0}", trigger_mode ? "triggered" : update_str));
