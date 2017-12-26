@@ -73,6 +73,7 @@ namespace SpaceEngineers
 
         const string VERSION = "1.56";
 
+        #region CONFIGVARS
         // configuration
         const int OP_MODE_AUTO = 0x0;
         const int OP_MODE_SHIP = 0x1;
@@ -108,6 +109,7 @@ namespace SpaceEngineers
 
         // state variables
         int current_state;
+        Action[] states = null;
 
         // crisis mode levels
         enum CrisisMode
@@ -119,8 +121,6 @@ namespace SpaceEngineers
         CrisisMode crisis_mode;
         bool timer_mode = false;
         int pause_idx = 0; // we execute every 60 ticks or so
-
-        Action[] states = null;
 
         // config options
         const string CONFIGSTR_OP_MODE = "mode";
@@ -435,7 +435,9 @@ namespace SpaceEngineers
             public bool override_ship;
             public bool override_base;
         }
+        #endregion
 
+        #region GRAPH
         // grid graph edge class, represents a connection point between two grids.
         public class Edge<T>
         {
@@ -592,7 +594,9 @@ namespace SpaceEngineers
             // dictionaries of edges for each vertex
             Dictionary<T, HashSet<Edge<T>>> v_edges;
         }
+        #endregion
 
+        #region UTIL
         // just have a method to indicate that this exception comes from BARABAS
         class BarabasException : Exception
         {
@@ -642,6 +646,9 @@ namespace SpaceEngineers
                 return String.Format("{0:0.00}", value) + pwrs[pwr_idx];
         }
 
+        #endregion
+
+        #region FILTERS
         /**
          * Filters
          */
@@ -689,7 +696,9 @@ namespace SpaceEngineers
             }
             return getShipGrids().Contains(b.CubeGrid);
         }
+        #endregion
 
+        #region BLOCKS
         /**
          * Grid and block functions
          */
@@ -1732,7 +1741,9 @@ namespace SpaceEngineers
             }
             return config_block;
         }
+        #endregion
 
+        #region INVENTORY
         /**
          * Inventory access functions
          */
@@ -2012,7 +2023,9 @@ namespace SpaceEngineers
         {
             src.TransferItemTo(src, srcIndex, 0, true, amount);
         }
+        #endregion
 
+        #region STORAGE
         /**
          * Volume & storage load functions
          */
@@ -2268,21 +2281,27 @@ namespace SpaceEngineers
             status_report[STATUS_STORAGE_LOAD] = String.Format("{0}% / {1}", (float)Math.Round(storageLoad * 100, 0), getMagnitudeStr(mass));
         }
 
-        string getPowerLoadStr(float value)
+        void turnOffConveyors()
         {
-            var pwrs = "kMGTPEZY";
-            int pwr_idx = 0;
-            while (value >= 1000)
+            var blocks = getBlocks();
+            // go through all blocks and set "use conveyor" to off
+            foreach (var b in blocks)
             {
-                value /= 1000;
-                pwr_idx++;
+                if (b is IMyAssembler)
+                {
+                    continue;
+                }
+                if (b is IMyShipWelder)
+                {
+                    continue;
+                }
+
+                var prod = b as IMyProductionBlock;
+                if (prod != null)
+                {
+                    prod.UseConveyorSystem = false;
+                }
             }
-            if (value >= 100)
-                return String.Format("{0:0}", value) + pwrs[pwr_idx];
-            else if (value >= 10)
-                return String.Format("{0:0.0}", value) + pwrs[pwr_idx];
-            else
-                return String.Format("{0:0.00}", value) + pwrs[pwr_idx];
         }
 
         /**
@@ -2761,7 +2780,9 @@ namespace SpaceEngineers
                 }
             }
         }
+        #endregion
 
+        #region POWER
         /**
          * Uranium, reactors & batteries
          */
@@ -3138,7 +3159,9 @@ namespace SpaceEngineers
                 }
             }
         }
+        #endregion
 
+        #region TRASH
         /**
          * Trash
          */
@@ -3386,7 +3409,9 @@ namespace SpaceEngineers
                 }
             }
         }
+        #endregion
 
+        #region ORE
         /**
          * Ore and refineries
          */
@@ -3823,7 +3848,9 @@ namespace SpaceEngineers
             }
             return true;
         }
+        #endregion
 
+        #region DECLOG
         /**
          * Declog and spread load
          */
@@ -3933,7 +3960,9 @@ namespace SpaceEngineers
                 }
             }
         }
+        #endregion
 
+        #region ICE
         /**
          * Oxygen
          */
@@ -4031,7 +4060,9 @@ namespace SpaceEngineers
             float stored_hydrogen = ore_status[ICE] * ice_to_hydrogen_ratio;
             return stored_hydrogen / total_capacity * 100;
         }
+        #endregion
 
+        #region CONFIG
         /**
          * Functions pertaining to BARABAS's operation
          */
@@ -4257,86 +4288,6 @@ namespace SpaceEngineers
             {
                 setMode(OP_MODE_BASE);
             }
-        }
-
-        void displayAlerts()
-        {
-            removeAntennaAlert(ALERT_LOW_POWER);
-            removeAntennaAlert(ALERT_LOW_STORAGE);
-            removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
-            removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
-            displayAntennaAlerts();
-
-            var sb = new StringBuilder();
-
-            Alert first_alert = null;
-            // now, find enabled alerts
-            bool first = true;
-            for (int i = 0; i < text_alerts.Count; i++)
-            {
-                if (text_alerts[i].enabled)
-                {
-                    if (i == (int)AlertLevel.BLUE_ALERT)
-                    {
-                        addAntennaAlert(ALERT_LOW_POWER);
-                    }
-                    else if (i == (int)AlertLevel.YELLOW_ALERT)
-                    {
-                        addAntennaAlert(ALERT_LOW_STORAGE);
-                    }
-                    else if (i == (int)AlertLevel.RED_ALERT)
-                    {
-                        addAntennaAlert(ALERT_VERY_LOW_STORAGE);
-                    }
-                    else if (i == (int)AlertLevel.WHITE_ALERT)
-                    {
-                        addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
-                    }
-                    var alert = text_alerts[i];
-                    if (first_alert == null)
-                    {
-                        first_alert = alert;
-                    }
-                    if (!first)
-                    {
-                        sb.Append(", ");
-                    }
-                    first = false;
-                    sb.Append(alert.text);
-                }
-            }
-
-            status_report[STATUS_ALERT] = sb.ToString();
-            if (first_alert == null)
-            {
-                hideAlertColor();
-            }
-            else
-            {
-                showAlertColor(first_alert.color);
-            }
-        }
-
-        void addAlert(AlertLevel level)
-        {
-            var alert = text_alerts[(int)level];
-            // this alert is already enabled
-            if (alert.enabled)
-            {
-                return;
-            }
-            alert.enabled = true;
-
-            displayAlerts();
-        }
-
-        void removeAlert(AlertLevel level)
-        {
-            // disable the alert
-            var alert = text_alerts[(int)level];
-            alert.enabled = false;
-
-            displayAlerts();
         }
 
         bool clStrCompare(string str1, string str2)
@@ -4897,6 +4848,89 @@ namespace SpaceEngineers
                 }
             }
         }
+        #endregion
+
+        #region ALERTS
+
+        void displayAlerts()
+        {
+            removeAntennaAlert(ALERT_LOW_POWER);
+            removeAntennaAlert(ALERT_LOW_STORAGE);
+            removeAntennaAlert(ALERT_VERY_LOW_STORAGE);
+            removeAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+            displayAntennaAlerts();
+
+            var sb = new StringBuilder();
+
+            Alert first_alert = null;
+            // now, find enabled alerts
+            bool first = true;
+            for (int i = 0; i < text_alerts.Count; i++)
+            {
+                if (text_alerts[i].enabled)
+                {
+                    if (i == (int)AlertLevel.BLUE_ALERT)
+                    {
+                        addAntennaAlert(ALERT_LOW_POWER);
+                    }
+                    else if (i == (int)AlertLevel.YELLOW_ALERT)
+                    {
+                        addAntennaAlert(ALERT_LOW_STORAGE);
+                    }
+                    else if (i == (int)AlertLevel.RED_ALERT)
+                    {
+                        addAntennaAlert(ALERT_VERY_LOW_STORAGE);
+                    }
+                    else if (i == (int)AlertLevel.WHITE_ALERT)
+                    {
+                        addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
+                    }
+                    var alert = text_alerts[i];
+                    if (first_alert == null)
+                    {
+                        first_alert = alert;
+                    }
+                    if (!first)
+                    {
+                        sb.Append(", ");
+                    }
+                    first = false;
+                    sb.Append(alert.text);
+                }
+            }
+
+            status_report[STATUS_ALERT] = sb.ToString();
+            if (first_alert == null)
+            {
+                hideAlertColor();
+            }
+            else
+            {
+                showAlertColor(first_alert.color);
+            }
+        }
+
+        void addAlert(AlertLevel level)
+        {
+            var alert = text_alerts[(int)level];
+            // this alert is already enabled
+            if (alert.enabled)
+            {
+                return;
+            }
+            alert.enabled = true;
+
+            displayAlerts();
+        }
+
+        void removeAlert(AlertLevel level)
+        {
+            // disable the alert
+            var alert = text_alerts[(int)level];
+            alert.enabled = false;
+
+            displayAlerts();
+        }
 
         string getBlockAlerts(int ids)
         {
@@ -5071,29 +5105,6 @@ namespace SpaceEngineers
             }
         }
 
-        void turnOffConveyors()
-        {
-            var blocks = getBlocks();
-            // go through all blocks and set "use conveyor" to off
-            foreach (var b in blocks)
-            {
-                if (b is IMyAssembler)
-                {
-                    continue;
-                }
-                if (b is IMyShipWelder)
-                {
-                    continue;
-                }
-
-                var prod = b as IMyProductionBlock;
-                if (prod != null)
-                {
-                    prod.UseConveyorSystem = false;
-                }
-            }
-        }
-
         void displayStatusReport()
         {
             var panels = getTextPanels();
@@ -5147,7 +5158,9 @@ namespace SpaceEngineers
                 panel.ShowPublicTextOnScreen();
             }
         }
+        #endregion
 
+        #region STATES
         /*
          * States
          */
@@ -5757,7 +5770,9 @@ namespace SpaceEngineers
                 removeAlert(AlertLevel.CYAN_ALERT);
             }
         }
+        #endregion
 
+        #region STATE_MACHINE
         int[] state_cycle_counts;
         int cur_cycle_count = 0;
 
@@ -5829,7 +5844,9 @@ namespace SpaceEngineers
             }
             return true;
         }
+        #endregion
 
+        #region INIT
         public void Save()
         {
             var sb = new StringBuilder();
@@ -6018,6 +6035,7 @@ namespace SpaceEngineers
             Echo(String.Format("States executed: {0}", num_states));
             Echo(il_str);
         }
+        #endregion
         #region SEFOOTER
 #if DEBUG
     }
