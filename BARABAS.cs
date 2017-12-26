@@ -5998,8 +5998,12 @@ namespace SpaceEngineers
                 Runtime.CurrentInstructionCount,
                 Runtime.MaxInstructionCount,
                 (float)Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100F);
+            string update_str = trigger_mode ? "triggered" : String.Format("{0:0.0} seconds", ticksToSeconds(update_period * 10));
             Echo(String.Format("BARABAS version {0}", VERSION));
             Echo(String.Format("States executed: {0}", num_states));
+            Echo(String.Format("Update period: {0}", trigger_mode ? "triggered" : update_str));
+            if (green_mode)
+                Echo("Green mode active");
             Echo(il_str);
         }
         #endregion
