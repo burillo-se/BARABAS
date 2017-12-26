@@ -47,7 +47,6 @@ namespace SpaceEngineers
          *
          * Mandatory requirements:
          * - Storage containers must be present.
-         * - A timer to run this code (recommended timer value is one second)
          *
          * Optional requirements:
          * - Group of text/LCD panels/beacons/antennas/lights named "BARABAS Notify",
