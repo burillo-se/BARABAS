@@ -5776,7 +5776,7 @@ namespace SpaceEngineers
             current_state = next_state;
             cur_cycle_count = cur_i;
 
-            return haveEnoughHeadroom;
+            return haveEnoughHeadroom && next_state != 0;
         }
 
         // check if we are disabled or if we should disable other BARABAS instances
