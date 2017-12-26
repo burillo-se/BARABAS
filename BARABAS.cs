@@ -139,6 +139,7 @@ namespace SpaceEngineers
         const string CONFIGSTR_HYDROGEN_WATERMARKS = "hydrogen watermarks";
         const string CONFIGSTR_REFUEL_OXYGEN = "refuel oxygen";
         const string CONFIGSTR_REFUEL_HYDROGEN = "refuel hydrogen";
+        const string CONFIGSTR_UPDATE_PERIOD = "update period";
 
         // ore_volume
         const float VOLUME_ORE = 0.37F;
@@ -184,7 +185,8 @@ namespace SpaceEngineers
             { CONFIGSTR_PULL_INGOTS, "" },
             { CONFIGSTR_PULL_COMPONENTS, "" },
             { CONFIGSTR_KEEP_STONE, "" },
-            { CONFIGSTR_SORT_STORAGE, "" }
+            { CONFIGSTR_SORT_STORAGE, "" },
+            { CONFIGSTR_UPDATE_PERIOD, "" },
         };
 
         // status report fields
@@ -647,6 +649,17 @@ namespace SpaceEngineers
                 return String.Format("{0:0.00}", value) + pwrs[pwr_idx];
         }
 
+        /* this rounds to nearest 10 */
+        int secondsToTicks(float val)
+        {
+            return (int) Math.Ceiling(6.0 * val) * 10;
+        }
+
+        /* rounds to 0.1 */
+        float ticksToSeconds(int val)
+        {
+            return (float)Math.Round(val / 60.0, 1);
+        }
         #endregion
 
         #region FILTERS
@@ -4135,6 +4148,8 @@ namespace SpaceEngineers
 
         void resetConfig()
         {
+            trigger_mode = false;
+            update_period = 6;
             hud_notifications = true;
             sort_storage = false;
             pull_ore_from_base = false;
@@ -4386,11 +4401,20 @@ namespace SpaceEngineers
             }
             config_options[CONFIGSTR_OXYGEN_WATERMARKS] = String.Format("{0}", oxygen_high_watermark >= 0 ? getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark) : "none");
             config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = String.Format("{0}", hydrogen_high_watermark >= 0 ? getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark) : "none");
+            config_options[CONFIGSTR_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", ticksToSeconds(update_period * 10));
 
             // currently selected operation mode
             sb.AppendLine("# Operation mode.");
             sb.AppendLine("# Can be auto, base, ship, tug, drill, welder or grinder.");
             var key = CONFIGSTR_OP_MODE;
+            sb.AppendLine(key + " = " + config_options[key]);
+            sb.AppendLine();
+            sb.AppendLine("# Update period.");
+            sb.AppendLine("# Can be \"trigger\", or a positive number (0.1 or higher).");
+            sb.AppendLine("# \"Trigger\" means the script won't run itself at all.");
+            sb.AppendLine("# Number indicates how often the script will run itself.");
+            sb.AppendLine("# For example, period of 0.5 will run script twice per second.");
+            key = CONFIGSTR_UPDATE_PERIOD;
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
             key = CONFIGSTR_HUD_NOTIFICATIONS;
@@ -4766,6 +4790,22 @@ namespace SpaceEngineers
                     }
                 }
                 else
+                {
+                    fail = true;
+                }
+            }
+            else if (clStrCompare(str, CONFIGSTR_UPDATE_PERIOD))
+            {
+                if (strval == "trigger")
+                {
+                    trigger_mode = true;
+                    Runtime.UpdateFrequency = UpdateFrequency.None;
+                } else if (fval >= 0.1f)
+                {
+                    trigger_mode = false;
+                    Runtime.UpdateFrequency = UpdateFrequency.Update10;
+                    update_period = secondsToTicks(fval) / 10;
+                } else
                 {
                     fail = true;
                 }
@@ -5957,22 +5997,10 @@ namespace SpaceEngineers
             }
             if (!trigger_mode && update_counter != 0)
             {
-                update_counter = (update_counter + 1) % update_counter;
+                update_counter = (update_counter + 1) % update_period;
                 return;
             }
             int num_states = 0;
-
-            // if we're activated by a timer, go into timer mode and do not ever
-            // update the UpdateFrequency
-            if (ut == UpdateType.Trigger)
-            {
-                trigger_mode = true;
-                Runtime.UpdateFrequency = UpdateFrequency.None;
-            } else
-            {
-                trigger_mode = false;
-                Runtime.UpdateFrequency = UpdateFrequency.Update10;
-            }
 
             // zero out IL counters
             cur_cycle_count = 0;
