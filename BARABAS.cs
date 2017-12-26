@@ -5822,6 +5822,10 @@ namespace SpaceEngineers
         // constructor
         public Program()
         {
+            green_mode = false;
+            update_counter_max = 1;
+            Runtime.UpdateFrequency = UpdateFrequency.Once; // run at least once
+
             // kick off state machine
             states = new Action[] {
                 s_refreshGrids,
