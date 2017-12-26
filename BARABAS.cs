@@ -619,6 +619,29 @@ namespace SpaceEngineers
             }
         }
 
+        double getMagnitude(char c)
+        {
+            var pwrs = " kMGTPEZY";
+            return Math.Pow(1000, pwrs.IndexOf(c));
+        }
+
+        string getMagnitudeStr(float value)
+        {
+            var pwrs = " kMGTPEZY";
+            int pwr_idx = 0;
+            while (value >= 1000)
+            {
+                value /= 1000;
+                pwr_idx++;
+            }
+            if (value >= 100)
+                return String.Format("{0:0}", value) + pwrs[pwr_idx];
+            else if (value >= 10)
+                return String.Format("{0:0.0}", value) + pwrs[pwr_idx];
+            else
+                return String.Format("{0:0.00}", value) + pwrs[pwr_idx];
+        }
+
         /**
          * Filters
          */
@@ -2241,18 +2264,8 @@ namespace SpaceEngineers
                 }
             }
             float mass = getTotalStorageMass();
-            int idx = 0;
-            string suffixes = " kMGTPEZY";
-            while (mass >= 1000)
-            {
-                mass /= 1000;
-                idx++;
-            }
-            mass = (float)Math.Round(mass, 1);
-            char suffix = suffixes[idx];
 
-            status_report[STATUS_STORAGE_LOAD] = String.Format("{0}% / {1}{2}",
-            (float)Math.Round(storageLoad * 100, 0), mass, suffix);
+            status_report[STATUS_STORAGE_LOAD] = String.Format("{0}% / {1}", (float)Math.Round(storageLoad * 100, 0), getMagnitudeStr(mass));
         }
 
         string getPowerLoadStr(float value)
@@ -2922,8 +2935,8 @@ namespace SpaceEngineers
         // the API is deficient, sooo...
         float getBlockPowerUse(IMyTerminalBlock b)
         {
-            var power_regex = new System.Text.RegularExpressions.Regex("Max Required Input: ([\\d\\.]+) (\\w?)W");
-            var cur_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+) (\\w?)W");
+            var power_regex = new System.Text.RegularExpressions.Regex("Max Required Input: ([\\d\\.]+)( \\w?)W");
+            var cur_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+)( \\w?)W");
             var power_match = power_regex.Match(b.DetailedInfo);
             var cur_match = cur_regex.Match(b.DetailedInfo);
             if (!power_match.Success && !cur_match.Success)
@@ -2939,7 +2952,7 @@ namespace SpaceEngineers
                 {
                     throw new BarabasException("Invalid detailed info format!", this);
                 }
-                max *= (float)Math.Pow(1000, " kMGTPEZY".IndexOf(power_match.Groups[2].Value) - 1);
+                max *= (float)getMagnitude(power_match.Groups[2].Value.Last());
             }
             if (cur_match.Groups[1].Success && cur_match.Groups[2].Success)
             {
@@ -2948,9 +2961,9 @@ namespace SpaceEngineers
                 {
                     throw new BarabasException("Invalid detailed info format!", this);
                 }
-                cur *= (float)Math.Pow(1000, " kMGTPEZY".IndexOf(cur_match.Groups[2].Value) - 1);
+                cur *= (float)getMagnitude(cur_match.Groups[2].Value.Last());
             }
-            return Math.Max(cur, max);
+            return Math.Max(cur, max) / 1000f; // power is in kiloWatts
         }
 
         float getPowerHighWatermark(float power_use)
