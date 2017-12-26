@@ -119,6 +119,7 @@ namespace SpaceEngineers
             CRISIS_MODE_LOCKUP
         };
         CrisisMode crisis_mode;
+        bool green_mode = false;
         bool trigger_mode = false;
         int update_counter = 0;
         int update_period = 6; // default to 1 second
@@ -140,6 +141,7 @@ namespace SpaceEngineers
         const string CONFIGSTR_REFUEL_OXYGEN = "refuel oxygen";
         const string CONFIGSTR_REFUEL_HYDROGEN = "refuel hydrogen";
         const string CONFIGSTR_UPDATE_PERIOD = "update period";
+        const string CONFIGSTR_GREEN_MODE = "green mode";
 
         // ore_volume
         const float VOLUME_ORE = 0.37F;
@@ -187,6 +189,7 @@ namespace SpaceEngineers
             { CONFIGSTR_KEEP_STONE, "" },
             { CONFIGSTR_SORT_STORAGE, "" },
             { CONFIGSTR_UPDATE_PERIOD, "" },
+            { CONFIGSTR_GREEN_MODE, "" },
         };
 
         // status report fields
@@ -4401,6 +4404,7 @@ namespace SpaceEngineers
             }
             config_options[CONFIGSTR_OXYGEN_WATERMARKS] = String.Format("{0}", oxygen_high_watermark >= 0 ? getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark) : "none");
             config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = String.Format("{0}", hydrogen_high_watermark >= 0 ? getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark) : "none");
+            config_options[CONFIGSTR_GREEN_MODE] = Convert.ToString(green_mode);
             config_options[CONFIGSTR_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", ticksToSeconds(update_period * 10));
 
             // currently selected operation mode
@@ -4415,6 +4419,12 @@ namespace SpaceEngineers
             sb.AppendLine("# Number indicates how often the script will run itself.");
             sb.AppendLine("# For example, period of 0.5 will run script twice per second.");
             key = CONFIGSTR_UPDATE_PERIOD;
+            sb.AppendLine(key + " = " + config_options[key]);
+            sb.AppendLine();
+            sb.AppendLine("# Green mode (do less work per iteration).");
+            sb.AppendLine("# This will make BARABAS slower to react, but less sim-speed hungry.");
+            sb.AppendLine("# Can be True or False.");
+            key = CONFIGSTR_GREEN_MODE;
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
             key = CONFIGSTR_HUD_NOTIFICATIONS;
@@ -4855,6 +4865,10 @@ namespace SpaceEngineers
                 else if (clStrCompare(str, CONFIGSTR_HUD_NOTIFICATIONS))
                 {
                     hud_notifications = bval;
+                }
+                else if (clStrCompare(str, CONFIGSTR_GREEN_MODE))
+                {
+                    green_mode = bval;
                 }
             }
             else
@@ -5844,6 +5858,9 @@ namespace SpaceEngineers
             // because we already know how much it usually takes and it's unlikely to
             // suddenly become much bigger than what we've seen before
             var cycle_thresh = canEstimate ? 0.8F : 0.4F;
+
+            // if we're in green mode, set our threshold to 10%
+            cycle_thresh = green_mode ? 0.1F : cycle_thresh;
 
             // check if we are exceeding our stated thresholds (projected 80% cycle
             // count for known states, or 40% up to this point for unknown states)
