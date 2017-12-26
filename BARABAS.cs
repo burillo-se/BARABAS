@@ -281,7 +281,6 @@ namespace SpaceEngineers
         List<IMyTerminalBlock> local_antennas = null;
         List<IMyTerminalBlock> remote_storage = null;
         List<IMyTerminalBlock> remote_ship_storage = null;
-        IMyTextPanel config_block = null;
         List<IMyCubeGrid> local_grids = null;
         List<IMyCubeGrid> remote_base_grids = null;
         List<IMyCubeGrid> remote_ship_grids = null;
@@ -1719,44 +1718,6 @@ namespace SpaceEngineers
             }
 
             return local_trash_sensors;
-        }
-
-        IMyTextPanel getConfigBlock(bool force_update = false)
-        {
-            if (!force_update && config_block != null)
-            {
-                if (!blockExists(config_block))
-                {
-                    return null;
-                }
-                return config_block;
-            }
-            var blocks = new List<IMyTerminalBlock>();
-            GridTerminalSystem.SearchBlocksOfName("BARABAS Config", blocks, localGridFilter);
-            if (blocks.Count < 1)
-            {
-                return null;
-            }
-            else if (blocks.Count > 1)
-            {
-                Echo("Multiple config blocks found.");
-                if (config_block != null)
-                {
-                    // find our previous config block, ignore the rest
-                    var id = config_block.EntityId;
-                    config_block = GridTerminalSystem.GetBlockWithId(id) as IMyTextPanel;
-                }
-                if (config_block == null)
-                {
-                    // if we didn't find our config block, just use the first one
-                    config_block = blocks[0] as IMyTextPanel;
-                }
-            }
-            else
-            {
-                config_block = blocks[0] as IMyTextPanel;
-            }
-            return config_block;
         }
         #endregion
 
@@ -5284,28 +5245,6 @@ namespace SpaceEngineers
         void s_refreshConfig()
         {
             // configure BARABAS
-
-            // backwards compatibility: config block is deprecated
-            var cb = getConfigBlock(true);
-            if (cb != null)
-            {
-                // older version of BARABAS stored config in public text
-                if (cb.GetPublicTitle() == "BARABAS Configuration")
-                {
-                    Me.CustomData = cb.GetPublicText();
-                }
-                else if (cb.GetPrivateTitle() == "BARABAS Configuration")
-                {
-                    Me.CustomData = cb.GetPrivateText();
-                }
-                cb.WritePrivateText("");
-                cb.WritePrivateTitle("");
-                cb.WritePublicText("DEPRECATED\n\nThis block is deprecated.\nPlease remove it.");
-                cb.WritePublicTitle("DEPRECATED");
-                cb.ShowPublicTextOnScreen();
-                cb.CustomName = cb.CustomName + " [BARABAS: Deprecated]";
-                cb.ShowOnHUD = true;
-            }
             parseConfiguration();
             if (isAutoMode())
             {
@@ -5964,29 +5903,11 @@ namespace SpaceEngineers
                 string[] strs = Storage.Split(':');
 
                 string throw_str = null;
-
-                // backwards compatibility with 1.5x: it had a config block
+                
                 switch (strs.Length)
                 {
                     case 1:
                         throw_str = strs[0];
-                        break;
-                    case 2:
-                        throw_str = strs[1];
-                        string id_str = strs[0];
-                        long id;
-
-                        if (long.TryParse(id_str, out id))
-                        {
-                            if (id != 0)
-                            {
-                                config_block = GridTerminalSystem.GetBlockWithId(id) as IMyTextPanel;
-                            }
-                        }
-                        else
-                        {
-                            invalid = true;
-                        }
                         break;
                     default:
                         invalid = true;
