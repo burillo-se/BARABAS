@@ -24,7 +24,7 @@ namespace SpaceEngineers
 #endif
         #endregion
         /*
-         * BARABAS v1.6
+         * BARABAS v1.61
          *
          * (Burillo's Automatic Resource Administration for BAses and Ships)
          *
@@ -70,7 +70,7 @@ namespace SpaceEngineers
          *
          */
 
-        const string VERSION = "1.6";
+        const string VERSION = "1.61";
 
         #region CONFIGVARS
         // configuration
@@ -1625,11 +1625,11 @@ namespace SpaceEngineers
 
                 if (b.BlockDefinition.ToString().Contains("Hydrogen"))
                 {
-                    h_level += b.FilledRatio * (sz ? 2500000 : 40000);
+                    h_level += (float) b.FilledRatio * (sz ? 2500000 : 40000);
                 }
                 else
                 {
-                    o_level += b.FilledRatio * (sz ? 100000 : 50000);
+                    o_level += (float) b.FilledRatio * (sz ? 100000 : 50000);
                 }
             }
             // if we have at least half a tank, we can refuel
@@ -5676,13 +5676,13 @@ namespace SpaceEngineers
                 var tanks = getOxygenTanks();
                 foreach (IMyGasTank tank in tanks)
                 {
-                    oxy_cur += tank.FilledRatio;
+                    oxy_cur += (float) tank.FilledRatio;
                     oxy_total += 1;
                 }
                 tanks = getHydrogenTanks();
                 foreach (IMyGasTank tank in tanks)
                 {
-                    hydro_cur += tank.FilledRatio;
+                    hydro_cur += (float) tank.FilledRatio;
                     hydro_total += 1;
                 }
                 cur_oxygen_level = has_oxygen_tanks ? (oxy_cur / oxy_total) * 100 : 0;
