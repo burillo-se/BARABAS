@@ -24,7 +24,7 @@ namespace SpaceEngineers
 #endif
         #endregion
         /*
-         * BARABAS v1.61
+         * BARABAS v1.62
          *
          * (Burillo's Automatic Resource Administration for BAses and Ships)
          *
@@ -70,7 +70,7 @@ namespace SpaceEngineers
          *
          */
 
-        const string VERSION = "1.61";
+        const string VERSION = "1.62";
 
         #region CONFIGVARS
         // configuration
@@ -423,12 +423,15 @@ namespace SpaceEngineers
             public IMyInventoryItem Item;
             public int Index;
         }
+        #endregion
+
+        #region GRAPH
 
         // data we store about a grid
-        // technically, while we use this class to store data about grids, what we
-        // really want is to have an instance of this class per grid collection, i.e.
+        // technically, while we use this struct to store data about grids, what we
+        // really want is to have an instance of this struct per grid collection, i.e.
         // all grids that are local to each other (connected by rotors or pistons).
-        // this is why it's a struct, not a class - so that several grids can share the
+        // this is why it's a class, not a struct - so that several grids can share the
         // same instance. it's a crude hack, but it works.
         public class GridData
         {
@@ -440,9 +443,7 @@ namespace SpaceEngineers
             public bool override_ship;
             public bool override_base;
         }
-        #endregion
 
-        #region GRAPH
         // grid graph edge class, represents a connection point between two grids.
         public class Edge<T>
         {
@@ -5902,10 +5903,13 @@ namespace SpaceEngineers
             {
                 return;
             }
-            if (!trigger_mode && update_counter != 0)
+            if (!trigger_mode)
             {
                 update_counter = (update_counter + 1) % update_counter_max;
-                return;
+                if (update_counter != 0)
+                {
+                    return;
+                }
             }
             int num_states = 0;
 
