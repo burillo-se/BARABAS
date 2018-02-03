@@ -5903,10 +5903,13 @@ namespace SpaceEngineers
             {
                 return;
             }
-            if (!trigger_mode && update_counter != 0)
+            if (!trigger_mode)
             {
                 update_counter = (update_counter + 1) % update_counter_max;
-                return;
+                if (update_counter != 0)
+                {
+                    return;
+                }
             }
             int num_states = 0;
 
