@@ -423,12 +423,15 @@ namespace SpaceEngineers
             public IMyInventoryItem Item;
             public int Index;
         }
+        #endregion
+
+        #region GRAPH
 
         // data we store about a grid
-        // technically, while we use this class to store data about grids, what we
-        // really want is to have an instance of this class per grid collection, i.e.
+        // technically, while we use this struct to store data about grids, what we
+        // really want is to have an instance of this struct per grid collection, i.e.
         // all grids that are local to each other (connected by rotors or pistons).
-        // this is why it's a struct, not a class - so that several grids can share the
+        // this is why it's a class, not a struct - so that several grids can share the
         // same instance. it's a crude hack, but it works.
         public class GridData
         {
@@ -440,9 +443,7 @@ namespace SpaceEngineers
             public bool override_ship;
             public bool override_base;
         }
-        #endregion
 
-        #region GRAPH
         // grid graph edge class, represents a connection point between two grids.
         public class Edge<T>
         {
