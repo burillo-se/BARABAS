@@ -1660,19 +1660,6 @@ namespace SpaceEngineers
             // ships connected, so let's filter connectors
             filterLocalGrid<IMyShipConnector>(local_trash_connectors);
 
-            // notify user if there are old-style BARABAS Trash blocks
-            var blocks = new List<IMyTerminalBlock>();
-            GridTerminalSystem.SearchBlocksOfName("BARABAS Trash", blocks, localGridFilter);
-
-            foreach (var b in blocks)
-            {
-                if (!local_trash_connectors.Contains(b))
-                {
-                    b.CustomName = b.CustomName + " [BARABAS: Deprecated]";
-                    b.ShowOnHUD = true;
-                }
-            }
-
             // if we still have no trash connectors, use the first one available
             if (local_trash_connectors.Count == 0 && getConnectors().Count > 0)
             {
@@ -1703,19 +1690,6 @@ namespace SpaceEngineers
             // we may find multiple Trash groups, as we may have a BARABAS-driven
             // ships connected, so let's filter sensors
             filterLocalGrid<IMySensorBlock>(local_trash_sensors);
-
-            // notify user if there are old-style BARABAS trash sensors
-            var blocks = new List<IMyTerminalBlock>();
-            GridTerminalSystem.SearchBlocksOfName("BARABAS Trash Sensor", blocks, localGridFilter);
-
-            foreach (var b in blocks)
-            {
-                if (!local_trash_sensors.Contains(b))
-                {
-                    b.CustomName = b.CustomName + " [BARABAS: Deprecated]";
-                    b.ShowOnHUD = true;
-                }
-            }
 
             return local_trash_sensors;
         }
