@@ -2682,7 +2682,7 @@ namespace SpaceEngineers
 
                         // send one and check load
                         float old_vol = (float)dst_inv.CurrentVolume * 1000;
-                        if (!Transfer(w, 0, c, 0, j, null, true, (VRage.MyFixedPoint)1))
+                        if (!Transfer(c, 0, w, 0, j, null, true, (VRage.MyFixedPoint)1))
                         {
                             continue;
                         }
