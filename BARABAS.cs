@@ -449,18 +449,18 @@ namespace SpaceEngineers
 
         // thrust block definitions
         Dictionary<string, float> thrust_power = new Dictionary<string, float>() {
-            { "MyObjectBuilder_Thrust/SmallBlockSmallThrust", 33.6F },
-            { "MyObjectBuilder_Thrust/SmallBlockLargeThrust", 400 },
-            { "MyObjectBuilder_Thrust/LargeBlockSmallThrust", 560 },
-            { "MyObjectBuilder_Thrust/LargeBlockLargeThrust", 6720 },
-            { "MyObjectBuilder_Thrust/SmallBlockSmallHydrogenThrust", 0 },
-            { "MyObjectBuilder_Thrust/SmallBlockLargeHydrogenThrust", 0 },
-            { "MyObjectBuilder_Thrust/LargeBlockSmallHydrogenThrust", 0 },
-            { "MyObjectBuilder_Thrust/LargeBlockLargeHydrogenThrust", 0 },
-            { "MyObjectBuilder_Thrust/SmallBlockSmallAtmosphericThrust", 700 },
-            { "MyObjectBuilder_Thrust/SmallBlockLargeAtmosphericThrust", 2400 },
-            { "MyObjectBuilder_Thrust/LargeBlockSmallAtmosphericThrust", 2360 },
-            { "MyObjectBuilder_Thrust/LargeBlockLargeAtmosphericThrust", 16360 }
+            { "SmallBlockSmallThrust", 33.6F },
+            { "SmallBlockLargeThrust", 400 },
+            { "LargeBlockSmallThrust", 560 },
+            { "LargeBlockLargeThrust", 6720 },
+            { "SmallBlockSmallHydrogenThrust", 0 },
+            { "SmallBlockLargeHydrogenThrust", 0 },
+            { "LargeBlockSmallHydrogenThrust", 0 },
+            { "LargeBlockLargeHydrogenThrust", 0 },
+            { "SmallBlockSmallAtmosphericThrust", 700 },
+            { "SmallBlockLargeAtmosphericThrust", 2400 },
+            { "LargeBlockSmallAtmosphericThrust", 2360 },
+            { "LargeBlockLargeAtmosphericThrust", 16360 }
         };
 
         // power constants - in kWatts
@@ -1336,7 +1336,7 @@ namespace SpaceEngineers
                 else if (b is IMyRefinery)
                 {
                     // refineries and furnaces are of the same type, but differ in definitions
-                    if (b.BlockDefinition.ToString().Contains("LargeRefinery"))
+                    if (b.BlockDefinition.SubtypeName.Contains("LargeRefinery"))
                     {
                         local_refineries.Add(b);
                     }
@@ -1388,7 +1388,7 @@ namespace SpaceEngineers
                 else if (b is IMyGasTank)
                 {
                     // oxygen and hydrogen tanks are of the same type, but differ in definitions
-                    if (b.BlockDefinition.ToString().Contains("Hydrogen"))
+                    if (b.BlockDefinition.SubtypeName.Contains("Hydrogen"))
                     {
                         local_hydrogen_tanks.Add(b);
                     }
@@ -1672,9 +1672,9 @@ namespace SpaceEngineers
                     continue;
                 }
 
-                bool sz = b.BlockDefinition.ToString().Contains("Large");
+                bool sz = b.BlockDefinition.SubtypeName.Contains("Large");
 
-                if (b.BlockDefinition.ToString().Contains("Hydrogen"))
+                if (b.BlockDefinition.SubtypeName.Contains("Hydrogen"))
                 {
                     h_level += (float) b.FilledRatio * (sz ? 2500000 : 40000);
                 }
@@ -2912,7 +2912,7 @@ namespace SpaceEngineers
                 // if this is a thruster
                 if (b is IMyThrust)
                 {
-                    var typename = b.BlockDefinition.ToString();
+                    var typename = b.BlockDefinition.SubtypeName;
                     float thrust_draw;
                     bool found = thrust_power.TryGetValue(typename, out thrust_draw);
                     if (found)
@@ -4396,20 +4396,20 @@ namespace SpaceEngineers
             {
                 config_options[CONFIGSTR_OP_MODE] = "tug";
             }
-            config_options[CONFIGSTR_HUD_NOTIFICATIONS] = Convert.ToString(hud_notifications);
+            config_options[CONFIGSTR_HUD_NOTIFICATIONS] = hud_notifications.ToString();
             config_options[CONFIGSTR_POWER_WATERMARKS] = getWatermarkStr(power_low_watermark, power_high_watermark);
             if (isShipMode())
             {
-                config_options[CONFIGSTR_PUSH_ORE] = Convert.ToString(push_ore_to_base);
-                config_options[CONFIGSTR_PUSH_INGOTS] = Convert.ToString(push_ingots_to_base);
-                config_options[CONFIGSTR_PUSH_COMPONENTS] = Convert.ToString(push_components_to_base);
-                config_options[CONFIGSTR_PULL_ORE] = Convert.ToString(pull_ore_from_base);
-                config_options[CONFIGSTR_PULL_INGOTS] = Convert.ToString(pull_ingots_from_base);
-                config_options[CONFIGSTR_PULL_COMPONENTS] = Convert.ToString(pull_components_from_base);
-                config_options[CONFIGSTR_REFUEL_OXYGEN] = Convert.ToString(refuel_oxygen);
-                config_options[CONFIGSTR_REFUEL_HYDROGEN] = Convert.ToString(refuel_hydrogen);
+                config_options[CONFIGSTR_PUSH_ORE] = push_ore_to_base.ToString();
+                config_options[CONFIGSTR_PUSH_INGOTS] = push_ingots_to_base.ToString();
+                config_options[CONFIGSTR_PUSH_COMPONENTS] = push_components_to_base.ToString();
+                config_options[CONFIGSTR_PULL_ORE] = pull_ore_from_base.ToString();
+                config_options[CONFIGSTR_PULL_INGOTS] = pull_ingots_from_base.ToString();
+                config_options[CONFIGSTR_PULL_COMPONENTS] = pull_components_from_base.ToString();
+                config_options[CONFIGSTR_REFUEL_OXYGEN] = refuel_oxygen.ToString();
+                config_options[CONFIGSTR_REFUEL_HYDROGEN] = refuel_hydrogen.ToString();
             }
-            config_options[CONFIGSTR_SORT_STORAGE] = Convert.ToString(sort_storage);
+            config_options[CONFIGSTR_SORT_STORAGE] = sort_storage.ToString();
             if (throw_out_stone)
             {
                 if (material_thresholds[STONE] == 0)
@@ -4418,7 +4418,7 @@ namespace SpaceEngineers
                 }
                 else
                 {
-                    config_options[CONFIGSTR_KEEP_STONE] = Convert.ToString(Math.Floor((material_thresholds[STONE] * 5) / 1000));
+                    config_options[CONFIGSTR_KEEP_STONE] = Math.Floor((material_thresholds[STONE] * 5) / 1000).ToString();
                 }
             }
             else
@@ -4427,7 +4427,7 @@ namespace SpaceEngineers
             }
             config_options[CONFIGSTR_OXYGEN_WATERMARKS] = String.Format("{0}", oxygen_high_watermark >= 0 ? getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark) : "none");
             config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = String.Format("{0}", hydrogen_high_watermark >= 0 ? getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark) : "none");
-            config_options[CONFIGSTR_GREEN_MODE] = Convert.ToString(green_mode);
+            config_options[CONFIGSTR_GREEN_MODE] = green_mode.ToString();
             config_options[CONFIGSTR_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", update_period);
 
             // currently selected operation mode
@@ -5357,17 +5357,17 @@ namespace SpaceEngineers
                         }
                         else
                         {
-                            time_str = Convert.ToString(time) + " d";
+                            time_str = time.ToString() + " d";
                         }
                     }
                     else
                     {
-                        time_str = Convert.ToString(time) + " h";
+                        time_str = time.ToString() + " h";
                     }
                 }
                 else
                 {
-                    time_str = Convert.ToString(time) + " m";
+                    time_str = time.ToString() + " m";
                 }
                 string max_str = String.Format("{0:0.0}%", max_pwr_draw / max_pwr_output * 100);
                 string cur_str = String.Format("{0:0.0}%", adjusted_pwr_draw / max_pwr_output * 100);
@@ -5915,7 +5915,7 @@ namespace SpaceEngineers
             }
 
             // determine grid size
-            var bd = Me.BlockDefinition.ToString();
+            var bd = Me.BlockDefinition.SubtypeName;
             large_grid = bd.Contains("Large");
 
             Me.ShowOnHUD = false;
