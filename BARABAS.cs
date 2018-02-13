@@ -255,6 +255,56 @@ namespace SpaceEngineers
         readonly Dictionary<string, float> storage_ore_status;
         readonly Dictionary<string, float> storage_ingot_status;
 
+        HashSet<string> assembler_ingots;
+
+        // material lists for all ingots used by any production items
+        readonly Dictionary<string, List<string>> production_item_ingots = new Dictionary<string, List<string>>
+        {
+            {"DetectorComponent", new List<string> { IRON, NICKEL } },
+            {"BulletproofGlass", new List<string> { SILICON } },
+            {"Canvas", new List<string> { IRON, SILICON } },
+            {"ComputerComponent", new List<string> { IRON, SILICON } },
+            {"ConstructionComponent", new List<string> { IRON } },
+            {"Display", new List<string> { IRON, SILICON } },
+            {"ExplosivesComponent", new List<string> { MAGNESIUM, SILICON } },
+            {"GirderComponent", new List<string> { IRON } },
+            {"GravityGeneratorComponent", new List<string> { COBALT, GOLD, IRON, SILVER } },
+            {"InteriorPlate", new List<string> { IRON } },
+            {"MotorComponent", new List<string> { IRON, NICKEL } },
+            {"Missile200mm", new List<string> { IRON, MAGNESIUM, NICKEL, PLATINUM, SILICON, URANIUM } },
+            {"MetalGrid", new List<string> { COBALT, IRON, NICKEL } },
+            {"MedicalComponent", new List<string> { IRON, NICKEL, SILVER } },
+            {"LargeTube", new List<string> { IRON } },
+            {"NATO_25x184mmMagazine", new List<string> { IRON, MAGNESIUM, NICKEL } },
+            {"NATO_5p56x45mmMagazine", new List<string> { IRON, MAGNESIUM, NICKEL } },
+            {"PowerCell", new List<string> { IRON, NICKEL, SILICON } },
+            {"RadioCommunicationComponent", new List<string> { IRON, SILICON } },
+            {"ReactorComponent", new List<string> { STONE, IRON, SILVER } },
+            {"ThrustComponent", new List<string> { COBALT, GOLD, IRON, PLATINUM } },
+            {"Superconductor", new List<string> { GOLD, IRON } },
+            {"SteelPlate", new List<string> { IRON } },
+            {"SolarCell", new List<string> { NICKEL, SILICON } },
+            {"SmallTube", new List<string> { IRON } },
+            {"AngleGrinder", new List<string> { COBALT, IRON, NICKEL, SILICON } },
+            {"AngleGrinder2", new List<string> { COBALT, IRON, NICKEL, SILICON } },
+            {"AngleGrinder3", new List<string> { COBALT, IRON, NICKEL, SILICON, SILVER } },
+            {"AngleGrinder4", new List<string> { COBALT, IRON, NICKEL, SILICON, PLATINUM } },
+            {"AutomaticRifle", new List<string> { IRON, NICKEL } },
+            {"HydrogenBottle", new List<string> { IRON, NICKEL, SILVER } },
+            {"HandDrill4", new List<string> { IRON, NICKEL, PLATINUM, SILICON } },
+            {"HandDrill3", new List<string> { IRON, NICKEL, SILVER, SILICON } },
+            {"HandDrill2", new List<string> { IRON, NICKEL, SILICON } },
+            {"HandDrill", new List<string> { IRON, NICKEL, SILICON } },
+            {"OxygenBottle", new List<string> { IRON, NICKEL, SILVER } },
+            {"PreciseAutomaticRifle", new List<string> { IRON, NICKEL, COBALT } },
+            {"RapidFireAutomaticRifle", new List<string> { IRON, NICKEL } },
+            {"UltimateAutomaticRifle", new List<string> { IRON, NICKEL, PLATINUM, SILVER } },
+            {"Welder", new List<string> { COBALT, IRON, NICKEL } },
+            {"Welder4", new List<string> { COBALT, IRON, NICKEL, PLATINUM } },
+            {"Welder3", new List<string> { COBALT, IRON, NICKEL, SILVER } },
+            {"Welder2", new List<string> { COBALT, IRON, NICKEL, SILICON } },
+        };
+
         /* local data storage, updated once every few cycles */
         List<IMyTerminalBlock> local_blocks = null;
         List<IMyTerminalBlock> local_reactors = null;
@@ -3468,19 +3518,23 @@ namespace SpaceEngineers
                     continue;
                 }
                 bool arc = arc_furnace_ores.Contains(ore);
-                if (low_wm_ore == null && storage_ingot_status[ore] < material_thresholds[ore] && ore_status[ore] > 0)
+                bool isLowWatermark = storage_ingot_status[ore] < material_thresholds[ore] && ore_status[ore] > 0;
+                bool isHighWatermark = storage_ingot_status[ore] < (material_thresholds[ore] * 5) && ore_status[ore] > 0;
+                bool overrideLowWatermark = isLowWatermark && assembler_ingots.Contains(ore);
+                bool overrideHighWatermark = isHighWatermark && assembler_ingots.Contains(ore);
+                if ((low_wm_ore == null && isLowWatermark) || overrideLowWatermark)
                 {
                     low_wm_ore = ore;
                 }
-                else if (high_wm_ore == null && storage_ingot_status[ore] < (material_thresholds[ore] * 5) && ore_status[ore] > 0)
+                else if ((high_wm_ore == null && isHighWatermark) || overrideHighWatermark)
                 {
                     high_wm_ore = ore;
                 }
-                if (arc && low_wm_arc_ore == null && storage_ingot_status[ore] < material_thresholds[ore] && ore_status[ore] > 0)
+                if (arc && (low_wm_arc_ore == null && isLowWatermark) || overrideLowWatermark)
                 {
                     low_wm_arc_ore = ore;
                 }
-                else if (arc && high_wm_arc_ore == null && storage_ingot_status[ore] < (material_thresholds[ore] * 5) && ore_status[ore] > 0)
+                else if (arc && (high_wm_arc_ore == null && isHighWatermark) || overrideHighWatermark)
                 {
                     high_wm_arc_ore = ore;
                 }
@@ -5539,9 +5593,13 @@ namespace SpaceEngineers
                 ingot_status[ore] = 0;
                 storage_ingot_status[ore] = 0;
             }
+            assembler_ingots = new HashSet<string>();
+
             var blocks = getBlocks();
             foreach (var b in blocks)
             {
+                bool isAssembler = b is IMyAssembler;
+
                 for (int j = 0; j < b.InventoryCount; j++)
                 {
                     var inv = b.GetInventory(j);
@@ -5577,6 +5635,27 @@ namespace SpaceEngineers
                                 uranium_in_reactors += amount;
                             }
                         }
+                    }
+                }
+                if (isAssembler)
+                {
+                    // add all ore that's needed in assembler to the list
+                    var a = b as IMyAssembler;
+
+                    var pq = new List<MyProductionItem>();
+                    a.GetQueue(pq);
+
+                    // count first three items, no need to count everything
+                    int i = 0;
+                    foreach (var pi in pq)
+                    {
+                        var ingot_list = production_item_ingots[pi.BlueprintId.SubtypeName];
+                        foreach (var ingot in ingot_list)
+                        {
+                            assembler_ingots.Add(ingot);
+                        }
+                        if (++i == 3)
+                            break;
                     }
                 }
             }
