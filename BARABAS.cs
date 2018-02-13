@@ -125,40 +125,40 @@ namespace SpaceEngineers
         int update_counter_max;
         
         // config options
-        const string CONFIGSTR_OP_MODE = "mode";
-        const string CONFIGSTR_POWER_WATERMARKS = "power watermarks";
-        const string CONFIGSTR_PUSH_ORE = "push ore to base";
-        const string CONFIGSTR_PUSH_INGOTS = "push ingots to base";
-        const string CONFIGSTR_PUSH_COMPONENTS = "push components to base";
-        const string CONFIGSTR_PULL_ORE = "pull ore from base";
-        const string CONFIGSTR_PULL_INGOTS = "pull ingots from base";
-        const string CONFIGSTR_PULL_COMPONENTS = "pull components from base";
-        const string CONFIGSTR_KEEP_STONE = "keep stone";
-        const string CONFIGSTR_SORT_STORAGE = "sort storage";
-        const string CONFIGSTR_HUD_NOTIFICATIONS = "HUD notifications";
-        const string CONFIGSTR_OXYGEN_WATERMARKS = "oxygen watermarks";
-        const string CONFIGSTR_HYDROGEN_WATERMARKS = "hydrogen watermarks";
-        const string CONFIGSTR_REFUEL_OXYGEN = "refuel oxygen";
-        const string CONFIGSTR_REFUEL_HYDROGEN = "refuel hydrogen";
-        const string CONFIGSTR_UPDATE_PERIOD = "update period";
-        const string CONFIGSTR_GREEN_MODE = "green mode";
+        const string CS_OP_MODE = "mode";
+        const string CS_POWER_WATERMARKS = "power watermarks";
+        const string CS_PUSH_ORE = "push ore to base";
+        const string CS_PUSH_INGOTS = "push ingots to base";
+        const string CS_PUSH_COMPONENTS = "push components to base";
+        const string CS_PULL_ORE = "pull ore from base";
+        const string CS_PULL_INGOTS = "pull ingots from base";
+        const string CS_PULL_COMPONENTS = "pull components from base";
+        const string CS_KEEP_STONE = "keep stone";
+        const string CS_SORT_STORAGE = "sort storage";
+        const string CS_HUD_NOTIFICATIONS = "HUD notifications";
+        const string CS_OXYGEN_WATERMARKS = "oxygen watermarks";
+        const string CS_HYDROGEN_WATERMARKS = "hydrogen watermarks";
+        const string CS_REFUEL_OXYGEN = "refuel oxygen";
+        const string CS_REFUEL_HYDROGEN = "refuel hydrogen";
+        const string CS_UPDATE_PERIOD = "update period";
+        const string CS_GREEN_MODE = "green mode";
 
         // ore_volume
         const float VOLUME_ORE = 0.37F;
         const float VOLUME_SCRAP = 0.254F;
 
         // ore names
-        const string COBALT = "Cobalt";
-        const string GOLD = "Gold";
+        const string CO = "Cobalt";
+        const string AU = "Gold";
         const string STONE = "Stone";
         const string ICE = "Ice";
-        const string IRON = "Iron";
-        const string MAGNESIUM = "Magnesium";
-        const string NICKEL = "Nickel";
-        const string PLATINUM = "Platinum";
-        const string SILICON = "Silicon";
-        const string SILVER = "Silver";
-        const string URANIUM = "Uranium";
+        const string FE = "Iron";
+        const string MG = "Magnesium";
+        const string NI = "Nickel";
+        const string PT = "Platinum";
+        const string SI = "Silicon";
+        const string AG = "Silver";
+        const string U = "Uranium";
         const string SCRAP = "Scrap";
 
         // status items
@@ -173,23 +173,23 @@ namespace SpaceEngineers
 
         // config options, caseless dictionary
         readonly Dictionary<string, string> config_options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
-            { CONFIGSTR_OP_MODE, "" },
-            { CONFIGSTR_HUD_NOTIFICATIONS, "" },
-            { CONFIGSTR_POWER_WATERMARKS, "" },
-            { CONFIGSTR_OXYGEN_WATERMARKS, "" },
-            { CONFIGSTR_HYDROGEN_WATERMARKS, "" },
-            { CONFIGSTR_REFUEL_OXYGEN, "" },
-            { CONFIGSTR_REFUEL_HYDROGEN, "" },
-            { CONFIGSTR_PUSH_ORE, "" },
-            { CONFIGSTR_PUSH_INGOTS, "" },
-            { CONFIGSTR_PUSH_COMPONENTS, "" },
-            { CONFIGSTR_PULL_ORE, "" },
-            { CONFIGSTR_PULL_INGOTS, "" },
-            { CONFIGSTR_PULL_COMPONENTS, "" },
-            { CONFIGSTR_KEEP_STONE, "" },
-            { CONFIGSTR_SORT_STORAGE, "" },
-            { CONFIGSTR_UPDATE_PERIOD, "" },
-            { CONFIGSTR_GREEN_MODE, "" },
+            { CS_OP_MODE, "" },
+            { CS_HUD_NOTIFICATIONS, "" },
+            { CS_POWER_WATERMARKS, "" },
+            { CS_OXYGEN_WATERMARKS, "" },
+            { CS_HYDROGEN_WATERMARKS, "" },
+            { CS_REFUEL_OXYGEN, "" },
+            { CS_REFUEL_HYDROGEN, "" },
+            { CS_PUSH_ORE, "" },
+            { CS_PUSH_INGOTS, "" },
+            { CS_PUSH_COMPONENTS, "" },
+            { CS_PULL_ORE, "" },
+            { CS_PULL_INGOTS, "" },
+            { CS_PULL_COMPONENTS, "" },
+            { CS_KEEP_STONE, "" },
+            { CS_SORT_STORAGE, "" },
+            { CS_UPDATE_PERIOD, "" },
+            { CS_GREEN_MODE, "" },
         };
 
         // status report fields
@@ -203,52 +203,52 @@ namespace SpaceEngineers
         };
 
         readonly List<string> ore_types = new List<string> {
-            COBALT, GOLD, IRON, MAGNESIUM, NICKEL, PLATINUM, SILICON, SILVER, URANIUM, STONE, ICE
+            CO, AU, FE, MG, NI, PT, SI, AG, U, STONE, ICE
         };
 
         readonly List<string> arc_furnace_ores = new List<string> {
-            COBALT, IRON, NICKEL
+            CO, FE, NI
         };
 
         // ballpark values of "just enough" for each material
         readonly Dictionary<string, float> material_thresholds = new Dictionary<string, float> {
-            { COBALT, 500 },
-            { GOLD, 100 },
-            { IRON, 5000 },
-            { MAGNESIUM, 100 },
-            { NICKEL, 1000 },
-            { PLATINUM, 10 },
-            { SILICON, 1000 },
-            { SILVER, 1000 },
-            { URANIUM, 10 },
+            { CO, 500 },
+            { AU, 100 },
+            { FE, 5000 },
+            { MG, 100 },
+            { NI, 1000 },
+            { PT, 10 },
+            { SI, 1000 },
+            { AG, 1000 },
+            { U, 10 },
             { STONE, 5000 },
         };
 
         readonly Dictionary<string, float> ore_to_ingot_ratios = new Dictionary<string, float> {
-            { COBALT, 0.24F },
-            { GOLD, 0.008F },
-            { IRON, 0.56F },
-            { MAGNESIUM, 0.0056F },
-            { NICKEL, 0.32F },
-            { PLATINUM, 0.004F },
-            { SILICON, 0.56F },
-            { SILVER, 0.08F },
-            { URANIUM, 0.0056F },
+            { CO, 0.24F },
+            { AU, 0.008F },
+            { FE, 0.56F },
+            { MG, 0.0056F },
+            { NI, 0.32F },
+            { PT, 0.004F },
+            { SI, 0.56F },
+            { AG, 0.08F },
+            { U, 0.0056F },
             { STONE, 0.72F }
         };
 
         // statuses for ore and ingots
         readonly Dictionary<string, float> ore_status = new Dictionary<string, float> {
-            { COBALT, 0 },
-            { GOLD, 0 },
+            { CO, 0 },
+            { AU, 0 },
             { ICE, 0 },
-            { IRON, 0 },
-            { MAGNESIUM, 0 },
-            { NICKEL, 0 },
-            { PLATINUM, 0 },
-            { SILICON, 0 },
-            { SILVER, 0 },
-            { URANIUM, 0 },
+            { FE, 0 },
+            { MG, 0 },
+            { NI, 0 },
+            { PT, 0 },
+            { SI, 0 },
+            { AG, 0 },
+            { U, 0 },
             { STONE, 0 },
         };
         readonly Dictionary<string, float> ingot_status;
@@ -260,49 +260,49 @@ namespace SpaceEngineers
         // material lists for all ingots used by any production items
         readonly Dictionary<string, List<string>> production_item_ingots = new Dictionary<string, List<string>>
         {
-            {"DetectorComponent", new List<string> { IRON, NICKEL } },
-            {"BulletproofGlass", new List<string> { SILICON } },
-            {"Canvas", new List<string> { IRON, SILICON } },
-            {"ComputerComponent", new List<string> { IRON, SILICON } },
-            {"ConstructionComponent", new List<string> { IRON } },
-            {"Display", new List<string> { IRON, SILICON } },
-            {"ExplosivesComponent", new List<string> { MAGNESIUM, SILICON } },
-            {"GirderComponent", new List<string> { IRON } },
-            {"GravityGeneratorComponent", new List<string> { COBALT, GOLD, IRON, SILVER } },
-            {"InteriorPlate", new List<string> { IRON } },
-            {"MotorComponent", new List<string> { IRON, NICKEL } },
-            {"Missile200mm", new List<string> { IRON, MAGNESIUM, NICKEL, PLATINUM, SILICON, URANIUM } },
-            {"MetalGrid", new List<string> { COBALT, IRON, NICKEL } },
-            {"MedicalComponent", new List<string> { IRON, NICKEL, SILVER } },
-            {"LargeTube", new List<string> { IRON } },
-            {"NATO_25x184mmMagazine", new List<string> { IRON, MAGNESIUM, NICKEL } },
-            {"NATO_5p56x45mmMagazine", new List<string> { IRON, MAGNESIUM, NICKEL } },
-            {"PowerCell", new List<string> { IRON, NICKEL, SILICON } },
-            {"RadioCommunicationComponent", new List<string> { IRON, SILICON } },
-            {"ReactorComponent", new List<string> { STONE, IRON, SILVER } },
-            {"ThrustComponent", new List<string> { COBALT, GOLD, IRON, PLATINUM } },
-            {"Superconductor", new List<string> { GOLD, IRON } },
-            {"SteelPlate", new List<string> { IRON } },
-            {"SolarCell", new List<string> { NICKEL, SILICON } },
-            {"SmallTube", new List<string> { IRON } },
-            {"AngleGrinder", new List<string> { COBALT, IRON, NICKEL, SILICON } },
-            {"AngleGrinder2", new List<string> { COBALT, IRON, NICKEL, SILICON } },
-            {"AngleGrinder3", new List<string> { COBALT, IRON, NICKEL, SILICON, SILVER } },
-            {"AngleGrinder4", new List<string> { COBALT, IRON, NICKEL, SILICON, PLATINUM } },
-            {"AutomaticRifle", new List<string> { IRON, NICKEL } },
-            {"HydrogenBottle", new List<string> { IRON, NICKEL, SILVER } },
-            {"HandDrill4", new List<string> { IRON, NICKEL, PLATINUM, SILICON } },
-            {"HandDrill3", new List<string> { IRON, NICKEL, SILVER, SILICON } },
-            {"HandDrill2", new List<string> { IRON, NICKEL, SILICON } },
-            {"HandDrill", new List<string> { IRON, NICKEL, SILICON } },
-            {"OxygenBottle", new List<string> { IRON, NICKEL, SILVER } },
-            {"PreciseAutomaticRifle", new List<string> { IRON, NICKEL, COBALT } },
-            {"RapidFireAutomaticRifle", new List<string> { IRON, NICKEL } },
-            {"UltimateAutomaticRifle", new List<string> { IRON, NICKEL, PLATINUM, SILVER } },
-            {"Welder", new List<string> { COBALT, IRON, NICKEL } },
-            {"Welder4", new List<string> { COBALT, IRON, NICKEL, PLATINUM } },
-            {"Welder3", new List<string> { COBALT, IRON, NICKEL, SILVER } },
-            {"Welder2", new List<string> { COBALT, IRON, NICKEL, SILICON } },
+            {"DetectorComponent", new List<string> { FE, NI } },
+            {"BulletproofGlass", new List<string> { SI } },
+            {"Canvas", new List<string> { FE, SI } },
+            {"ComputerComponent", new List<string> { FE, SI } },
+            {"ConstructionComponent", new List<string> { FE } },
+            {"Display", new List<string> { FE, SI } },
+            {"ExplosivesComponent", new List<string> { MG, SI } },
+            {"GirderComponent", new List<string> { FE } },
+            {"GravityGeneratorComponent", new List<string> { CO, AU, FE, AG } },
+            {"InteriorPlate", new List<string> { FE } },
+            {"MotorComponent", new List<string> { FE, NI } },
+            {"Missile200mm", new List<string> { FE, MG, NI, PT, SI, U } },
+            {"MetalGrid", new List<string> { CO, FE, NI } },
+            {"MedicalComponent", new List<string> { FE, NI, AG } },
+            {"LargeTube", new List<string> { FE } },
+            {"NATO_25x184mmMagazine", new List<string> { FE, MG, NI } },
+            {"NATO_5p56x45mmMagazine", new List<string> { FE, MG, NI } },
+            {"PowerCell", new List<string> { FE, NI, SI } },
+            {"RadioCommunicationComponent", new List<string> { FE, SI } },
+            {"ReactorComponent", new List<string> { STONE, FE, AG } },
+            {"ThrustComponent", new List<string> { CO, AU, FE, PT } },
+            {"Superconductor", new List<string> { AU, FE } },
+            {"SteelPlate", new List<string> { FE } },
+            {"SolarCell", new List<string> { NI, SI } },
+            {"SmallTube", new List<string> { FE } },
+            {"AngleGrinder", new List<string> { CO, FE, NI, SI } },
+            {"AngleGrinder2", new List<string> { CO, FE, NI, SI } },
+            {"AngleGrinder3", new List<string> { CO, FE, NI, SI, AG } },
+            {"AngleGrinder4", new List<string> { CO, FE, NI, SI, PT } },
+            {"AutomaticRifle", new List<string> { FE, NI } },
+            {"HydrogenBottle", new List<string> { FE, NI, AG } },
+            {"HandDrill4", new List<string> { FE, NI, PT, SI } },
+            {"HandDrill3", new List<string> { FE, NI, AG, SI } },
+            {"HandDrill2", new List<string> { FE, NI, SI } },
+            {"HandDrill", new List<string> { FE, NI, SI } },
+            {"OxygenBottle", new List<string> { FE, NI, AG } },
+            {"PreciseAutomaticRifle", new List<string> { FE, NI, CO } },
+            {"RapidFireAutomaticRifle", new List<string> { FE, NI } },
+            {"UltimateAutomaticRifle", new List<string> { FE, NI, PT, AG } },
+            {"Welder", new List<string> { CO, FE, NI } },
+            {"Welder4", new List<string> { CO, FE, NI, PT } },
+            {"Welder3", new List<string> { CO, FE, NI, AG } },
+            {"Welder2", new List<string> { CO, FE, NI, SI } },
         };
 
         /* local data storage, updated once every few cycles */
@@ -769,7 +769,7 @@ namespace SpaceEngineers
          * Grid and block functions
          */
         // filter blocks by type and locality
-        public void filterLocalGrid<T>(List<IMyTerminalBlock> blocks, bool ignore_exclude = false)
+        void filterLocalGrid<T>(List<IMyTerminalBlock> blocks, bool ignore_exclude = false)
         {
             var grids = getLocalGrids();
             for (int i = blocks.Count - 1; i >= 0; i--)
@@ -833,7 +833,7 @@ namespace SpaceEngineers
             }
 
             // randomize the list
-            Random rng = new Random();
+            var rng = new Random();
             for (int i = 0; i < r_idx.Count; i++)
             {
                 r_idx.Swap(i, rng.Next(0, r_idx.Count));
@@ -1834,7 +1834,7 @@ namespace SpaceEngineers
         // get all ingots residing in storage
         List<ItemHelper> getAllStorageOre(string name = null)
         {
-            List<ItemHelper> list = new List<ItemHelper>();
+            var list = new List<ItemHelper>();
             var blocks = getStorage();
             foreach (var b in blocks)
             {
@@ -1845,7 +1845,7 @@ namespace SpaceEngineers
 
         List<ItemHelper> getAllStorageIngots(string name = null)
         {
-            List<ItemHelper> list = new List<ItemHelper>();
+            var list = new List<ItemHelper>();
             var blocks = getStorage();
             foreach (var b in blocks)
             {
@@ -1895,7 +1895,7 @@ namespace SpaceEngineers
          */
         void consolidate(IMyInventory inv)
         {
-            Dictionary<string, int> posmap = new Dictionary<string, int>();
+            var posmap = new Dictionary<string, int>();
             var items = inv.GetItems();
             bool needs_consolidation = false;
             // go through all items and note the first time they appear in the inventory
@@ -2560,7 +2560,7 @@ namespace SpaceEngineers
                     if (isIngot(i))
                     {
                         var t = i.Content.SubtypeName;
-                        if (t != URANIUM && push_ingots_to_base)
+                        if (t != U && push_ingots_to_base)
                         {
                             pushToRemoteStorage(c, 0, j, null);
                         }
@@ -2595,11 +2595,11 @@ namespace SpaceEngineers
                     {
                         var type = i.Content.SubtypeName;
                         // don't take all uranium from base
-                        if (type == URANIUM && auto_refuel_ship && !powerAboveHighWatermark())
+                        if (type == U && auto_refuel_ship && !powerAboveHighWatermark())
                         {
                             pushToStorage(c, 0, j, (VRage.MyFixedPoint)Math.Min(0.5F, (float)i.Amount));
                         }
-                        else if (type != URANIUM && pull_ingots_from_base)
+                        else if (type != U && pull_ingots_from_base)
                         {
                             pushToStorage(c, 0, j, null);
                         }
@@ -2630,7 +2630,7 @@ namespace SpaceEngineers
                     if (isIngot(i))
                     {
                         var type = i.Content.SubtypeName;
-                        if (type != URANIUM && pull_ingots_from_base)
+                        if (type != U && pull_ingots_from_base)
                         {
                             pushToRemoteShipStorage(s, 0, j, null);
                         }
@@ -2662,7 +2662,7 @@ namespace SpaceEngineers
                     {
                         var type = i.Content.SubtypeName;
                         // don't take all uranium from base
-                        if (type != URANIUM && push_ingots_to_base)
+                        if (type != U && push_ingots_to_base)
                         {
                             pushToStorage(c, 0, j, null);
                         }
@@ -2863,7 +2863,7 @@ namespace SpaceEngineers
         {
             if (has_reactors)
             {
-                return URANIUM_INGOT_POWER * ingot_status[URANIUM];
+                return URANIUM_INGOT_POWER * ingot_status[U];
             }
             return 0;
         }
@@ -3067,7 +3067,7 @@ namespace SpaceEngineers
                 float r_proportion = reactor.MaxOutput * 1000 / getMaxReactorPowerOutput();
                 float r_power_draw = getMaxPowerDraw() * (r_proportion);
                 float ingots_per_reactor = getPowerHighWatermark(r_power_draw) / URANIUM_INGOT_POWER;
-                float ingots_in_reactor = getTotalIngots(reactor, 0, URANIUM);
+                float ingots_in_reactor = getTotalIngots(reactor, 0, U);
                 if ((ingots_in_reactor < ingots_per_reactor) || force)
                 {
                     // find us an ingot
@@ -3081,7 +3081,7 @@ namespace SpaceEngineers
                             for (int j = 0; j < items.Count; j++)
                             {
                                 var item = items[j];
-                                if (isIngot(item) && item.Content.SubtypeName == URANIUM)
+                                if (isIngot(item) && item.Content.SubtypeName == U)
                                 {
                                     ingot = new ItemHelper();
                                     ingot.InvIdx = 0;
@@ -3150,7 +3150,7 @@ namespace SpaceEngineers
                 {
                     consolidate(inv);
                 }
-                float ingots = getTotalIngots(r, 0, URANIUM);
+                float ingots = getTotalIngots(r, 0, U);
                 float r_power_draw = getMaxPowerDraw() *
                     ((r.MaxOutput * 1000) / (getMaxReactorPowerOutput() + getMaxBatteryPowerOutput()));
                 float ingots_per_reactor = getPowerHighWatermark(r_power_draw);
@@ -3427,7 +3427,7 @@ namespace SpaceEngineers
                 string ore = item.Item.Content.SubtypeName;
                 if (ore == SCRAP)
                 {
-                    ore = IRON;
+                    ore = FE;
                 }
                 // ice is preferably refined with oxygen generators, and only if we need to
                 if (ore == ICE)
@@ -3505,9 +3505,9 @@ namespace SpaceEngineers
             string high_wm_arc_ore = null;
 
             // if we know we want uranium, prioritize it
-            if (prioritize_uranium && ore_status[URANIUM] > 0)
+            if (prioritize_uranium && ore_status[U] > 0)
             {
-                low_wm_ore = URANIUM;
+                low_wm_ore = U;
             }
             // find us ore to prioritize (hi and low, regular and arc furnace)
             foreach (var ore in ore_types)
@@ -3547,8 +3547,7 @@ namespace SpaceEngineers
             if (high_wm_ore != null || low_wm_ore != null)
             {
                 var ore = low_wm_ore != null ? low_wm_ore : high_wm_ore;
-                List<IMyTerminalBlock> rs;
-                rs = getRefineries();
+                var rs = getRefineries();
                 foreach (var refinery in rs)
                 {
                     var inv = refinery.GetInventory(0);
@@ -3558,7 +3557,7 @@ namespace SpaceEngineers
                         var cur = items[j].Content.SubtypeName;
                         if (cur == SCRAP)
                         {
-                            cur = IRON;
+                            cur = FE;
                         }
                         if (cur != ore)
                         {
@@ -3573,8 +3572,7 @@ namespace SpaceEngineers
             if (high_wm_arc_ore != null || low_wm_arc_ore != null)
             {
                 var ore = low_wm_arc_ore != null ? low_wm_arc_ore : high_wm_arc_ore;
-                List<IMyTerminalBlock> rs;
-                rs = getArcFurnaces();
+                var rs = getArcFurnaces();
                 foreach (var refinery in rs)
                 {
                     var inv = refinery.GetInventory(0);
@@ -3584,7 +3582,7 @@ namespace SpaceEngineers
                         var cur = items[j].Content.SubtypeName;
                         if (cur == SCRAP)
                         {
-                            cur = IRON;
+                            cur = FE;
                         }
                         if (cur != ore)
                         {
@@ -3617,7 +3615,7 @@ namespace SpaceEngineers
         // go through a list of blocks and find most and least utilized
         RebalanceResult findMinMax(List<IMyTerminalBlock> blocks)
         {
-            RebalanceResult r = new RebalanceResult();
+            var r = new RebalanceResult();
             int minI = 0, maxI = 0, minAI = 0, maxAI = 0;
             float minL = float.MaxValue, maxL = 0, minAL = float.MaxValue, maxAL = 0;
 
@@ -3633,7 +3631,7 @@ namespace SpaceEngineers
                     var name = item.Content.SubtypeName;
                     if (name == SCRAP)
                     {
-                        name = IRON;
+                        name = FE;
                     }
                     if (arc_furnace_ores.Contains(name))
                     {
@@ -3729,7 +3727,7 @@ namespace SpaceEngineers
 
             // balance oxygen generators
             var ogs = getOxygenGenerators();
-            RebalanceResult oxyresult = findMinMax(ogs);
+            var oxyresult = findMinMax(ogs);
 
             if (oxyresult.maxLoad > 0)
             {
@@ -3745,8 +3743,8 @@ namespace SpaceEngineers
             // balance refineries and arc furnaces separately
             var rs = getRefineries();
             var furnaces = getArcFurnaces();
-            RebalanceResult refresult = findMinMax(rs);
-            RebalanceResult arcresult = findMinMax(furnaces);
+            var refresult = findMinMax(rs);
+            var arcresult = findMinMax(furnaces);
 
             if (refresult.maxLoad > 250)
             {
@@ -3822,7 +3820,7 @@ namespace SpaceEngineers
             foreach (var ore in ore_types)
             {
                 // skip uranium
-                if (ore == URANIUM)
+                if (ore == U)
                 {
                     continue;
                 }
@@ -4374,66 +4372,66 @@ namespace SpaceEngineers
 
             if (isBaseMode())
             {
-                config_options[CONFIGSTR_OP_MODE] = "base";
+                config_options[CS_OP_MODE] = "base";
             }
             else if (isGenericShipMode())
             {
-                config_options[CONFIGSTR_OP_MODE] = "ship";
+                config_options[CS_OP_MODE] = "ship";
             }
             else if (isDrillMode())
             {
-                config_options[CONFIGSTR_OP_MODE] = "drill";
+                config_options[CS_OP_MODE] = "drill";
             }
             else if (isWelderMode())
             {
-                config_options[CONFIGSTR_OP_MODE] = "welder";
+                config_options[CS_OP_MODE] = "welder";
             }
             else if (isGrinderMode())
             {
-                config_options[CONFIGSTR_OP_MODE] = "grinder";
+                config_options[CS_OP_MODE] = "grinder";
             }
             else if (isTugMode())
             {
-                config_options[CONFIGSTR_OP_MODE] = "tug";
+                config_options[CS_OP_MODE] = "tug";
             }
-            config_options[CONFIGSTR_HUD_NOTIFICATIONS] = hud_notifications.ToString();
-            config_options[CONFIGSTR_POWER_WATERMARKS] = getWatermarkStr(power_low_watermark, power_high_watermark);
+            config_options[CS_HUD_NOTIFICATIONS] = hud_notifications.ToString();
+            config_options[CS_POWER_WATERMARKS] = getWatermarkStr(power_low_watermark, power_high_watermark);
             if (isShipMode())
             {
-                config_options[CONFIGSTR_PUSH_ORE] = push_ore_to_base.ToString();
-                config_options[CONFIGSTR_PUSH_INGOTS] = push_ingots_to_base.ToString();
-                config_options[CONFIGSTR_PUSH_COMPONENTS] = push_components_to_base.ToString();
-                config_options[CONFIGSTR_PULL_ORE] = pull_ore_from_base.ToString();
-                config_options[CONFIGSTR_PULL_INGOTS] = pull_ingots_from_base.ToString();
-                config_options[CONFIGSTR_PULL_COMPONENTS] = pull_components_from_base.ToString();
-                config_options[CONFIGSTR_REFUEL_OXYGEN] = refuel_oxygen.ToString();
-                config_options[CONFIGSTR_REFUEL_HYDROGEN] = refuel_hydrogen.ToString();
+                config_options[CS_PUSH_ORE] = push_ore_to_base.ToString();
+                config_options[CS_PUSH_INGOTS] = push_ingots_to_base.ToString();
+                config_options[CS_PUSH_COMPONENTS] = push_components_to_base.ToString();
+                config_options[CS_PULL_ORE] = pull_ore_from_base.ToString();
+                config_options[CS_PULL_INGOTS] = pull_ingots_from_base.ToString();
+                config_options[CS_PULL_COMPONENTS] = pull_components_from_base.ToString();
+                config_options[CS_REFUEL_OXYGEN] = refuel_oxygen.ToString();
+                config_options[CS_REFUEL_HYDROGEN] = refuel_hydrogen.ToString();
             }
-            config_options[CONFIGSTR_SORT_STORAGE] = sort_storage.ToString();
+            config_options[CS_SORT_STORAGE] = sort_storage.ToString();
             if (throw_out_stone)
             {
                 if (material_thresholds[STONE] == 0)
                 {
-                    config_options[CONFIGSTR_KEEP_STONE] = "none";
+                    config_options[CS_KEEP_STONE] = "none";
                 }
                 else
                 {
-                    config_options[CONFIGSTR_KEEP_STONE] = Math.Floor((material_thresholds[STONE] * 5) / 1000).ToString();
+                    config_options[CS_KEEP_STONE] = Math.Floor((material_thresholds[STONE] * 5) / 1000).ToString();
                 }
             }
             else
             {
-                config_options[CONFIGSTR_KEEP_STONE] = "all";
+                config_options[CS_KEEP_STONE] = "all";
             }
-            config_options[CONFIGSTR_OXYGEN_WATERMARKS] = String.Format("{0}", oxygen_high_watermark >= 0 ? getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark) : "none");
-            config_options[CONFIGSTR_HYDROGEN_WATERMARKS] = String.Format("{0}", hydrogen_high_watermark >= 0 ? getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark) : "none");
-            config_options[CONFIGSTR_GREEN_MODE] = green_mode.ToString();
-            config_options[CONFIGSTR_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", update_period);
+            config_options[CS_OXYGEN_WATERMARKS] = String.Format("{0}", oxygen_high_watermark >= 0 ? getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark) : "none");
+            config_options[CS_HYDROGEN_WATERMARKS] = String.Format("{0}", hydrogen_high_watermark >= 0 ? getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark) : "none");
+            config_options[CS_GREEN_MODE] = green_mode.ToString();
+            config_options[CS_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", update_period);
 
             // currently selected operation mode
             sb.AppendLine("# Operation mode.");
             sb.AppendLine("# Can be auto, base, ship, tug, drill, welder or grinder.");
-            var key = CONFIGSTR_OP_MODE;
+            var key = CS_OP_MODE;
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
             sb.AppendLine("# Update period.");
@@ -4441,35 +4439,35 @@ namespace SpaceEngineers
             sb.AppendLine("# \"Trigger\" means the script won't run itself at all.");
             sb.AppendLine("# Number indicates how often the script will run itself.");
             sb.AppendLine("# For example, period of 0.5 will run script twice per second.");
-            key = CONFIGSTR_UPDATE_PERIOD;
+            key = CS_UPDATE_PERIOD;
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
             sb.AppendLine("# Green mode (do less work per iteration).");
             sb.AppendLine("# This will make BARABAS slower to react, but less sim-speed hungry.");
             sb.AppendLine("# Can be True or False.");
-            key = CONFIGSTR_GREEN_MODE;
+            key = CS_GREEN_MODE;
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
-            key = CONFIGSTR_HUD_NOTIFICATIONS;
+            key = CS_HUD_NOTIFICATIONS;
             sb.AppendLine("# HUD notifications for blocks and antennas.");
             sb.AppendLine("# Can be True or False.");
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
-            key = CONFIGSTR_POWER_WATERMARKS;
+            key = CS_POWER_WATERMARKS;
             sb.AppendLine("# Amount of power on batteries/reactors, in minutes.");
             sb.AppendLine("# Can be \"auto\", or two positive numbers.");
             sb.AppendLine("# First number is when to sound an alarm.");
             sb.AppendLine("# Second number is when to stop refueling.");
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
-            key = CONFIGSTR_OXYGEN_WATERMARKS;
+            key = CS_OXYGEN_WATERMARKS;
             sb.AppendLine("# Percentage of oxygen to keep.");
             sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 0 and 100.");
             sb.AppendLine("# First number is when to sound an alarm.");
             sb.AppendLine("# Second number is when to stop refining ice.");
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
-            key = CONFIGSTR_HYDROGEN_WATERMARKS;
+            key = CS_HYDROGEN_WATERMARKS;
             sb.AppendLine("# Percentage of hydrogen to keep.");
             sb.AppendLine("# Can be \"none\", \"auto\", or two numbers between 0 and 100.");
             sb.AppendLine("# First number is when to sound an alarm.");
@@ -4478,23 +4476,23 @@ namespace SpaceEngineers
             sb.AppendLine();
             if (isShipMode())
             {
-                key = CONFIGSTR_REFUEL_OXYGEN;
+                key = CS_REFUEL_OXYGEN;
                 sb.AppendLine("# Automatically refuel oxygen on connection.");
                 sb.AppendLine("# Can be True or False.");
                 sb.AppendLine(key + " = " + config_options[key]);
                 sb.AppendLine();
-                key = CONFIGSTR_REFUEL_HYDROGEN;
+                key = CS_REFUEL_HYDROGEN;
                 sb.AppendLine("# Automatically refuel hydrogen on connection.");
                 sb.AppendLine("# Can be True or False.");
                 sb.AppendLine(key + " = " + config_options[key]);
                 sb.AppendLine();
             }
-            key = CONFIGSTR_KEEP_STONE;
+            key = CS_KEEP_STONE;
             sb.AppendLine("# How much gravel to keep, in tons.");
             sb.AppendLine("# Can be a positive number, \"none\", \"all\" or \"auto\".");
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
-            key = CONFIGSTR_SORT_STORAGE;
+            key = CS_SORT_STORAGE;
             sb.AppendLine("# Automatically sort items in storage containers.");
             sb.AppendLine("# Can be True or False.");
             sb.AppendLine(key + " = " + config_options[key]);
@@ -4503,37 +4501,37 @@ namespace SpaceEngineers
             // these values only apply to ships
             if (isShipMode())
             {
-                key = CONFIGSTR_PUSH_ORE;
+                key = CS_PUSH_ORE;
                 sb.AppendLine("# Push ore to base storage.");
                 sb.AppendLine("# In tug mode, also pull ore from ships.");
                 sb.AppendLine("# Can be True or False.");
                 sb.AppendLine(key + " = " + config_options[key]);
                 sb.AppendLine();
-                key = CONFIGSTR_PUSH_INGOTS;
+                key = CS_PUSH_INGOTS;
                 sb.AppendLine("# Push ingots to base storage.");
                 sb.AppendLine("# In tug mode, also pull ingots from ships.");
                 sb.AppendLine("# Can be True or False.");
                 sb.AppendLine(key + " = " + config_options[key]);
                 sb.AppendLine();
-                key = CONFIGSTR_PUSH_COMPONENTS;
+                key = CS_PUSH_COMPONENTS;
                 sb.AppendLine("# Push components to base storage.");
                 sb.AppendLine("# In tug mode, also pull components from ships.");
                 sb.AppendLine("# Can be True or False.");
                 sb.AppendLine(key + " = " + config_options[key]);
                 sb.AppendLine();
-                key = CONFIGSTR_PULL_ORE;
+                key = CS_PULL_ORE;
                 sb.AppendLine("# Pull ore from base storage.");
                 sb.AppendLine("# In tug mode, also push ore to ships.");
                 sb.AppendLine("# Can be True or False.");
                 sb.AppendLine(key + " = " + config_options[key]);
                 sb.AppendLine();
-                key = CONFIGSTR_PULL_INGOTS;
+                key = CS_PULL_INGOTS;
                 sb.AppendLine("# Pull ingots from base storage.");
                 sb.AppendLine("# In tug mode, also push ingots to ships.");
                 sb.AppendLine("# Can be True or False.");
                 sb.AppendLine(key + " = " + config_options[key]);
                 sb.AppendLine();
-                key = CONFIGSTR_PULL_COMPONENTS;
+                key = CS_PULL_COMPONENTS;
                 sb.AppendLine("# Pull components from base storage.");
                 sb.AppendLine("# In tug mode, also push components to ships.");
                 sb.AppendLine("# Can be True or False.");
@@ -4569,7 +4567,7 @@ namespace SpaceEngineers
             bparse = Boolean.TryParse(strval, out bval);
             fparse = float.TryParse(strval, out fval);
             // op mode
-            if (clStrCompare(str, CONFIGSTR_OP_MODE))
+            if (clStrCompare(str, CS_OP_MODE))
             {
                 if (strval == "base")
                 {
@@ -4629,7 +4627,7 @@ namespace SpaceEngineers
                     fail = true;
                 }
             }
-            else if (clStrCompare(str, CONFIGSTR_POWER_WATERMARKS))
+            else if (clStrCompare(str, CS_POWER_WATERMARKS))
             {
                 float low, high;
                 if (strval == "auto")
@@ -4661,7 +4659,7 @@ namespace SpaceEngineers
                     fail = true;
                 }
             }
-            else if (clStrCompare(str, CONFIGSTR_KEEP_STONE))
+            else if (clStrCompare(str, CS_KEEP_STONE))
             {
                 if (fparse && fval > 0)
                 {
@@ -4688,7 +4686,7 @@ namespace SpaceEngineers
                     fail = true;
                 }
             }
-            else if (clStrCompare(str, CONFIGSTR_OXYGEN_WATERMARKS))
+            else if (clStrCompare(str, CS_OXYGEN_WATERMARKS))
             {
                 float low, high;
                 if (strval == "auto")
@@ -4725,7 +4723,7 @@ namespace SpaceEngineers
                     fail = true;
                 }
             }
-            else if (clStrCompare(str, CONFIGSTR_HYDROGEN_WATERMARKS))
+            else if (clStrCompare(str, CS_HYDROGEN_WATERMARKS))
             {
                 float low, high;
                 if (strval == "auto")
@@ -4762,7 +4760,7 @@ namespace SpaceEngineers
                     fail = true;
                 }
             }
-            else if (clStrCompare(str, CONFIGSTR_UPDATE_PERIOD))
+            else if (clStrCompare(str, CS_UPDATE_PERIOD))
             {
                 if (strval == "trigger")
                 {
@@ -4781,48 +4779,48 @@ namespace SpaceEngineers
             {
                 if (isShipMode())
                 {
-                    if (clStrCompare(str, CONFIGSTR_PUSH_ORE))
+                    if (clStrCompare(str, CS_PUSH_ORE))
                     {
                         push_ore_to_base = bval;
                     }
-                    else if (clStrCompare(str, CONFIGSTR_PUSH_INGOTS))
+                    else if (clStrCompare(str, CS_PUSH_INGOTS))
                     {
                         push_ingots_to_base = bval;
                     }
-                    else if (clStrCompare(str, CONFIGSTR_PUSH_COMPONENTS))
+                    else if (clStrCompare(str, CS_PUSH_COMPONENTS))
                     {
                         push_components_to_base = bval;
                     }
-                    else if (clStrCompare(str, CONFIGSTR_PULL_ORE))
+                    else if (clStrCompare(str, CS_PULL_ORE))
                     {
                         pull_ore_from_base = bval;
                     }
-                    else if (clStrCompare(str, CONFIGSTR_PULL_INGOTS))
+                    else if (clStrCompare(str, CS_PULL_INGOTS))
                     {
                         pull_ingots_from_base = bval;
                     }
-                    else if (clStrCompare(str, CONFIGSTR_PULL_COMPONENTS))
+                    else if (clStrCompare(str, CS_PULL_COMPONENTS))
                     {
                         pull_components_from_base = bval;
                     }
-                    else if (clStrCompare(str, CONFIGSTR_REFUEL_OXYGEN))
+                    else if (clStrCompare(str, CS_REFUEL_OXYGEN))
                     {
                         refuel_oxygen = bval;
                     }
-                    else if (clStrCompare(str, CONFIGSTR_REFUEL_HYDROGEN))
+                    else if (clStrCompare(str, CS_REFUEL_HYDROGEN))
                     {
                         refuel_hydrogen = bval;
                     }
                 }
-                if (clStrCompare(str, CONFIGSTR_SORT_STORAGE))
+                if (clStrCompare(str, CS_SORT_STORAGE))
                 {
                     sort_storage = bval;
                 }
-                else if (clStrCompare(str, CONFIGSTR_HUD_NOTIFICATIONS))
+                else if (clStrCompare(str, CS_HUD_NOTIFICATIONS))
                 {
                     hud_notifications = bval;
                 }
-                else if (clStrCompare(str, CONFIGSTR_GREEN_MODE))
+                else if (clStrCompare(str, CS_GREEN_MODE))
                 {
                     green_mode = bval;
                 }
@@ -5305,7 +5303,7 @@ namespace SpaceEngineers
                 // check if we're below low watermark
                 bool above_low_watermark = powerAboveLowWatermark();
 
-                if (has_reactors && has_refineries && ore_status[URANIUM] > 0)
+                if (has_reactors && has_refineries && ore_status[U] > 0)
                 {
                     prioritize_uranium = true;
                 }
@@ -5613,7 +5611,7 @@ namespace SpaceEngineers
                             string name = i.Content.SubtypeName;
                             if (i.Content.SubtypeName == SCRAP)
                             {
-                                name = IRON;
+                                name = FE;
                             }
                             ore_status[name] += (float)i.Amount;
                             if (isStorage)
@@ -5669,7 +5667,7 @@ namespace SpaceEngineers
                 if (ore != ICE)
                 {
                     total_ingots = ingot_status[ore];
-                    if (ore == URANIUM)
+                    if (ore == U)
                     {
                         total_ingots -= uranium_in_reactors;
                     }
