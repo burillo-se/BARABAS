@@ -17,7 +17,7 @@ namespace SpaceEngineers
 #endif
         #endregion
         /*
-         * BARABAS v1.64
+         * BARABAS v1.65
          *
          * (Burillo's Automatic Resource Administration for BAses and Ships)
          *
@@ -63,7 +63,7 @@ namespace SpaceEngineers
          *
          */
 
-        const string VERSION = "1.64";
+        const string VERSION = "1.65";
 
         #region CONFIGVARS
         // configuration
