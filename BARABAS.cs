@@ -661,6 +661,7 @@ namespace SpaceEngineers
                 {
                     foreach (IMyTextPanel p in panels)
                     {
+                        p.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
                         p.WriteText(" BARABAS EXCEPTION:\n" + msg);
                     }
                 }
@@ -5202,6 +5203,7 @@ namespace SpaceEngineers
             }
             foreach (IMyTextPanel panel in panels)
             {
+                panel.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
                 panel.WriteText(sb);
                 panel.WritePublicTitle("BARABAS Notify Report");
             }
