@@ -76,12 +76,15 @@ namespace SpaceEngineers
         const int OP_MODE_BASE = 0x100;
 
         int op_mode = OP_MODE_AUTO;
-        float power_high_watermark = 0;
-        float power_low_watermark = 0;
-        float oxygen_high_watermark = 0;
-        float oxygen_low_watermark = 0;
-        float hydrogen_high_watermark = 0;
-        float hydrogen_low_watermark = 0;
+        // power high and low watermarks. yay text limits!
+        float pwr_hi_wm = 0;
+        float pwr_lo_wm = 0;
+        // oxygen high and low watermarks
+        float o2_hi_wm = 0;
+        float o2_lo_wm = 0;
+        // hydrogen high and low watermarks
+        float h2_hi_wm = 0;
+        float h2_lo_wm = 0;
         bool throw_out_stone = false;
         bool sort_storage = true;
         bool hud_notifications = true;
@@ -333,18 +336,18 @@ namespace SpaceEngineers
         // alert levels, in priority order
         enum AlertLevel
         {
-            RED_ALERT = 0,
-            YELLOW_ALERT,
-            BLUE_ALERT,
-            CYAN_ALERT,
-            MAGENTA_ALERT,
-            WHITE_ALERT,
-            PINK_ALERT,
-            BROWN_ALERT,
-            GREEN_ALERT
+            ALERT_RED = 0,
+            ALERT_YELLOW,
+            ALERT_BLUE,
+            ALERT_CYAN,
+            ALERT_MAGENTA,
+            ALERT_WHITE,
+            ALERT_PINK,
+            ALERT_BROWN,
+            ALERT_GREEN
         };
 
-        public class Alert
+        class Alert
         {
             public Alert(Color c, string t)
             {
@@ -459,11 +462,11 @@ namespace SpaceEngineers
         // power constants - in kWatts
         const float URANIUM_INGOT_POWER = 68760;
 
-        public class ItemHelper
+        class ItemHelper
         {
             public IMyTerminalBlock Owner;
             public int InvIdx;
-            public IMyInventoryItem Item;
+            public MyInventoryItem Item;
             public int Index;
         }
         #endregion
@@ -476,7 +479,7 @@ namespace SpaceEngineers
         // all grids that are local to each other (connected by rotors or pistons).
         // this is why it's a class, not a struct - so that several grids can share the
         // same instance. it's a crude hack, but it works.
-        public class GridData
+        class GridData
         {
             public bool has_thrusters;
             public bool has_wheels;
@@ -488,7 +491,7 @@ namespace SpaceEngineers
         }
 
         // grid graph edge class, represents a connection point between two grids.
-        public class Edge<T>
+        class Edge<T>
         {
             public T src { get; set; }
             public T dst { get; set; }
@@ -497,7 +500,7 @@ namespace SpaceEngineers
         // comparer for graph edges - the way the comparison is done means the edges are
         // bidirectional - meaning, it doesn't matter which grid is source and which
         // grid is destination, they will be equal as far as comparison is concerned.
-        public class EdgeComparer<T> : IEqualityComparer<Edge<T>>
+        class EdgeComparer<T> : IEqualityComparer<Edge<T>>
         {
             public int GetHashCode(Edge<T> e)
             {
@@ -520,7 +523,7 @@ namespace SpaceEngineers
         }
 
         // our grid graph
-        public class Graph<T>
+        class Graph<T>
         {
             public Graph()
             {
@@ -658,9 +661,7 @@ namespace SpaceEngineers
                 {
                     foreach (IMyTextPanel p in panels)
                     {
-                        p.WritePublicText(" BARABAS EXCEPTION:\n" + msg);
-                        p.ShowTextureOnScreen();
-                        p.ShowPublicTextOnScreen();
+                        p.WriteText(" BARABAS EXCEPTION:\n" + msg);
                     }
                 }
                 pr.Me.CustomName = "BARABAS Exception: " + msg;
@@ -873,11 +874,11 @@ namespace SpaceEngineers
             }
             if (alert)
             {
-                addAlert(AlertLevel.PINK_ALERT);
+                addAlert(AlertLevel.ALERT_PINK);
             }
             else
             {
-                removeAlert(AlertLevel.PINK_ALERT);
+                removeAlert(AlertLevel.ALERT_PINK);
             }
             return local_blocks;
         }
@@ -892,7 +893,9 @@ namespace SpaceEngineers
             foreach (var r in local_reactors)
             {
                 var inv = r.GetInventory(0);
-                if (inv.GetItems().Count > 1)
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
+                if (items.Count > 1)
                 {
                     consolidate(inv);
                 }
@@ -909,7 +912,7 @@ namespace SpaceEngineers
             filterLocalGrid<IMyBatteryBlock>(local_batteries);
             for (int i = local_batteries.Count - 1; i >= 0; i--)
             {
-                if ((local_batteries[i] as IMyBatteryBlock).OnlyRecharge)
+                if ((local_batteries[i] as IMyBatteryBlock).ChargeMode == ChargeMode.Recharge)
                 {
                     local_batteries.RemoveAt(i);
                 }
@@ -1032,10 +1035,10 @@ namespace SpaceEngineers
                 {
                     consolidate(a.GetInventory(0));
                     consolidate(a.GetInventory(1));
-                    var input_inv = a.GetInventory(0);
-                    var output_inv = a.GetInventory(1);
-                    float input_load = (float)input_inv.CurrentVolume / (float)input_inv.MaxVolume;
-                    float output_load = (float)output_inv.CurrentVolume / (float)output_inv.MaxVolume;
+                    var in_inv = a.GetInventory(0);
+                    var out_inv = a.GetInventory(1);
+                    float input_load = (float)in_inv.CurrentVolume / (float)in_inv.MaxVolume;
+                    float output_load = (float)out_inv.CurrentVolume / (float)out_inv.MaxVolume;
                     bool isWaiting = !a.IsQueueEmpty && !a.IsProducing;
                     removeBlockAlert(a, ALERT_MATERIALS_MISSING);
                     removeBlockAlert(a, ALERT_CLOGGED);
@@ -1778,7 +1781,8 @@ namespace SpaceEngineers
         void getAllIngots(IMyTerminalBlock b, int srcInv, string name, List<ItemHelper> list)
         {
             var inv = b.GetInventory(srcInv);
-            var items = inv.GetItems();
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
             for (int i = items.Count - 1; i >= 0; i--)
             {
                 var item = items[i];
@@ -1786,7 +1790,7 @@ namespace SpaceEngineers
                 {
                     continue;
                 }
-                if (name != null && item.Content.SubtypeName != name)
+                if (name != null && item.Type.SubtypeId != name)
                 {
                     continue;
                 }
@@ -1803,7 +1807,8 @@ namespace SpaceEngineers
         void getAllOre(IMyTerminalBlock b, int srcInv, string name, List<ItemHelper> list)
         {
             var inv = b.GetInventory(srcInv);
-            var items = inv.GetItems();
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
             for (int i = items.Count - 1; i >= 0; i--)
             {
                 var item = items[i];
@@ -1811,7 +1816,7 @@ namespace SpaceEngineers
                 {
                     continue;
                 }
-                if (name != null && item.Content.SubtypeName != name)
+                if (name != null && item.Type.SubtypeId != name)
                 {
                     continue;
                 }
@@ -1847,27 +1852,27 @@ namespace SpaceEngineers
             return list;
         }
 
-        bool isOre(IMyInventoryItem i)
+        bool isOre(MyInventoryItem i)
         {
-            if (i.Content.SubtypeName == "Scrap")
+            if (i.Type.SubtypeId == "Scrap")
             {
                 return true;
             }
-            return i.Content.TypeId.ToString().Equals("MyObjectBuilder_Ore");
+            return i.Type.TypeId.Equals("MyObjectBuilder_Ore");
         }
 
-        bool isIngot(IMyInventoryItem i)
+        bool isIngot(MyInventoryItem i)
         {
-            if (i.Content.SubtypeName == "Scrap")
+            if (i.Type.SubtypeId == "Scrap")
             {
                 return false;
             }
-            return i.Content.TypeId.ToString().Equals("MyObjectBuilder_Ingot");
+            return i.Type.TypeId.Equals("MyObjectBuilder_Ingot");
         }
 
-        bool isComponent(IMyInventoryItem i)
+        bool isComponent(MyInventoryItem i)
         {
-            return i.Content.TypeId.ToString().Equals("MyObjectBuilder_Component");
+            return i.Type.TypeId.Equals("MyObjectBuilder_Component");
         }
 
         // get total amount of all ingots (of a particular type) stored in a particular inventory
@@ -1889,13 +1894,14 @@ namespace SpaceEngineers
         void consolidate(IMyInventory inv)
         {
             var posmap = new Dictionary<string, int>();
-            var items = inv.GetItems();
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
             bool needs_consolidation = false;
             // go through all items and note the first time they appear in the inventory
             for (int i = 0; i < items.Count; i++)
             {
                 var item = items[i];
-                string str = item.Content.TypeId.ToString() + item.Content.SubtypeName;
+                string str = item.Type.TypeId + item.Type.SubtypeId;
                 if (!posmap.ContainsKey(str))
                 {
                     posmap[str] = i;
@@ -1914,7 +1920,7 @@ namespace SpaceEngineers
             for (int i = items.Count - 1; i >= 0; i--)
             {
                 var item = items[i];
-                string str = item.Content.TypeId.ToString() + item.Content.SubtypeName;
+                string str = item.Type.TypeId + item.Type.SubtypeId;
                 int dstIndex = posmap[str];
                 inv.TransferItemTo(inv, i, dstIndex, true, item.Amount);
             }
@@ -1925,12 +1931,15 @@ namespace SpaceEngineers
         {
             // make note of how much was the first item
             float? first_amount = null;
-            if (inv.GetItems().Count > 1)
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
+            if (items.Count > 1)
             {
-                first_amount = (float)Math.Min((float)inv.GetItems()[0].Amount, CHUNK_SIZE);
+                first_amount = (float)Math.Min((float)items[0].Amount, CHUNK_SIZE);
             }
             consolidate(inv);
-            var items = inv.GetItems();
+            items.Clear();
+            inv.GetItems(items);
             // skip if we have no work to do
             if (items.Count < 2)
             {
@@ -1963,7 +1972,8 @@ namespace SpaceEngineers
         {
             var src_inv = src.GetInventory(srcInv);
             var dst_inv = dst.GetInventory(dstInv);
-            var src_items = src_inv.GetItems();
+            var src_items = new List<MyInventoryItem>();
+            src_inv.GetItems(src_items);
             var src_count = src_items.Count;
             var src_amount = (float)src_items[srcIndex].Amount;
 
@@ -1984,8 +1994,8 @@ namespace SpaceEngineers
                 addBlockAlert(dst, ALERT_DISCONNECTED);
                 return -1;
             }
-
-            src_items = src_inv.GetItems();
+            src_items.Clear();
+            src_inv.GetItems(src_items);
 
             // if count changed, we transferred all of it
             if (src_count != src_items.Count)
@@ -2011,7 +2021,9 @@ namespace SpaceEngineers
 
         void pushBack(IMyInventory src, int srcIndex, VRage.MyFixedPoint? amount)
         {
-            src.TransferItemTo(src, srcIndex, src.GetItems().Count, true, amount);
+            var items = new List<MyInventoryItem>();
+            src.GetItems(items);
+            src.TransferItemTo(src, srcIndex, items.Count, true, amount);
         }
 
         void pushFront(IMyInventory src, int srcIndex, VRage.MyFixedPoint? amount)
@@ -2124,11 +2136,12 @@ namespace SpaceEngineers
 
             // aim for equal spread
             var ores = new Dictionary<string, float>();
-            var items = inv.GetItems();
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
             bool seenCurrent = false;
             foreach (var i in items)
             {
-                var ore = i.Content.SubtypeName;
+                var ore = i.Type.SubtypeId;
                 float amount;
                 ores.TryGetValue(ore, out amount);
                 ores[ore] = amount + (float)i.Amount;
@@ -2162,7 +2175,8 @@ namespace SpaceEngineers
 
         bool hasOnlyOre(IMyInventory inv)
         {
-            var items = inv.GetItems();
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
             foreach (var i in items)
             {
                 if (!isOre(i))
@@ -2175,7 +2189,8 @@ namespace SpaceEngineers
 
         bool hasOnlyIngots(IMyInventory inv)
         {
-            var items = inv.GetItems();
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
             foreach (var i in items)
             {
                 if (!isIngot(i))
@@ -2188,7 +2203,8 @@ namespace SpaceEngineers
 
         bool hasOnlyComponents(IMyInventory inv)
         {
-            var items = inv.GetItems();
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
             foreach (var i in items)
             {
                 // we don't care about components specifically; rather, we care if it
@@ -2206,15 +2222,15 @@ namespace SpaceEngineers
             if (getStorage().Count == 0)
             {
                 status_report[STATUS_STORAGE_LOAD] = "No storage found";
-                removeAlert(AlertLevel.YELLOW_ALERT);
-                removeAlert(AlertLevel.RED_ALERT);
+                removeAlert(AlertLevel.ALERT_YELLOW);
+                removeAlert(AlertLevel.ALERT_RED);
                 return;
             }
             float storageLoad = getTotalStorageLoad();
             if (storageLoad >= 0.98F)
             {
-                addAlert(AlertLevel.RED_ALERT);
-                removeAlert(AlertLevel.YELLOW_ALERT);
+                addAlert(AlertLevel.ALERT_RED);
+                removeAlert(AlertLevel.ALERT_YELLOW);
                 // if we're a base, enter crisis mode
                 bool have_ore = false;
                 foreach (var ore in ore_types)
@@ -2245,7 +2261,7 @@ namespace SpaceEngineers
             }
             else
             {
-                removeAlert(AlertLevel.RED_ALERT);
+                removeAlert(AlertLevel.ALERT_RED);
             }
 
             if (crisis_mode == CrisisMode.CRISIS_MODE_THROW_ORE && storageLoad < 0.98F)
@@ -2260,11 +2276,11 @@ namespace SpaceEngineers
             if (storageLoad >= 0.75F && storageLoad < 0.98F)
             {
                 storeTrash();
-                addAlert(AlertLevel.YELLOW_ALERT);
+                addAlert(AlertLevel.ALERT_YELLOW);
             }
             else if (storageLoad < 0.75F)
             {
-                removeAlert(AlertLevel.YELLOW_ALERT);
+                removeAlert(AlertLevel.ALERT_YELLOW);
                 storeTrash();
                 if (storageLoad < 0.98F && isBaseMode())
                 {
@@ -2318,7 +2334,8 @@ namespace SpaceEngineers
             {
                 var container = s[c];
                 var inv = container.GetInventory(0);
-                var items = inv.GetItems();
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
                 var curVolume = (float)inv.CurrentVolume;
 
                 for (int i = items.Count - 1; i >= 0; i--)
@@ -2386,7 +2403,9 @@ namespace SpaceEngineers
              * Stage 1: try to put stuff into designated containers
              */
             var src = b.GetInventory(invIdx);
-            var item = src.GetItems()[srcIndex];
+            var items = new List<MyInventoryItem>();
+            src.GetItems(items);
+            var item = items[srcIndex];
             bool itemIsOre = isOre(item);
             bool itemIsIngot = isIngot(item);
             bool itemIsComponent = !itemIsOre && !itemIsIngot;
@@ -2542,7 +2561,8 @@ namespace SpaceEngineers
             foreach (var c in s)
             {
                 var inv = c.GetInventory(0);
-                var items = inv.GetItems();
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
                 for (int j = items.Count - 1; j >= 0; j--)
                 {
                     var i = items[j];
@@ -2552,7 +2572,7 @@ namespace SpaceEngineers
                     }
                     if (isIngot(i))
                     {
-                        var t = i.Content.SubtypeName;
+                        var t = i.Type.SubtypeId;
                         if (t != U && push_ingots_to_base)
                         {
                             pushToRemoteStorage(c, 0, j, null);
@@ -2576,7 +2596,8 @@ namespace SpaceEngineers
             var s = getRemoteStorage();
             foreach (var c in s)
             {
-                var items = c.GetInventory(0).GetItems();
+                var items = new List<MyInventoryItem>();
+                c.GetInventory(0).GetItems(items);
                 for (int j = items.Count - 1; j >= 0; j--)
                 {
                     var i = items[j];
@@ -2586,7 +2607,7 @@ namespace SpaceEngineers
                     }
                     if (isIngot(i))
                     {
-                        var type = i.Content.SubtypeName;
+                        var type = i.Type.SubtypeId;
                         // don't take all uranium from base
                         if (type == U && auto_refuel_ship && !powerAboveHighWatermark())
                         {
@@ -2612,7 +2633,8 @@ namespace SpaceEngineers
             foreach (var s in storage)
             {
                 var inv = s.GetInventory(0);
-                var items = inv.GetItems();
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
                 for (int j = items.Count - 1; j >= 0; j--)
                 {
                     var i = items[j];
@@ -2622,7 +2644,7 @@ namespace SpaceEngineers
                     }
                     if (isIngot(i))
                     {
-                        var type = i.Content.SubtypeName;
+                        var type = i.Type.SubtypeId;
                         if (type != U && pull_ingots_from_base)
                         {
                             pushToRemoteShipStorage(s, 0, j, null);
@@ -2643,7 +2665,8 @@ namespace SpaceEngineers
             foreach (var c in storage)
             {
                 var inv = c.GetInventory(0);
-                var items = inv.GetItems();
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
                 for (int j = items.Count - 1; j >= 0; j--)
                 {
                     var i = items[j];
@@ -2653,7 +2676,7 @@ namespace SpaceEngineers
                     }
                     if (isIngot(i))
                     {
-                        var type = i.Content.SubtypeName;
+                        var type = i.Type.SubtypeId;
                         // don't take all uranium from base
                         if (type != U && push_ingots_to_base)
                         {
@@ -2674,7 +2697,8 @@ namespace SpaceEngineers
             foreach (var b in blocks)
             {
                 var inv = b.GetInventory(0);
-                var items = inv.GetItems();
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
                 for (int j = items.Count - 1; j >= 0; j--)
                 {
                     pushToStorage(b, 0, j, null);
@@ -2703,7 +2727,8 @@ namespace SpaceEngineers
                 {
                     var c = storage[s_index];
                     var src_inv = c.GetInventory(0);
-                    var items = src_inv.GetItems();
+                    var items = new List<MyInventoryItem>();
+                    src_inv.GetItems(items);
                     for (int j = items.Count - 1; j >= 0; j--)
                     {
                         var i = items[j];
@@ -2750,7 +2775,9 @@ namespace SpaceEngineers
             foreach (var r in rs)
             {
                 var inv = r.GetInventory(0);
-                for (int j = inv.GetItems().Count - 1; j >= 0; j--)
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
+                for (int j = items.Count - 1; j >= 0; j--)
                 {
                     pushToStorage(r, 0, j, null);
                 }
@@ -2764,10 +2791,12 @@ namespace SpaceEngineers
             foreach (var r in rs)
             {
                 var inv = r.GetInventory(0);
-                for (int j = inv.GetItems().Count - 1; j >= 0; j--)
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
+                for (int j = items.Count - 1; j >= 0; j--)
                 {
-                    var i = inv.GetItems()[j];
-                    if (i.Content.SubtypeName != ICE)
+                    var i = items[j];
+                    if (i.Type.SubtypeId != ICE)
                     {
                         continue;
                     }
@@ -2984,12 +3013,12 @@ namespace SpaceEngineers
 
         float getPowerHighWatermark(float power_use)
         {
-            return power_use * power_high_watermark;
+            return power_use * pwr_hi_wm;
         }
 
         float getPowerLowWatermark(float power_use)
         {
-            return power_use * power_low_watermark;
+            return power_use * pwr_lo_wm;
         }
 
         bool powerAboveHighWatermark()
@@ -3070,11 +3099,12 @@ namespace SpaceEngineers
                         for (; s_index < storage.Count; s_index++)
                         {
                             var sinv = storage[s_index].GetInventory(0);
-                            var items = sinv.GetItems();
+                            var items = new List<MyInventoryItem>();
+                            sinv.GetItems(items);
                             for (int j = 0; j < items.Count; j++)
                             {
                                 var item = items[j];
-                                if (isIngot(item) && item.Content.SubtypeName == U)
+                                if (isIngot(item) && item.Type.SubtypeId == U)
                                 {
                                     ingot = new ItemHelper();
                                     ingot.InvIdx = 0;
@@ -3139,7 +3169,9 @@ namespace SpaceEngineers
             foreach (IMyReactor r in reactors)
             {
                 var inv = r.GetInventory(0);
-                if (inv.GetItems().Count > 1)
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
+                if (items.Count > 1)
                 {
                     consolidate(inv);
                 }
@@ -3206,15 +3238,17 @@ namespace SpaceEngineers
         }
 
         // only stone is considered unuseful, and only if config says to throw out stone
-        bool isUseful(IMyInventoryItem item)
+        bool isUseful(MyInventoryItem item)
         {
-            return !throw_out_stone || item.Content.SubtypeName != STONE;
+            return !throw_out_stone || item.Type.SubtypeId != STONE;
         }
 
         bool hasUsefulItems(IMyShipConnector connector)
         {
             var inv = connector.GetInventory(0);
-            foreach (var item in inv.GetItems())
+            var items = new List<MyInventoryItem>();
+            inv.GetItems(items);
+            foreach (var item in items)
             {
                 if (isUseful(item))
                 {
@@ -3388,7 +3422,8 @@ namespace SpaceEngineers
             {
                 var inv = connector.GetInventory(0);
                 consolidate(inv);
-                var items = inv.GetItems();
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
                 for (int i = items.Count - 1; i >= 0; i--)
                 {
                     var item = items[i];
@@ -3417,7 +3452,7 @@ namespace SpaceEngineers
             foreach (var item in items)
             {
                 List<IMyTerminalBlock> rs;
-                string ore = item.Item.Content.SubtypeName;
+                string ore = item.Item.Type.SubtypeId;
                 if (ore == SCRAP)
                 {
                     ore = FE;
@@ -3460,16 +3495,18 @@ namespace SpaceEngineers
                     }
                     var refinery = rs[r];
                     removeBlockAlert(refinery, ALERT_CLOGGED);
-                    var input_inv = refinery.GetInventory(0);
-                    var output_inv = refinery.GetInventory(1);
-                    float input_load = (float)input_inv.CurrentVolume / (float)input_inv.MaxVolume;
-                    if (canAcceptOre(input_inv, ore) || ore == ICE)
+                    var in_inv = refinery.GetInventory(0);
+                    var out_inv = refinery.GetInventory(1);
+                    float input_load = (float)in_inv.CurrentVolume / (float)in_inv.MaxVolume;
+                    if (canAcceptOre(in_inv, ore) || ore == ICE)
                     {
                         // if we've got a very small amount, send it all
                         var item_inv = item.Owner.GetInventory(item.InvIdx);
                         if (amount < 1)
                         {
-                            if (Transfer(item.Owner, item.InvIdx, refinery, 0, item.Index, input_inv.GetItems().Count, true, null))
+                            var i = new List<MyInventoryItem>();
+                            in_inv.GetItems(i);
+                            if (Transfer(item.Owner, item.InvIdx, refinery, 0, item.Index, i.Count, true, null))
                             {
                                 break;
                             }
@@ -3478,11 +3515,15 @@ namespace SpaceEngineers
                         else if (input_load < 0.2F)
                         {
                             amount = (float)Math.Min(CHUNK_SIZE * 5, orig_amount);
-                            item_inv.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint)amount);
+                            var i = new List<MyInventoryItem>();
+                            in_inv.GetItems(i);
+                            item_inv.TransferItemTo(in_inv, item.Index, i.Count, true, (VRage.MyFixedPoint)amount);
                         }
                         else
                         {
-                            item_inv.TransferItemTo(input_inv, item.Index, input_inv.GetItems().Count, true, (VRage.MyFixedPoint)amount);
+                            var i = new List<MyInventoryItem>();
+                            in_inv.GetItems(i);
+                            item_inv.TransferItemTo(in_inv, item.Index, i.Count, true, (VRage.MyFixedPoint)amount);
                         }
                     }
                 }
@@ -3511,23 +3552,23 @@ namespace SpaceEngineers
                     continue;
                 }
                 bool arc = arc_furnace_ores.Contains(ore);
-                bool isLowWatermark = storage_ingot_status[ore] < material_thresholds[ore] && ore_status[ore] > 0;
-                bool isHighWatermark = storage_ingot_status[ore] < (material_thresholds[ore] * 5) && ore_status[ore] > 0;
-                bool overrideLowWatermark = isLowWatermark && assembler_ingots.Contains(ore);
-                bool overrideHighWatermark = isHighWatermark && assembler_ingots.Contains(ore);
-                if ((low_wm_ore == null && isLowWatermark) || overrideLowWatermark)
+                bool isLoWm = storage_ingot_status[ore] < material_thresholds[ore] && ore_status[ore] > 0;
+                bool isHiWm = storage_ingot_status[ore] < (material_thresholds[ore] * 5) && ore_status[ore] > 0;
+                bool overrideLoWm = isLoWm && assembler_ingots.Contains(ore);
+                bool overrideHiWm = isHiWm && assembler_ingots.Contains(ore);
+                if ((low_wm_ore == null && isLoWm) || overrideLoWm)
                 {
                     low_wm_ore = ore;
                 }
-                else if ((high_wm_ore == null && isHighWatermark) || overrideHighWatermark)
+                else if ((high_wm_ore == null && isHiWm) || overrideHiWm)
                 {
                     high_wm_ore = ore;
                 }
-                if (arc && (low_wm_arc_ore == null && isLowWatermark) || overrideLowWatermark)
+                if (arc && (low_wm_arc_ore == null && isLoWm) || overrideLoWm)
                 {
                     low_wm_arc_ore = ore;
                 }
-                else if (arc && (high_wm_arc_ore == null && isHighWatermark) || overrideHighWatermark)
+                else if (arc && (high_wm_arc_ore == null && isHiWm) || overrideHiWm)
                 {
                     high_wm_arc_ore = ore;
                 }
@@ -3544,10 +3585,11 @@ namespace SpaceEngineers
                 foreach (var refinery in rs)
                 {
                     var inv = refinery.GetInventory(0);
-                    var items = inv.GetItems();
+                    var items = new List<MyInventoryItem>();
+                    inv.GetItems(items);
                     for (int j = 0; j < items.Count; j++)
                     {
-                        var cur = items[j].Content.SubtypeName;
+                        var cur = items[j].Type.SubtypeId;
                         if (cur == SCRAP)
                         {
                             cur = FE;
@@ -3569,10 +3611,11 @@ namespace SpaceEngineers
                 foreach (var refinery in rs)
                 {
                     var inv = refinery.GetInventory(0);
-                    var items = inv.GetItems();
+                    var items = new List<MyInventoryItem>();
+                    inv.GetItems(items);
                     for (int j = 0; j < items.Count; j++)
                     {
-                        var cur = items[j].Content.SubtypeName;
+                        var cur = items[j].Type.SubtypeId;
                         if (cur == SCRAP)
                         {
                             cur = FE;
@@ -3595,12 +3638,12 @@ namespace SpaceEngineers
          */
         public class RebalanceResult
         {
-            public int minIndex;
-            public int maxIndex;
+            public int minIdx;
+            public int maxIdx;
             public float minLoad;
             public float maxLoad;
-            public int minArcIndex;
-            public int maxArcIndex;
+            public int minArcIdx;
+            public int maxArcIdx;
             public float minArcLoad;
             public float maxArcLoad;
         }
@@ -3618,10 +3661,11 @@ namespace SpaceEngineers
                 var inv = b.GetInventory(0);
                 rebalance(inv);
                 float arcload = 0;
-                var items = inv.GetItems();
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
                 foreach (var item in items)
                 {
-                    var name = item.Content.SubtypeName;
+                    var name = item.Type.SubtypeId;
                     if (name == SCRAP)
                     {
                         name = FE;
@@ -3654,12 +3698,12 @@ namespace SpaceEngineers
                     maxAL = arcload;
                 }
             }
-            r.minIndex = minI;
-            r.maxIndex = maxI;
+            r.minIdx = minI;
+            r.maxIdx = maxI;
             r.minLoad = minL;
             r.maxLoad = maxL;
-            r.minArcIndex = minAI;
-            r.maxArcIndex = maxAI;
+            r.minArcIdx = minAI;
+            r.maxArcIdx = maxAI;
             r.minArcLoad = minAL;
             r.maxArcLoad = maxAL;
             return r;
@@ -3675,27 +3719,28 @@ namespace SpaceEngineers
             var maxLoad = (float)src_inv.CurrentVolume * 1000;
             var minLoad = (float)dst_inv.CurrentVolume * 1000;
 
-            var items = src_inv.GetItems();
+            var items = new List<MyInventoryItem>();
+            src_inv.GetItems(items);
             var target_volume = (float)(maxLoad - minLoad) / 2;
             // spread all ore equally
             for (int i = items.Count - 1; i >= 0; i--)
             {
-                var volume = items[i].Content.SubtypeName == SCRAP ? VOLUME_SCRAP : VOLUME_ORE;
-                var cur_amount = (float)items[i].Amount;
-                var cur_vol = (cur_amount * volume) / 2;
-                float amount = (float)Math.Min(target_volume, cur_vol) / volume;
-                VRage.MyFixedPoint? tmp = (VRage.MyFixedPoint)amount;
+                var vol = items[i].Type.SubtypeId == SCRAP ? VOLUME_SCRAP : VOLUME_ORE;
+                var cur_amt = (float)items[i].Amount;
+                var cur_vol = (cur_amt * vol) / 2;
+                float amt = (float)Math.Min(target_volume, cur_vol) / vol;
+                VRage.MyFixedPoint? tmp = (VRage.MyFixedPoint)amt;
                 // if there's peanuts, send it all
-                if (cur_amount < 250)
+                if (cur_amt < 250)
                 {
                     tmp = null;
-                    amount = (float)items[i].Amount;
+                    amt = (float)items[i].Amount;
                 }
-                amount = TryTransfer(src, srcIdx, dst, dstIdx, i, null, true, tmp);
-                if (amount > 0)
+                amt = TryTransfer(src, srcIdx, dst, dstIdx, i, null, true, tmp);
+                if (amt > 0)
                 {
                     success = true;
-                    target_volume -= amount * volume;
+                    target_volume -= amt * vol;
                     if (target_volume <= 0)
                     {
                         break;
@@ -3725,40 +3770,40 @@ namespace SpaceEngineers
             if (oxyresult.maxLoad > 0)
             {
                 bool trySpread = oxyresult.minLoad == 0 || oxyresult.maxLoad / oxyresult.minLoad > ratio;
-                if (oxyresult.minIndex != oxyresult.maxIndex && trySpread)
+                if (oxyresult.minIdx != oxyresult.maxIdx && trySpread)
                 {
-                    var src = ogs[oxyresult.maxIndex];
-                    var dst = ogs[oxyresult.minIndex];
+                    var src = ogs[oxyresult.maxIdx];
+                    var dst = ogs[oxyresult.minIdx];
                     spreadOre(src, 0, dst, 0);
                 }
             }
 
             // balance refineries and arc furnaces separately
             var rs = getRefineries();
-            var furnaces = getArcFurnaces();
-            var refresult = findMinMax(rs);
-            var arcresult = findMinMax(furnaces);
+            var fs = getArcFurnaces();
+            var rres = findMinMax(rs);
+            var fres = findMinMax(fs);
 
-            if (refresult.maxLoad > 250)
+            if (rres.maxLoad > 250)
             {
-                bool trySpread = refresult.minLoad == 0 || refresult.maxLoad / refresult.minLoad > ratio;
-                if (refresult.minIndex != refresult.maxIndex && trySpread)
+                bool trySpread = rres.minLoad == 0 || rres.maxLoad / rres.minLoad > ratio;
+                if (rres.minIdx != rres.maxIdx && trySpread)
                 {
-                    var src = rs[refresult.maxIndex];
-                    var dst = rs[refresult.minIndex];
+                    var src = rs[rres.maxIdx];
+                    var dst = rs[rres.minIdx];
                     if (spreadOre(src, 0, dst, 0))
                     {
                         refsuccess = true;
                     }
                 }
             }
-            if (arcresult.maxLoad > 250)
+            if (fres.maxLoad > 250)
             {
-                bool trySpread = arcresult.minLoad == 0 || (arcresult.maxLoad / arcresult.minLoad) > ratio;
-                if (arcresult.minIndex != arcresult.maxIndex && trySpread)
+                bool trySpread = fres.minLoad == 0 || (fres.maxLoad / fres.minLoad) > ratio;
+                if (fres.minIdx != fres.maxIdx && trySpread)
                 {
-                    var src = furnaces[arcresult.maxIndex];
-                    var dst = furnaces[arcresult.minIndex];
+                    var src = fs[fres.maxIdx];
+                    var dst = fs[fres.minIdx];
                     if (spreadOre(src, 0, dst, 0))
                     {
                         arcsuccess = true;
@@ -3766,23 +3811,23 @@ namespace SpaceEngineers
                 }
             }
 
-            if (rs.Count == 0 || furnaces.Count == 0 || arcsuccess)
+            if (rs.Count == 0 || fs.Count == 0 || arcsuccess)
             {
                 return;
             }
 
             // cross pollination: spread load from ref to arc
             float refToArcRatio = 0;
-            if (arcresult.minLoad != 0)
+            if (fres.minLoad != 0)
             {
-                refToArcRatio = refresult.maxArcLoad / arcresult.minLoad;
+                refToArcRatio = rres.maxArcLoad / fres.minLoad;
             }
-            bool refToArc = !refsuccess || (refsuccess && refresult.maxIndex != refresult.maxArcIndex);
-            refToArc = refToArcRatio > ratio || (arcresult.minLoad == 0 && refresult.maxArcLoad > 0);
+            bool refToArc = !refsuccess || (refsuccess && rres.maxIdx != rres.maxArcIdx);
+            refToArc = refToArcRatio > ratio || (fres.minLoad == 0 && rres.maxArcLoad > 0);
             if (refToArc)
             {
-                var src = rs[refresult.maxArcIndex];
-                var dst = furnaces[arcresult.minIndex];
+                var src = rs[rres.maxArcIdx];
+                var dst = fs[fres.minIdx];
                 if (spreadOre(src, 0, dst, 0))
                 {
                     return;
@@ -3791,16 +3836,16 @@ namespace SpaceEngineers
 
             // spread load from arc to ref
             float arcToRefRatio = 0;
-            if (refresult.minLoad != 0)
+            if (rres.minLoad != 0)
             {
-                arcToRefRatio = arcresult.maxLoad / refresult.minLoad;
+                arcToRefRatio = fres.maxLoad / rres.minLoad;
             }
 
-            bool arcToRef = refresult.minLoad == 0 || arcToRefRatio > ratio;
+            bool arcToRef = rres.minLoad == 0 || arcToRefRatio > ratio;
             if (arcToRef)
             {
-                var src = furnaces[arcresult.maxIndex];
-                var dst = rs[refresult.minIndex];
+                var src = fs[fres.maxIdx];
+                var dst = rs[rres.minIdx];
                 spreadOre(src, 0, dst, 0);
             }
         }
@@ -3853,31 +3898,32 @@ namespace SpaceEngineers
          */
         void declogAssemblers()
         {
-            var assemblers = getAssemblers();
-            foreach (IMyAssembler assembler in assemblers)
+            var @as = getAssemblers();
+            foreach (IMyAssembler a in @as)
             {
-                var inv = assembler.GetInventory(0);
+                var inv = a.GetInventory(0);
 
                 // empty assembler input if it's not doing anything
-                var items = inv.GetItems();
-                if (assembler.IsQueueEmpty)
+                var items = new List<MyInventoryItem>();
+                if (a.IsQueueEmpty)
                 {
-                    items = inv.GetItems();
+                    inv.GetItems(items);
                     for (int j = items.Count - 1; j >= 0; j--)
                     {
-                        pushToStorage(assembler, 0, j, null);
+                        pushToStorage(a, 0, j, null);
                     }
                 }
+                items.Clear();
 
-                inv = assembler.GetInventory(1);
+                inv = a.GetInventory(1);
 
                 // empty output but only if it's not disassembling
-                if (assembler.Mode != MyAssemblerMode.Disassembly)
+                if (a.Mode != MyAssemblerMode.Disassembly)
                 {
-                    items = inv.GetItems();
+                    inv.GetItems(items);
                     for (int j = items.Count - 1; j >= 0; j--)
                     {
-                        pushToStorage(assembler, 1, j, null);
+                        pushToStorage(a, 1, j, null);
                     }
                 }
             }
@@ -3889,7 +3935,8 @@ namespace SpaceEngineers
             foreach (var r in rs)
             {
                 var inv = r.GetInventory(1);
-                var items = inv.GetItems();
+                var items = new List<MyInventoryItem>();
+                inv.GetItems(items);
                 for (int j = items.Count - 1; j >= 0; j--)
                 {
                     pushToStorage(r, 1, j, null);
@@ -3903,41 +3950,42 @@ namespace SpaceEngineers
         {
             float minLoad = 100, maxLoad = 0;
             float minVol = 0, maxVol = 0;
-            int minIndex = 0, maxIndex = 0;
+            int minIdx = 0, maxIdx = 0;
             for (int i = 0; i < blocks.Count; i++)
             {
                 float load = (float)blocks[i].GetInventory(0).CurrentVolume / (float)blocks[i].GetInventory(0).MaxVolume;
                 if (load < minLoad)
                 {
-                    minIndex = i;
+                    minIdx = i;
                     minLoad = load;
                     minVol = (float)blocks[i].GetInventory(0).CurrentVolume * 1000;
                 }
                 if (load > maxLoad)
                 {
-                    maxIndex = i;
+                    maxIdx = i;
                     maxLoad = load;
                     maxVol = (float)blocks[i].GetInventory(0).CurrentVolume * 1000;
                 }
             }
             // even out the load between biggest loaded block
-            if (minIndex != maxIndex && (minLoad == 0 || maxLoad / minLoad > 1.1F))
+            if (minIdx != maxIdx && (minLoad == 0 || maxLoad / minLoad > 1.1F))
             {
-                var src = blocks[maxIndex];
-                var dst = blocks[minIndex];
-                var src_inv = blocks[maxIndex].GetInventory(0);
-                var dst_inv = blocks[minIndex].GetInventory(0);
-                var target_volume = (maxVol - minVol) / 2;
-                var items = src_inv.GetItems();
+                var src = blocks[maxIdx];
+                var dst = blocks[minIdx];
+                var src_inv = blocks[maxIdx].GetInventory(0);
+                var dst_inv = blocks[minIdx].GetInventory(0);
+                var target_vol = (maxVol - minVol) / 2;
+                var items = new List<MyInventoryItem>();
+                src_inv.GetItems(items);
                 for (int i = items.Count - 1; i >= 0; i--)
                 {
-                    if (target_volume <= 0)
+                    if (target_vol <= 0)
                     {
                         return;
                     }
-                    float amount = (float)items[i].Amount - 1;
+                    float amt = (float)items[i].Amount - 1;
                     // if it's peanuts, just send out everything
-                    if (amount < 1)
+                    if (amt < 1)
                     {
                         src_inv.TransferItemTo(dst_inv, i, null, true, null);
                         continue;
@@ -3951,9 +3999,9 @@ namespace SpaceEngineers
                     }
                     float new_vol = (float)dst_inv.CurrentVolume * 1000;
                     float item_vol = new_vol - cur_vol;
-                    int target_amount = (int)Math.Floor(target_volume / item_vol);
-                    src_inv.TransferItemTo(dst_inv, i, null, true, (VRage.MyFixedPoint)target_amount);
-                    target_volume -= (float)Math.Min(target_amount, amount) * item_vol;
+                    int target_amt = (int)Math.Floor(target_vol / item_vol);
+                    src_inv.TransferItemTo(dst_inv, i, null, true, (VRage.MyFixedPoint)target_amt);
+                    target_vol -= (float)Math.Min(target_amt, amt) * item_vol;
                 }
             }
         }
@@ -3965,28 +4013,28 @@ namespace SpaceEngineers
          */
         void checkOxygenLeaks()
         {
-            var blocks = getAirVents();
+            var bs = getAirVents();
             bool alert = false;
-            foreach (IMyAirVent vent in blocks)
+            foreach (IMyAirVent v in bs)
             {
-                if (vent.Status == VentStatus.Pressurizing && !vent.CanPressurize)
+                if (v.Status == VentStatus.Pressurizing && !v.CanPressurize)
                 {
-                    addBlockAlert(vent, ALERT_OXYGEN_LEAK);
+                    addBlockAlert(v, ALERT_OXYGEN_LEAK);
                     alert = true;
                 }
                 else
                 {
-                    removeBlockAlert(vent, ALERT_OXYGEN_LEAK);
+                    removeBlockAlert(v, ALERT_OXYGEN_LEAK);
                 }
-                updateBlockName(vent);
+                updateBlockName(v);
             }
             if (alert)
             {
-                addAlert(AlertLevel.BROWN_ALERT);
+                addAlert(AlertLevel.ALERT_BROWN);
             }
             else
             {
-                removeAlert(AlertLevel.BROWN_ALERT);
+                removeAlert(AlertLevel.ALERT_BROWN);
             }
         }
 
@@ -4009,7 +4057,7 @@ namespace SpaceEngineers
 
         bool oxygenAboveHighWatermark()
         {
-            if (has_oxygen_tanks && oxygen_high_watermark > 0 && cur_oxygen_level < oxygen_high_watermark)
+            if (has_oxygen_tanks && o2_hi_wm > 0 && cur_oxygen_level < o2_hi_wm)
             {
                 return false;
             }
@@ -4018,7 +4066,7 @@ namespace SpaceEngineers
 
         bool hydrogenAboveHighWatermark()
         {
-            if (has_hydrogen_tanks && hydrogen_high_watermark > 0 && cur_hydrogen_level < hydrogen_high_watermark)
+            if (has_hydrogen_tanks && h2_hi_wm > 0 && cur_hydrogen_level < h2_hi_wm)
             {
                 return false;
             }
@@ -4145,12 +4193,12 @@ namespace SpaceEngineers
             refuel_hydrogen = false;
             throw_out_stone = true;
             material_thresholds[STONE] = 5000;
-            power_low_watermark = 0;
-            power_high_watermark = 0;
-            oxygen_high_watermark = 0;
-            oxygen_low_watermark = 0;
-            hydrogen_high_watermark = 0;
-            hydrogen_low_watermark = 0;
+            pwr_lo_wm = 0;
+            pwr_hi_wm = 0;
+            o2_hi_wm = 0;
+            o2_lo_wm = 0;
+            h2_hi_wm = 0;
+            h2_lo_wm = 0;
         }
 
         // update defaults based on auto configured values
@@ -4222,70 +4270,70 @@ namespace SpaceEngineers
                     auto_refuel_ship = true;
                 }
             }
-            if (power_low_watermark == 0)
+            if (pwr_lo_wm == 0)
             {
                 if (isBaseMode())
                 {
-                    power_low_watermark = 60;
+                    pwr_lo_wm = 60;
                 }
                 else
                 {
-                    power_low_watermark = 10;
+                    pwr_lo_wm = 10;
                 }
             }
-            if (power_high_watermark == 0)
+            if (pwr_hi_wm == 0)
             {
                 if (isBaseMode())
                 {
-                    power_high_watermark = 480;
+                    pwr_hi_wm = 480;
                 }
                 else
                 {
-                    power_high_watermark = 30;
+                    pwr_hi_wm = 30;
                 }
             }
-            if (oxygen_low_watermark == 0 && oxygen_high_watermark == 0 && has_oxygen_tanks)
+            if (o2_lo_wm == 0 && o2_hi_wm == 0 && has_oxygen_tanks)
             {
                 if (isBaseMode())
                 {
-                    oxygen_low_watermark = 10;
+                    o2_lo_wm = 10;
                 }
                 else
                 {
-                    oxygen_low_watermark = 15;
+                    o2_lo_wm = 15;
                 }
             }
-            if (oxygen_high_watermark == 0 && has_oxygen_tanks)
+            if (o2_hi_wm == 0 && has_oxygen_tanks)
             {
                 if (isBaseMode())
                 {
-                    oxygen_high_watermark = 30;
+                    o2_hi_wm = 30;
                 }
                 else
                 {
-                    oxygen_high_watermark = 60;
+                    o2_hi_wm = 60;
                 }
             }
-            if (hydrogen_low_watermark == 0 && hydrogen_high_watermark == 0 && has_hydrogen_tanks)
+            if (h2_lo_wm == 0 && h2_hi_wm == 0 && has_hydrogen_tanks)
             {
                 if (isBaseMode())
                 {
-                    hydrogen_low_watermark = 0;
+                    h2_lo_wm = 0;
                 }
                 else
                 {
-                    hydrogen_low_watermark = 15;
+                    h2_lo_wm = 15;
                 }
             }
-            if (hydrogen_high_watermark == 0 && has_hydrogen_tanks)
+            if (h2_hi_wm == 0 && has_hydrogen_tanks)
             {
                 if (isBaseMode())
                 {
-                    hydrogen_high_watermark = 30;
+                    h2_hi_wm = 30;
                 }
                 else
                 {
-                    hydrogen_high_watermark = 70;
+                    h2_hi_wm = 70;
                 }
             }
         }
@@ -4388,7 +4436,7 @@ namespace SpaceEngineers
                 config_options[CS_OP_MODE] = "tug";
             }
             config_options[CS_HUD_NOTIFICATIONS] = hud_notifications.ToString();
-            config_options[CS_POWER_WATERMARKS] = getWatermarkStr(power_low_watermark, power_high_watermark);
+            config_options[CS_POWER_WATERMARKS] = getWatermarkStr(pwr_lo_wm, pwr_hi_wm);
             if (isShipMode())
             {
                 config_options[CS_PUSH_ORE] = push_ore_to_base.ToString();
@@ -4416,8 +4464,8 @@ namespace SpaceEngineers
             {
                 config_options[CS_KEEP_STONE] = "all";
             }
-            config_options[CS_OXYGEN_WATERMARKS] = String.Format("{0}", oxygen_high_watermark >= 0 ? getWatermarkStr(oxygen_low_watermark, oxygen_high_watermark) : "none");
-            config_options[CS_HYDROGEN_WATERMARKS] = String.Format("{0}", hydrogen_high_watermark >= 0 ? getWatermarkStr(hydrogen_low_watermark, hydrogen_high_watermark) : "none");
+            config_options[CS_OXYGEN_WATERMARKS] = String.Format("{0}", o2_hi_wm >= 0 ? getWatermarkStr(o2_lo_wm, o2_hi_wm) : "none");
+            config_options[CS_HYDROGEN_WATERMARKS] = String.Format("{0}", h2_hi_wm >= 0 ? getWatermarkStr(h2_lo_wm, h2_hi_wm) : "none");
             config_options[CS_GREEN_MODE] = green_mode.ToString();
             config_options[CS_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", update_period);
 
@@ -4625,14 +4673,14 @@ namespace SpaceEngineers
                 float low, high;
                 if (strval == "auto")
                 {
-                    power_low_watermark = 0;
-                    power_high_watermark = 0;
+                    pwr_lo_wm = 0;
+                    pwr_hi_wm = 0;
                 }
                 else if (parseWatermarkStr(strval, out low, out high))
                 {
                     if (low > 0)
                     {
-                        power_low_watermark = low;
+                        pwr_lo_wm = low;
                     }
                     else
                     {
@@ -4640,7 +4688,7 @@ namespace SpaceEngineers
                     }
                     if (high > 0 && low <= high)
                     {
-                        power_high_watermark = high;
+                        pwr_hi_wm = high;
                     }
                     else
                     {
@@ -4684,19 +4732,19 @@ namespace SpaceEngineers
                 float low, high;
                 if (strval == "auto")
                 {
-                    oxygen_low_watermark = 0;
-                    oxygen_high_watermark = 0;
+                    o2_lo_wm = 0;
+                    o2_hi_wm = 0;
                 }
                 else if (strval == "none")
                 {
-                    oxygen_low_watermark = -1;
-                    oxygen_high_watermark = -1;
+                    o2_lo_wm = -1;
+                    o2_hi_wm = -1;
                 }
                 else if (parseWatermarkStr(strval, out low, out high))
                 {
                     if (low >= 0 && low <= 100)
                     {
-                        oxygen_low_watermark = low;
+                        o2_lo_wm = low;
                     }
                     else
                     {
@@ -4704,7 +4752,7 @@ namespace SpaceEngineers
                     }
                     if (high >= 0 && high <= 100 && low <= high)
                     {
-                        oxygen_high_watermark = high;
+                        o2_hi_wm = high;
                     }
                     else
                     {
@@ -4721,19 +4769,19 @@ namespace SpaceEngineers
                 float low, high;
                 if (strval == "auto")
                 {
-                    hydrogen_low_watermark = 0;
-                    hydrogen_high_watermark = 0;
+                    h2_lo_wm = 0;
+                    h2_hi_wm = 0;
                 }
                 else if (strval == "none")
                 {
-                    hydrogen_low_watermark = -1;
-                    hydrogen_high_watermark = -1;
+                    h2_lo_wm = -1;
+                    h2_hi_wm = -1;
                 }
                 else if (parseWatermarkStr(strval, out low, out high))
                 {
                     if (low >= 0 && low <= 100)
                     {
-                        hydrogen_low_watermark = low;
+                        h2_lo_wm = low;
                     }
                     else
                     {
@@ -4741,7 +4789,7 @@ namespace SpaceEngineers
                     }
                     if (high >= 0 && high <= 100 && low <= high)
                     {
-                        hydrogen_high_watermark = high;
+                        h2_hi_wm = high;
                     }
                     else
                     {
@@ -4871,19 +4919,19 @@ namespace SpaceEngineers
             {
                 if (text_alerts[i].enabled)
                 {
-                    if (i == (int)AlertLevel.BLUE_ALERT)
+                    if (i == (int)AlertLevel.ALERT_BLUE)
                     {
                         addAntennaAlert(ALERT_LOW_POWER);
                     }
-                    else if (i == (int)AlertLevel.YELLOW_ALERT)
+                    else if (i == (int)AlertLevel.ALERT_YELLOW)
                     {
                         addAntennaAlert(ALERT_LOW_STORAGE);
                     }
-                    else if (i == (int)AlertLevel.RED_ALERT)
+                    else if (i == (int)AlertLevel.ALERT_RED)
                     {
                         addAntennaAlert(ALERT_VERY_LOW_STORAGE);
                     }
-                    else if (i == (int)AlertLevel.WHITE_ALERT)
+                    else if (i == (int)AlertLevel.ALERT_WHITE)
                     {
                         addAntennaAlert(ALERT_MATERIAL_SHORTAGE);
                     }
@@ -5154,10 +5202,8 @@ namespace SpaceEngineers
             }
             foreach (IMyTextPanel panel in panels)
             {
-                panel.WritePublicText(sb);
+                panel.WriteText(sb);
                 panel.WritePublicTitle("BARABAS Notify Report");
-                panel.ShowTextureOnScreen();
-                panel.ShowPublicTextOnScreen();
             }
         }
         #endregion
@@ -5276,11 +5322,11 @@ namespace SpaceEngineers
                 getRemoteStorage(true);
                 getRemoteShipStorage(true);
                 getRemoteOxyHydroLevels();
-                addAlert(AlertLevel.GREEN_ALERT);
+                addAlert(AlertLevel.ALERT_GREEN);
             }
             else
             {
-                removeAlert(AlertLevel.GREEN_ALERT);
+                removeAlert(AlertLevel.ALERT_GREEN);
             }
         }
 
@@ -5303,16 +5349,16 @@ namespace SpaceEngineers
 
                 if (!above_low_watermark && max_pwr_output != 0)
                 {
-                    addAlert(AlertLevel.BLUE_ALERT);
+                    addAlert(AlertLevel.ALERT_BLUE);
                 }
                 else
                 {
-                    removeAlert(AlertLevel.BLUE_ALERT);
+                    removeAlert(AlertLevel.ALERT_BLUE);
                 }
             }
             else
             {
-                removeAlert(AlertLevel.BLUE_ALERT);
+                removeAlert(AlertLevel.ALERT_BLUE);
                 prioritize_uranium = false;
             }
             status_report[STATUS_POWER_STATS] = "No power sources";
@@ -5593,16 +5639,17 @@ namespace SpaceEngineers
 
                 for (int j = 0; j < b.InventoryCount; j++)
                 {
+                    var items = new List<MyInventoryItem>();
                     var inv = b.GetInventory(j);
-                    var items = inv.GetItems();
+                    inv.GetItems(items);
                     foreach (var i in items)
                     {
                         bool isStorage = b is IMyCargoContainer;
                         bool isReactor = b is IMyReactor;
                         if (isOre(i))
                         {
-                            string name = i.Content.SubtypeName;
-                            if (i.Content.SubtypeName == SCRAP)
+                            string name = i.Type.SubtypeId;
+                            if (i.Type.SubtypeId == SCRAP)
                             {
                                 name = FE;
                             }
@@ -5614,7 +5661,7 @@ namespace SpaceEngineers
                         }
                         else if (isIngot(i))
                         {
-                            string name = i.Content.SubtypeName;
+                            string name = i.Type.SubtypeId;
                             var amount = (float)i.Amount;
                             ingot_status[name] += amount;
                             if (isStorage)
@@ -5704,11 +5751,11 @@ namespace SpaceEngineers
             }
             if (alert)
             {
-                addAlert(AlertLevel.WHITE_ALERT);
+                addAlert(AlertLevel.ALERT_WHITE);
             }
             else
             {
-                removeAlert(AlertLevel.WHITE_ALERT);
+                removeAlert(AlertLevel.ALERT_WHITE);
             }
             alert = false;
             status_report[STATUS_MATERIAL] = sb.ToString();
@@ -5737,7 +5784,7 @@ namespace SpaceEngineers
                 string hydro_str = !has_hydrogen_tanks ? "N/A" : String.Format("{0:0.0}%",
                     cur_hydrogen_level);
 
-                if (has_oxygen_tanks && oxygen_low_watermark > 0 && cur_oxygen_level + getStoredOxygen() < oxygen_low_watermark)
+                if (has_oxygen_tanks && o2_lo_wm > 0 && cur_oxygen_level + getStoredOxygen() < o2_lo_wm)
                 {
                     alert = true;
                     addAntennaAlert(ALERT_LOW_OXYGEN);
@@ -5746,7 +5793,7 @@ namespace SpaceEngineers
                 {
                     removeAntennaAlert(ALERT_LOW_OXYGEN);
                 }
-                if (has_hydrogen_tanks && hydrogen_low_watermark > 0 && cur_hydrogen_level + getStoredHydrogen() < hydrogen_low_watermark)
+                if (has_hydrogen_tanks && h2_lo_wm > 0 && cur_hydrogen_level + getStoredHydrogen() < h2_lo_wm)
                 {
                     alert = true;
                     addAntennaAlert(ALERT_LOW_HYDROGEN);
@@ -5759,13 +5806,13 @@ namespace SpaceEngineers
                 {
                     status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1} WARNING!",
                         oxy_str, hydro_str);
-                    addAlert(AlertLevel.CYAN_ALERT);
+                    addAlert(AlertLevel.ALERT_CYAN);
                 }
                 else
                 {
                     status_report[STATUS_OXYHYDRO_LEVEL] = String.Format("{0} / {1}",
                         oxy_str, hydro_str);
-                    removeAlert(AlertLevel.CYAN_ALERT);
+                    removeAlert(AlertLevel.ALERT_CYAN);
                 }
             }
             else
@@ -5773,7 +5820,7 @@ namespace SpaceEngineers
                 removeAntennaAlert(ALERT_LOW_OXYGEN);
                 removeAntennaAlert(ALERT_LOW_HYDROGEN);
                 status_report[STATUS_OXYHYDRO_LEVEL] = "";
-                removeAlert(AlertLevel.CYAN_ALERT);
+                removeAlert(AlertLevel.ALERT_CYAN);
             }
         }
         #endregion
@@ -5999,11 +6046,11 @@ namespace SpaceEngineers
 
             if (refineries_clogged || arc_furnaces_clogged || assemblers_clogged)
             {
-                addAlert(AlertLevel.MAGENTA_ALERT);
+                addAlert(AlertLevel.ALERT_MAGENTA);
             }
             else
             {
-                removeAlert(AlertLevel.MAGENTA_ALERT);
+                removeAlert(AlertLevel.ALERT_MAGENTA);
             }
 
             // display status updates
