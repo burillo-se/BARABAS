@@ -1122,7 +1122,7 @@ namespace SpaceEngineers
         // get status report text panels
         List<IMyTerminalBlock> getAntennas(bool force_update = false)
         {
-            if (local_text_panels != null && !force_update)
+            if (local_antennas != null && !force_update)
             {
                 return removeNulls(local_antennas);
             }
