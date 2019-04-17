@@ -5689,7 +5689,12 @@ namespace SpaceEngineers
                     int i = 0;
                     foreach (var pi in pq)
                     {
-                        var ingot_list = production_item_ingots[pi.BlueprintId.SubtypeName];
+                        var ingot_list = new List<string>();
+                        if (!production_item_ingots.TryGetValue(pi.BlueprintId.SubtypeName, out ingot_list))
+                        {
+                            // we couldn't find this item in our list of possible production items, so simply ignore it
+                            continue;
+                        }
                         foreach (var ingot in ingot_list)
                         {
                             assembler_ingots.Add(ingot);
