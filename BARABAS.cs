@@ -671,6 +671,9 @@ namespace SpaceEngineers
                 {
                     pr.showAlertColor(Color.Red);
                 }
+                var surface = pr.Me.GetSurface(0);
+                surface.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
+                surface.WriteText("BARABAS Exception: " + msg);
             }
         }
 
@@ -6065,17 +6068,25 @@ namespace SpaceEngineers
             {
                 displayStatusReport();
             }
-            string il_str = String.Format("IL Count: {0}/{1} ({2:0.0}%)",
+            var sb = new StringBuilder();
+            sb.AppendFormat("BARABAS version {0}\r\n", VERSION);
+            sb.AppendFormat("States executed: {0}\r\n", num_states);
+            if (trigger_mode)
+                sb.AppendLine("Update period: triggered");
+            else
+                sb.AppendFormat("Update period: {0:0.0} seconds\r\n", update_period);
+            if (green_mode)
+                sb.AppendFormat("Green mode active\r\n");
+            sb.AppendFormat("IL Count: {0}/{1} ({2:0.0}%)",
                 Runtime.CurrentInstructionCount,
                 Runtime.MaxInstructionCount,
                 (float)Runtime.CurrentInstructionCount / Runtime.MaxInstructionCount * 100F);
-            string update_str = trigger_mode ? "triggered" : String.Format("{0:0.0} seconds", update_period);
-            Echo(String.Format("BARABAS version {0}", VERSION));
-            Echo(String.Format("States executed: {0}", num_states));
-            Echo(String.Format("Update period: {0}", trigger_mode ? "triggered" : update_str));
-            if (green_mode)
-                Echo("Green mode active");
-            Echo(il_str);
+            Echo(sb.ToString());
+            
+            // also write it out on the screen
+            var surface = Me.GetSurface(0);
+            surface.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
+            surface.WriteText(sb.ToString());
         }
         #endregion
         #region SEFOOTER
