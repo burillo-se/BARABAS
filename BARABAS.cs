@@ -47,10 +47,10 @@ namespace SpaceEngineers
          * - A group of sensors and connectors named "BARABAS Trash".
          *
          * Trash throw out:
-         * - During normal operation, only excess stone will be thrown out as trash.
+         * - During normal operation, only excess gravel will be thrown out as trash.
          * - During crisis mode, some ore may be thrown out as well.
-         * - If you don't want stone to be thrown out (e.g. if you use concrete mod),
-         *   create a config block and edit configuration accordingly.
+         * - If you don't want gravel to be thrown out (e.g. if you use concrete mod),
+         *   edit configuration accordingly.
          * - If no connectors were found in the "BARABAS Trash" group, an arbitrary
          *   connector will be used for trash throw out.
          * - Sensors in "BARABAS Trash" group are used to stop trash throw out. To use
@@ -85,12 +85,14 @@ namespace SpaceEngineers
         // hydrogen high and low watermarks
         float h2_hi_wm = 0;
         float h2_lo_wm = 0;
-        bool throw_out_stone = false;
+        // this is a threshold that we'll use to decide when to exit low power crisis mode
+        float stored_power_thresh = 0f;
+        // multiplier for stored material watermarks
+        bool throw_out_gravel = false;
         bool sort_storage = true;
         bool hud_notifications = true;
         float prev_pwr_draw = 0;
         bool refineries_clogged = false;
-        bool arc_furnaces_clogged = false;
         bool assemblers_clogged = false;
 
         bool push_ore_to_base = false;
@@ -111,7 +113,8 @@ namespace SpaceEngineers
         {
             CRISIS_MODE_NONE = 0,
             CRISIS_MODE_THROW_ORE,
-            CRISIS_MODE_LOCKUP
+            CRISIS_MODE_LOCKUP,
+            CRISIS_MODE_NO_POWER
         };
         CrisisMode crisis_mode;
         bool green_mode = false;
@@ -130,6 +133,7 @@ namespace SpaceEngineers
         const string CS_PULL_INGOTS = "pull ingots from base";
         const string CS_PULL_COMPONENTS = "pull components from base";
         const string CS_KEEP_STONE = "keep stone";
+        const string CS_KEEP_GRAVEL = "keep gravel";
         const string CS_SORT_STORAGE = "sort storage";
         const string CS_HUD_NOTIFICATIONS = "HUD notifications";
         const string CS_OXYGEN_WATERMARKS = "oxygen watermarks";
@@ -182,7 +186,7 @@ namespace SpaceEngineers
             { CS_PULL_ORE, "" },
             { CS_PULL_INGOTS, "" },
             { CS_PULL_COMPONENTS, "" },
-            { CS_KEEP_STONE, "" },
+            { CS_KEEP_GRAVEL, "" },
             { CS_SORT_STORAGE, "" },
             { CS_UPDATE_PERIOD, "" },
             { CS_GREEN_MODE, "" },
@@ -202,8 +206,11 @@ namespace SpaceEngineers
             CO, AU, FE, MG, NI, PT, SI, AG, U, STONE, ICE
         };
 
-        readonly List<string> arc_furnace_ores = new List<string> {
-            CO, FE, NI
+        // map block definition to list of ores it can refine
+        readonly Dictionary<string, HashSet<string>> block_refine_map = new Dictionary<string, HashSet<string>> {
+            { "MyObjectBuilder_Refinery/LargeRefinery", new HashSet<string> {CO, AU, FE, MG, NI, PT, SI, AG, U, STONE, ICE, SCRAP} },
+            { "MyObjectBuilder_Refinery/Blast Furnace", new HashSet<string> {CO, FE, NI, SCRAP} },
+            { "MyObjectBuilder_OxygenGenerator/", new HashSet<string> {ICE} },
         };
 
         // ballpark values of "just enough" for each material
@@ -220,17 +227,26 @@ namespace SpaceEngineers
             { STONE, 5000 },
         };
 
-        readonly Dictionary<string, float> ore_to_ingot_ratios = new Dictionary<string, float> {
-            { CO, 0.24F },
-            { AU, 0.008F },
-            { FE, 0.56F },
-            { MG, 0.0056F },
-            { NI, 0.32F },
-            { PT, 0.004F },
-            { SI, 0.56F },
-            { AG, 0.08F },
-            { U, 0.0056F },
-            { STONE, 0.72F }
+        readonly Dictionary<string, Dictionary<string, float>> ore_to_ingot_ratios = new Dictionary<string, Dictionary<string, float>> {
+            { CO, new Dictionary<string, float>{ { CO, 0.3F } } },
+            { AU, new Dictionary<string, float>{ { AU, 0.01F } } },
+            { FE, new Dictionary<string, float>{ { FE, 0.7F } } },
+            { SCRAP, new Dictionary<string, float>{ { SCRAP, 0.8F } } },
+            { MG, new Dictionary<string, float>{ { MG, 0.007F } } },
+            { NI, new Dictionary<string, float>{ { NI, 0.4F } } },
+            { PT, new Dictionary<string, float>{ { PT, 0.005F } } },
+            { SI, new Dictionary<string, float>{ { SI, 0.7F } } },
+            { AG, new Dictionary<string, float>{ { AG, 0.1F } } },
+            { U, new Dictionary<string, float>{ { U, 0.01F } } },
+            // stone is a special case because it will produce multiple ingots
+            { STONE,
+                new Dictionary<string, float>{
+                    { STONE, 0.027F },
+                    { FE, 0.054F },
+                    { NI, 0.0046F },
+                    { SI, 0.007F },
+                }
+            }
         };
 
         // statuses for ore and ingots
@@ -307,9 +323,6 @@ namespace SpaceEngineers
         List<IMyTerminalBlock> local_batteries = null;
         List<IMyTerminalBlock> local_refineries = null;
         List<IMyTerminalBlock> local_refineries_subset = null;
-        List<IMyTerminalBlock> local_arc_furnaces = null;
-        List<IMyTerminalBlock> local_arc_furnaces_subset = null;
-        List<IMyTerminalBlock> local_all_refineries = null;
         List<IMyTerminalBlock> local_assemblers = null;
         List<IMyTerminalBlock> local_connectors = null;
         List<IMyTerminalBlock> local_storage = null;
@@ -438,7 +451,6 @@ namespace SpaceEngineers
         bool has_oxygen_tanks;
         bool has_hydrogen_tanks;
         bool has_refineries;
-        bool has_arc_furnaces;
         bool connected;
         bool connected_to_base;
         bool connected_to_ship;
@@ -675,6 +687,11 @@ namespace SpaceEngineers
                 surface.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
                 surface.WriteText("BARABAS Exception: " + msg);
             }
+        }
+
+        string getBlockDefinitionStr(IMyTerminalBlock b)
+        {
+            return b.BlockDefinition.TypeIdString + "/" + b.BlockDefinition.SubtypeName;
         }
 
         double getMagnitude(char c)
@@ -954,7 +971,7 @@ namespace SpaceEngineers
             filterLocalGrid<IMyRefinery>(local_refineries);
             foreach (IMyRefinery r in local_refineries)
             {
-                if (!r.IsQueueEmpty && !r.IsProducing)
+                if (!r.IsQueueEmpty && !r.IsProducing && r.Enabled)
                 {
                     addBlockAlert(r, ALERT_CLOGGED);
                     refineries_clogged = true;
@@ -970,54 +987,6 @@ namespace SpaceEngineers
                 local_refineries_subset = randomSubset(local_refineries, 40);
             }
             return local_refineries_subset;
-        }
-
-        List<IMyTerminalBlock> getArcFurnaces(bool force_update = false)
-        {
-            if (local_arc_furnaces != null && !force_update)
-            {
-                // if we didn't refresh the list yet, get a random subset
-                if (!null_list.Contains(local_arc_furnaces_subset))
-                {
-                    local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 40);
-                }
-                return removeNulls(local_arc_furnaces_subset);
-            }
-            arc_furnaces_clogged = false;
-            filterLocalGrid<IMyRefinery>(local_arc_furnaces);
-            foreach (IMyRefinery f in local_arc_furnaces)
-            {
-                if (!f.IsQueueEmpty && !f.IsProducing)
-                {
-                    addBlockAlert(f, ALERT_CLOGGED);
-                    arc_furnaces_clogged = true;
-                }
-                else
-                {
-                    removeBlockAlert(f, ALERT_CLOGGED);
-                }
-                updateBlockName(f);
-            }
-            if (!null_list.Contains(local_arc_furnaces_subset))
-            {
-                local_arc_furnaces_subset = randomSubset(local_arc_furnaces, 40);
-            }
-            return local_arc_furnaces_subset;
-        }
-
-        List<IMyTerminalBlock> getAllRefineries()
-        {
-            if (local_all_refineries == null)
-            {
-                local_all_refineries = new List<IMyTerminalBlock>();
-            }
-            if (!null_list.Contains(local_all_refineries))
-            {
-                local_all_refineries.Clear();
-                local_all_refineries.AddRange(getRefineries());
-                local_all_refineries.AddRange(getArcFurnaces());
-            }
-            return removeNulls(local_all_refineries);
         }
 
         List<IMyTerminalBlock> getAssemblers(bool force_update = false)
@@ -1046,7 +1015,7 @@ namespace SpaceEngineers
                     bool isWaiting = !a.IsQueueEmpty && !a.IsProducing;
                     removeBlockAlert(a, ALERT_MATERIALS_MISSING);
                     removeBlockAlert(a, ALERT_CLOGGED);
-                    if ((input_load > 0.98F || output_load > 0.98F) && isWaiting)
+                    if ((input_load > 0.98F || output_load > 0.98F) && isWaiting && a.Enabled)
                     {
                         addBlockAlert(a, ALERT_CLOGGED);
                         assemblers_clogged = true;
@@ -1288,7 +1257,6 @@ namespace SpaceEngineers
             local_reactors = new List<IMyTerminalBlock>();
             local_batteries = new List<IMyTerminalBlock>();
             local_refineries = new List<IMyTerminalBlock>();
-            local_arc_furnaces = new List<IMyTerminalBlock>();
             local_assemblers = new List<IMyTerminalBlock>();
             local_connectors = new List<IMyTerminalBlock>();
             local_storage = new List<IMyTerminalBlock>();
@@ -1335,17 +1303,10 @@ namespace SpaceEngineers
                 }
                 else if (b is IMyRefinery)
                 {
-                    // refineries and furnaces are of the same type, but differ in definitions
-                    if (b.BlockDefinition.SubtypeName.Contains("LargeRefinery"))
-                    {
-                        local_refineries.Add(b);
-                    }
-                    else
-                    {
-                        local_arc_furnaces.Add(b);
-                    }
+                    local_refineries.Add(b);
                 }
-                else if (b is IMyAssembler)
+                // exclude survival kits
+                else if (b is IMyAssembler && !getBlockDefinitionStr(b).Contains("SurvivalKit"))
                 {
                     local_assemblers.Add(b);
                 }
@@ -2775,7 +2736,7 @@ namespace SpaceEngineers
         // push all ore from refineries to storage
         void pushOreToStorage()
         {
-            var rs = getAllRefineries();
+            var rs = getRefineries();
             foreach (var r in rs)
             {
                 var inv = r.GetInventory(0);
@@ -3241,10 +3202,10 @@ namespace SpaceEngineers
             }
         }
 
-        // only stone is considered unuseful, and only if config says to throw out stone
+        // only gravel is considered unuseful, and only if config says to throw out stone
         bool isUseful(MyInventoryItem item)
         {
-            return !throw_out_stone || item.Type.SubtypeId != STONE;
+            return !throw_out_gravel || !isIngot(item) || item.Type.SubtypeId != STONE;
         }
 
         bool hasUsefulItems(IMyShipConnector connector)
@@ -3413,7 +3374,7 @@ namespace SpaceEngineers
             return target_amount != orig_target || entries.Count == 0;
         }
 
-        // move everything (or everything excluding stone) from trash to storage
+        // move everything (or everything excluding gravel) from trash to storage
         void storeTrash(bool store_all = false)
         {
             int count = 0;
@@ -3474,13 +3435,11 @@ namespace SpaceEngineers
                         rs = getRefineries();
                     }
                 }
-                else if (arc_furnace_ores.Contains(ore))
-                {
-                    rs = getAllRefineries();
-                }
                 else
                 {
-                    rs = getRefineries();
+                    // get refineries and filter out anything that doesn't accept this ore
+                    rs = new List<IMyTerminalBlock>(getRefineries());
+                    rs.RemoveAll(b => !block_refine_map[getBlockDefinitionStr(b)].Contains(ore));
                 }
                 if (rs.Count == 0)
                 {
@@ -3537,17 +3496,15 @@ namespace SpaceEngineers
         // find which ore needs prioritization the most
         void reprioritizeOre()
         {
-            string low_wm_ore = null;
-            string high_wm_ore = null;
-            string low_wm_arc_ore = null;
-            string high_wm_arc_ore = null;
+            var lo_wm_ores = new List<string>();
+            var hi_wm_ores = new List<string>();
 
             // if we know we want uranium, prioritize it
             if (prioritize_uranium && ore_status[U] > 0)
             {
-                low_wm_ore = U;
+                lo_wm_ores.Add(U);
             }
-            // find us ore to prioritize (hi and low, regular and arc furnace)
+            // find us ore to prioritize
             foreach (var ore in ore_types)
             {
                 if (ore == ICE)
@@ -3555,66 +3512,52 @@ namespace SpaceEngineers
                     // ice is refined separately
                     continue;
                 }
-                bool arc = arc_furnace_ores.Contains(ore);
                 bool isLoWm = storage_ingot_status[ore] < material_thresholds[ore] && ore_status[ore] > 0;
                 bool isHiWm = storage_ingot_status[ore] < (material_thresholds[ore] * 5) && ore_status[ore] > 0;
                 bool overrideLoWm = isLoWm && assembler_ingots.Contains(ore);
                 bool overrideHiWm = isHiWm && assembler_ingots.Contains(ore);
-                if ((low_wm_ore == null && isLoWm) || overrideLoWm)
+                if (isLoWm || overrideLoWm)
                 {
-                    low_wm_ore = ore;
+                    lo_wm_ores.Add(ore);
                 }
-                else if ((high_wm_ore == null && isHiWm) || overrideHiWm)
+                else if (isHiWm || overrideHiWm)
                 {
-                    high_wm_ore = ore;
-                }
-                if (arc && (low_wm_arc_ore == null && isLoWm) || overrideLoWm)
-                {
-                    low_wm_arc_ore = ore;
-                }
-                else if (arc && (high_wm_arc_ore == null && isHiWm) || overrideHiWm)
-                {
-                    high_wm_arc_ore = ore;
-                }
-                if (high_wm_ore != null && low_wm_ore != null && high_wm_arc_ore != null && low_wm_arc_ore != null)
-                {
-                    break;
+                    hi_wm_ores.Add(ore);
                 }
             }
             // now, reorder ore in refineries
-            if (high_wm_ore != null || low_wm_ore != null)
+            if (hi_wm_ores.Count != 0 || lo_wm_ores.Count != 0)
             {
-                var ore = low_wm_ore != null ? low_wm_ore : high_wm_ore;
                 var rs = getRefineries();
-                foreach (var refinery in rs)
+                foreach (var r in rs)
                 {
-                    var inv = refinery.GetInventory(0);
-                    var items = new List<MyInventoryItem>();
-                    inv.GetItems(items);
-                    for (int j = 0; j < items.Count; j++)
+                    // ores are in priority order, and not all refineries accept all ores,
+                    // so we need to filter out anything that cannot be refined here
+                    string ore = null;
+                    foreach (var o in lo_wm_ores)
                     {
-                        var cur = items[j].Type.SubtypeId;
-                        if (cur == SCRAP)
-                        {
-                            cur = FE;
-                        }
-                        if (cur != ore)
-                        {
+                        if (!block_refine_map[getBlockDefinitionStr(r)].Contains(o))
                             continue;
-                        }
-                        pushFront(inv, j, items[j].Amount);
+                        ore = o;
                         break;
                     }
-                }
-            }
-            // reorder ore in arc furnaces
-            if (high_wm_arc_ore != null || low_wm_arc_ore != null)
-            {
-                var ore = low_wm_arc_ore != null ? low_wm_arc_ore : high_wm_arc_ore;
-                var rs = getArcFurnaces();
-                foreach (var refinery in rs)
-                {
-                    var inv = refinery.GetInventory(0);
+                    if (ore == null)
+                    {
+                        foreach (var o in hi_wm_ores)
+                        {
+                            if (!block_refine_map[getBlockDefinitionStr(r)].Contains(o))
+                                continue;
+                            ore = o;
+                            break;
+                        }
+                    }
+                    if (ore == null)
+                    {
+                        // this refinery cannot prioritize any ores that are needed
+                        continue;
+                    }
+
+                    var inv = r.GetInventory(0);
                     var items = new List<MyInventoryItem>();
                     inv.GetItems(items);
                     for (int j = 0; j < items.Count; j++)
@@ -3646,25 +3589,20 @@ namespace SpaceEngineers
             public int maxIdx;
             public float minLoad;
             public float maxLoad;
-            public int minArcIdx;
-            public int maxArcIdx;
-            public float minArcLoad;
-            public float maxArcLoad;
         }
 
         // go through a list of blocks and find most and least utilized
         RebalanceResult findMinMax(List<IMyTerminalBlock> blocks)
         {
             var r = new RebalanceResult();
-            int minI = 0, maxI = 0, minAI = 0, maxAI = 0;
-            float minL = float.MaxValue, maxL = 0, minAL = float.MaxValue, maxAL = 0;
+            int minI = 0, maxI = 0;
+            float minL = float.MaxValue, maxL = 0;
 
             for (int i = 0; i < blocks.Count; i++)
             {
                 var b = blocks[i];
                 var inv = b.GetInventory(0);
                 rebalance(inv);
-                float arcload = 0;
                 var items = new List<MyInventoryItem>();
                 inv.GetItems(items);
                 foreach (var item in items)
@@ -3673,10 +3611,6 @@ namespace SpaceEngineers
                     if (name == SCRAP)
                     {
                         name = FE;
-                    }
-                    if (arc_furnace_ores.Contains(name))
-                    {
-                        arcload += (float)item.Amount * VOLUME_ORE;
                     }
                 }
                 float load = (float)inv.CurrentVolume * 1000;
@@ -3691,25 +3625,11 @@ namespace SpaceEngineers
                     maxI = i;
                     maxL = load;
                 }
-                if (arcload < minAL)
-                {
-                    minAI = i;
-                    minAL = arcload;
-                }
-                if (arcload > maxAL)
-                {
-                    maxAI = i;
-                    maxAL = arcload;
-                }
             }
             r.minIdx = minI;
             r.maxIdx = maxI;
             r.minLoad = minL;
             r.maxLoad = maxL;
-            r.minArcIdx = minAI;
-            r.maxArcIdx = maxAI;
-            r.minArcLoad = minAL;
-            r.maxArcLoad = maxAL;
             return r;
         }
 
@@ -3759,98 +3679,51 @@ namespace SpaceEngineers
             return success;
         }
 
-        // go through all refineries, arc furnaces and oxygen generators, and find
+        // go through all blocks capable of refining ore, and find
         // least and most utilized, and spread load between them
         void rebalanceRefineries()
         {
-            bool refsuccess = false;
-            bool arcsuccess = false;
             var ratio = 1.25F;
 
-            // balance oxygen generators
-            var ogs = getOxygenGenerators();
-            var oxyresult = findMinMax(ogs);
-
-            if (oxyresult.maxLoad > 0)
+            // go through all sets of ores supported by each refining block,
+            // and rebalance between all blocks that support these ores
+            foreach (var s in block_refine_map.Values)
             {
-                bool trySpread = oxyresult.minLoad == 0 || oxyresult.maxLoad / oxyresult.minLoad > ratio;
-                if (oxyresult.minIdx != oxyresult.maxIdx && trySpread)
+                var blocks = new List<IMyTerminalBlock>();
+
+                // special case: for ice, we only consider oxygen generators unless
+                // we don't have any
+                if (s.Count == 1 && s.Contains(ICE) && getOxygenGenerators().Count > 0)
                 {
-                    var src = ogs[oxyresult.maxIdx];
-                    var dst = ogs[oxyresult.minIdx];
-                    spreadOre(src, 0, dst, 0);
+                    blocks.AddList(getOxygenGenerators());
                 }
-            }
-
-            // balance refineries and arc furnaces separately
-            var rs = getRefineries();
-            var fs = getArcFurnaces();
-            var rres = findMinMax(rs);
-            var fres = findMinMax(fs);
-
-            if (rres.maxLoad > 250)
-            {
-                bool trySpread = rres.minLoad == 0 || rres.maxLoad / rres.minLoad > ratio;
-                if (rres.minIdx != rres.maxIdx && trySpread)
+                else
                 {
-                    var src = rs[rres.maxIdx];
-                    var dst = rs[rres.minIdx];
-                    if (spreadOre(src, 0, dst, 0))
+                    foreach (var b in getRefineries())
                     {
-                        refsuccess = true;
+                        // check if this block can refine all ores from current set
+                        if (block_refine_map[getBlockDefinitionStr(b)].IsSubsetOf(s))
+                        {
+                            blocks.Add(b);
+                        }
                     }
                 }
-            }
-            if (fres.maxLoad > 250)
-            {
-                bool trySpread = fres.minLoad == 0 || (fres.maxLoad / fres.minLoad) > ratio;
-                if (fres.minIdx != fres.maxIdx && trySpread)
+
+                // we now have all blocks that support current subset of ores
+                // now we can rebalance between all of these blocks
+
+                var res = findMinMax(blocks);
+
+                if (res.maxLoad > 250)
                 {
-                    var src = fs[fres.maxIdx];
-                    var dst = fs[fres.minIdx];
-                    if (spreadOre(src, 0, dst, 0))
+                    bool trySpread = res.minLoad == 0 || res.maxLoad / res.minLoad > ratio;
+                    if (res.minIdx != res.maxIdx && trySpread)
                     {
-                        arcsuccess = true;
+                        var src = blocks[res.maxIdx];
+                        var dst = blocks[res.minIdx];
+                        spreadOre(src, 0, dst, 0);
                     }
                 }
-            }
-
-            if (rs.Count == 0 || fs.Count == 0 || arcsuccess)
-            {
-                return;
-            }
-
-            // cross pollination: spread load from ref to arc
-            float refToArcRatio = 0;
-            if (fres.minLoad != 0)
-            {
-                refToArcRatio = rres.maxArcLoad / fres.minLoad;
-            }
-            bool refToArc = !refsuccess || (refsuccess && rres.maxIdx != rres.maxArcIdx);
-            refToArc = refToArcRatio > ratio || (fres.minLoad == 0 && rres.maxArcLoad > 0);
-            if (refToArc)
-            {
-                var src = rs[rres.maxArcIdx];
-                var dst = fs[fres.minIdx];
-                if (spreadOre(src, 0, dst, 0))
-                {
-                    return;
-                }
-            }
-
-            // spread load from arc to ref
-            float arcToRefRatio = 0;
-            if (rres.minLoad != 0)
-            {
-                arcToRefRatio = fres.maxLoad / rres.minLoad;
-            }
-
-            bool arcToRef = rres.minLoad == 0 || arcToRefRatio > ratio;
-            if (arcToRef)
-            {
-                var src = fs[fres.maxIdx];
-                var dst = rs[rres.minIdx];
-                spreadOre(src, 0, dst, 0);
             }
         }
 
@@ -3884,7 +3757,7 @@ namespace SpaceEngineers
         // check if refineries can refine
         bool refineriesClogged()
         {
-            var rs = getAllRefineries();
+            var rs = getRefineries();
             foreach (IMyRefinery r in rs)
             {
                 if (r.IsQueueEmpty || r.IsProducing)
@@ -3935,7 +3808,7 @@ namespace SpaceEngineers
 
         void declogRefineries()
         {
-            var rs = getAllRefineries();
+            var rs = getRefineries();
             foreach (var r in rs)
             {
                 var inv = r.GetInventory(1);
@@ -4195,8 +4068,8 @@ namespace SpaceEngineers
             push_components_to_base = false;
             refuel_oxygen = false;
             refuel_hydrogen = false;
-            throw_out_stone = true;
-            material_thresholds[STONE] = 5000;
+            throw_out_gravel = true;
+            material_thresholds[STONE] = 0; // by default, keep all gravel
             pwr_lo_wm = 0;
             pwr_hi_wm = 0;
             o2_hi_wm = 0;
@@ -4453,20 +4326,20 @@ namespace SpaceEngineers
                 config_options[CS_REFUEL_HYDROGEN] = refuel_hydrogen.ToString();
             }
             config_options[CS_SORT_STORAGE] = sort_storage.ToString();
-            if (throw_out_stone)
+            if (throw_out_gravel)
             {
                 if (material_thresholds[STONE] == 0)
                 {
-                    config_options[CS_KEEP_STONE] = "none";
+                    config_options[CS_KEEP_GRAVEL] = "none";
                 }
                 else
                 {
-                    config_options[CS_KEEP_STONE] = Math.Floor((material_thresholds[STONE] * 5) / 1000).ToString();
+                    config_options[CS_KEEP_GRAVEL] = Math.Floor((material_thresholds[STONE] * 5) / 1000).ToString();
                 }
             }
             else
             {
-                config_options[CS_KEEP_STONE] = "all";
+                config_options[CS_KEEP_GRAVEL] = "all";
             }
             config_options[CS_OXYGEN_WATERMARKS] = String.Format("{0}", o2_hi_wm >= 0 ? getWatermarkStr(o2_lo_wm, o2_hi_wm) : "none");
             config_options[CS_HYDROGEN_WATERMARKS] = String.Format("{0}", h2_hi_wm >= 0 ? getWatermarkStr(h2_lo_wm, h2_hi_wm) : "none");
@@ -4532,7 +4405,7 @@ namespace SpaceEngineers
                 sb.AppendLine(key + " = " + config_options[key]);
                 sb.AppendLine();
             }
-            key = CS_KEEP_STONE;
+            key = CS_KEEP_GRAVEL;
             sb.AppendLine("# How much gravel to keep, in tons.");
             sb.AppendLine("# Can be a positive number, \"none\", \"all\" or \"auto\".");
             sb.AppendLine(key + " = " + config_options[key]);
@@ -4600,6 +4473,9 @@ namespace SpaceEngineers
                 throw new BarabasException("Invalid number of tokens: " + line, this);
             }
             var str = strs[0].ToLower().Trim();
+            // backwards compatibility
+            if (str == CS_KEEP_STONE)
+                str = CS_KEEP_GRAVEL;
             var strval = strs[1].ToLower().Trim();
             if (!config_options.ContainsKey(str))
             {
@@ -4704,26 +4580,27 @@ namespace SpaceEngineers
                     fail = true;
                 }
             }
-            else if (clStrCompare(str, CS_KEEP_STONE))
+            // backwards compatibility with old configs - we no longer throw out stone ore
+            else if (clStrCompare(str, CS_KEEP_GRAVEL) || clStrCompare(str, CS_KEEP_STONE))
             {
                 if (fparse && fval > 0)
                 {
-                    throw_out_stone = true;
+                    throw_out_gravel = true;
                     material_thresholds[STONE] = (float)Math.Floor((fval * 1000) / 5);
                 }
                 else if (strval == "all")
                 {
-                    throw_out_stone = false;
+                    throw_out_gravel = false;
                     material_thresholds[STONE] = 5000;
                 }
                 else if (strval == "none")
                 {
-                    throw_out_stone = true;
+                    throw_out_gravel = true;
                     material_thresholds[STONE] = 0;
                 }
                 else if (strval == "auto")
                 {
-                    throw_out_stone = true;
+                    throw_out_gravel = true;
                     material_thresholds[STONE] = 5000;
                 }
                 else
@@ -5190,6 +5067,9 @@ namespace SpaceEngineers
             {
                 status_report[STATUS_CRISIS_MODE] = "Lockup";
                 addAntennaAlert(ALERT_CRISIS_LOCKUP);
+            } else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER)
+            {
+                status_report[STATUS_CRISIS_MODE] = "Very low power";
             }
 
             displayAntennaAlerts();
@@ -5231,8 +5111,7 @@ namespace SpaceEngineers
         void s_refreshProduction()
         {
             has_refineries = getRefineries(true).Count > 0;
-            has_arc_furnaces = getArcFurnaces(true).Count > 0;
-            can_refine = has_refineries || has_arc_furnaces || (getOxygenGenerators(true).Count > 0);
+            can_refine = has_refineries || (getOxygenGenerators(true).Count > 0);
             can_refine_ice = has_refineries || (getOxygenGenerators().Count > 0);
             can_use_ingots = getAssemblers(true).Count > 0;
             getStorage(true);
@@ -5414,6 +5293,33 @@ namespace SpaceEngineers
                 string max_str = String.Format("{0:0.0}%", max_pwr_draw / max_pwr_output * 100);
                 string cur_str = String.Format("{0:0.0}%", adjusted_pwr_draw / max_pwr_output * 100);
                 status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
+
+                if (time < 3)
+                {
+                    // we're in a crisis - we have no power left, so shut everything down
+                    crisis_mode = CrisisMode.CRISIS_MODE_NO_POWER;
+                    // remember the amount of power we had when we had to shut everything down,
+                    // and wait until we get 5 times that much power before we exit crisis mode
+                    stored_power_thresh = stored_power * 5;
+                    addAlert(AlertLevel.ALERT_BLUE);
+                } else if (stored_power < stored_power_thresh)
+                {
+                    // we still don't have enough stored power to exit crisis mode
+                    crisis_mode = CrisisMode.CRISIS_MODE_NO_POWER;
+                    addAlert(AlertLevel.ALERT_BLUE);
+                } else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER)
+                {
+                    crisis_mode = CrisisMode.CRISIS_MODE_NONE;
+                    stored_power_thresh = 0;
+                }
+            }
+            foreach (IMyRefinery r in getRefineries())
+            {
+                r.Enabled = true;
+            }
+            foreach (IMyAssembler r in getAssemblers())
+            {
+                r.Enabled = true;
             }
 
             if (crisis_mode == CrisisMode.CRISIS_MODE_NONE)
@@ -5425,9 +5331,22 @@ namespace SpaceEngineers
                 }
             }
             // if we're in a crisis, push all available uranium ingots to reactors.
-            else
+            else if (crisis_mode != CrisisMode.CRISIS_MODE_NO_POWER)
             {
                 refillReactors(true);
+            } else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER)
+            {
+                addAlert(AlertLevel.ALERT_BLUE);
+
+                // if there's no power, shut everything down
+                foreach (IMyRefinery r in getRefineries())
+                {
+                    r.Enabled = false;
+                }
+                foreach (IMyAssembler r in getAssemblers())
+                {
+                    r.Enabled = false;
+                }
             }
         }
 
@@ -5502,19 +5421,13 @@ namespace SpaceEngineers
 
         void s_materialsCrisis()
         {
-            if (crisis_mode == CrisisMode.CRISIS_MODE_NONE && throw_out_stone)
+            if (crisis_mode == CrisisMode.CRISIS_MODE_NONE && throw_out_gravel)
             {
-                // check if we want to throw out extra stone
-                if (storage_ore_status[STONE] > 0 || storage_ingot_status[STONE] > 0)
+                // check if we want to throw out extra gravel
+                if (storage_ingot_status[STONE] > 0)
                 {
-                    var excessStone = storage_ingot_status[STONE] + storage_ore_status[STONE] * ore_to_ingot_ratios[STONE] - material_thresholds[STONE] * 5;
-                    excessStone = (float)Math.Min(excessStone / ore_to_ingot_ratios[STONE], storage_ore_status[STONE]);
                     var excessGravel = storage_ingot_status[STONE] - material_thresholds[STONE] * 5;
-                    if (excessStone > 0)
-                    {
-                        throwOutOre(STONE, excessStone);
-                    }
-                    else if (excessGravel > 0)
+                    if (excessGravel > 0)
                     {
                         throwOutIngots(STONE, excessGravel);
                     }
@@ -5714,14 +5627,22 @@ namespace SpaceEngineers
                 float total_ingots = 0;
                 float total_ore = ore_status[ore];
                 float total = 0;
+                bool has_stone = false;
                 if (ore != ICE)
                 {
                     total_ingots = ingot_status[ore];
+                    // check if ore is produced by stone, but exclude stone itself to avoid counting twice
+                    bool is_stone_ore = (ore != STONE) && ore_to_ingot_ratios[STONE].ContainsKey(ore);
                     if (ore == U)
                     {
                         total_ingots -= uranium_in_reactors;
                     }
-                    total = (total_ore * ore_to_ingot_ratios[ore]) + total_ingots;
+                    total = (total_ore * ore_to_ingot_ratios[ore][ore]) + total_ingots;
+                    if (is_stone_ore)
+                    {
+                        total += (ore_status[STONE] * ore_to_ingot_ratios[STONE][ore]);
+                        has_stone = true;
+                    }
                 }
                 else
                 {
@@ -5743,7 +5664,7 @@ namespace SpaceEngineers
                     {
                         sb.Append(" / ");
                         sb.Append(roundStr(total_ingots));
-                        if (total_ore > 0)
+                        if (total_ore > 0 || has_stone)
                         {
                             sb.Append(String.Format(" ({0})", roundStr(total)));
                         }
@@ -6054,7 +5975,7 @@ namespace SpaceEngineers
                 checkOxygenLeaks();
             }
 
-            if (refineries_clogged || arc_furnaces_clogged || assemblers_clogged)
+            if (refineries_clogged || assemblers_clogged)
             {
                 addAlert(AlertLevel.ALERT_MAGENTA);
             }
