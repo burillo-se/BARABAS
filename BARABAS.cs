@@ -1,4 +1,9 @@
 #region SEHEADER
+/*
+ * This header is here to natively integrate with Visual Studio without MDK,
+ * and my Minifier deletes it if it finds it.
+ */
+
 #if DEBUG
 using System;
 using System.Linq;
@@ -5974,7 +5979,10 @@ namespace SpaceEngineers
         }
         #endregion
         #region SEFOOTER
-#if DEBUG
+/*
+ * this is removed by my Minifier.
+ */
+        #if DEBUG
     }
 }
 #endif
