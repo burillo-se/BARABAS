@@ -2882,7 +2882,8 @@ namespace SpaceEngineers
             {
                 power_draw += p.CurrentOutput * 1000;
                 // batteries are a special case because they have input as well
-                if (p is IMyBatteryBlock b)
+                var b = p as IMyBatteryBlock;
+                if (b != null)
                     power_draw -= b.CurrentInput * 1000;
             }
             cur_power_draw = power_draw;
@@ -5165,7 +5166,6 @@ namespace SpaceEngineers
 
         void s_power()
         {
-            // determine if we need more uranium
             bool above_high_watermark = powerAboveHighWatermark();
             var max_pwr_output = getMaxPowerOutput();
 
@@ -5206,6 +5206,9 @@ namespace SpaceEngineers
                 // prevent division by zero or negatives
                 max_pwr_draw = (float)Math.Max(max_pwr_draw, 0.001F);
                 cur_pwr_draw = (float)Math.Max(cur_pwr_draw, 0.001F);
+
+                // cap the max
+                max_pwr_draw = (float)Math.Min(max_power_draw, max_pwr_output);
 
                 // we're averaging over current and previous value
                 var adjusted_pwr_draw = (cur_pwr_draw + prev_pwr_draw) / 2;
@@ -5257,12 +5260,14 @@ namespace SpaceEngineers
                     // and wait until we get 5 times that much power before we exit crisis mode
                     stored_power_thresh = stored_power * 5;
                     addAlert(AlertLevel.ALERT_BLUE);
-                } else if (stored_power < stored_power_thresh)
+                }
+                else if (stored_power < stored_power_thresh)
                 {
                     // we still don't have enough stored power to exit crisis mode
                     crisis_mode = CrisisMode.CRISIS_MODE_NO_POWER;
                     addAlert(AlertLevel.ALERT_BLUE);
-                } else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER)
+                }
+                else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER)
                 {
                     crisis_mode = CrisisMode.CRISIS_MODE_NONE;
                     stored_power_thresh = 0;
@@ -5289,7 +5294,8 @@ namespace SpaceEngineers
             else if (crisis_mode != CrisisMode.CRISIS_MODE_NO_POWER)
             {
                 refillReactors(true);
-            } else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER)
+            }
+            else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER)
             {
                 addAlert(AlertLevel.ALERT_BLUE);
 
