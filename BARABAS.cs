@@ -4382,6 +4382,7 @@ namespace SpaceEngineers
             sb.AppendLine("# Multiplier for material shortage thresholds.");
             sb.AppendLine("# Can be used to raise or lower shortage alarm thresholds.");
             sb.AppendLine(key + " = " + config_options[key]);
+            sb.AppendLine();
 
             // these values only apply to ships
             if (isShipMode())
