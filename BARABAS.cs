@@ -3934,18 +3934,30 @@ namespace SpaceEngineers
             return oxygenAboveHighWatermark() && hydrogenAboveHighWatermark();
         }
 
-        float getOxygenCapacity()
+        float getOxygenCapacity(bool forced_update = false)
         {
+            if (!forced_update)
+            {
+                return cur_oxygen_capacity;
+            }
             int n_oxygen_tanks = getOxygenTanks().Count;
             float capacity = large_grid ? LARGE_O2_TANK_CAPACITY : SMALL_O2_TANK_CAPACITY;
-            return capacity * n_oxygen_tanks;
+            cur_oxygen_capacity = capacity * n_oxygen_tanks;
+
+            return cur_oxygen_capacity;
         }
 
-        float getHydrogenCapacity()
+        float getHydrogenCapacity(bool forced_update = false)
         {
+            if (!forced_update)
+            {
+                return cur_hydrogen_capacity;
+            }
             int n_hydrogen_tanks = getHydrogenTanks().Count;
             float capacity = large_grid ? LARGE_H2_TANK_CAPACITY : SMALL_H2_TANK_CAPACITY;
-            return capacity * n_hydrogen_tanks;
+            cur_hydrogen_capacity = capacity * n_hydrogen_tanks;
+
+            return cur_hydrogen_capacity;
         }
 
         float getStoredOxygen(bool forced_update = false)
@@ -3954,14 +3966,15 @@ namespace SpaceEngineers
             {
                 return cur_stored_oxygen;
             }
-            float capacity = large_grid ? LARGE_O2_TANK_CAPACITY : SMALL_O2_TANK_CAPACITY;
             float cur = 0;
+            float max = 0;
             foreach (IMyGasTank tank in getOxygenTanks())
             {
-                cur += (float)tank.FilledRatio * capacity;
+                cur += (float)tank.FilledRatio;
+                max += 1;
             }
 
-            cur_stored_oxygen = cur;
+            cur_stored_oxygen = getOxygenCapacity() * (cur / max);
 
             return cur_stored_oxygen;
         }
@@ -3972,14 +3985,15 @@ namespace SpaceEngineers
             {
                 return cur_stored_hydrogen;
             }
-            float capacity = large_grid ? LARGE_H2_TANK_CAPACITY : SMALL_H2_TANK_CAPACITY;
             float cur = 0;
+            float max = 0;
             foreach (IMyGasTank tank in getHydrogenTanks())
             {
-                cur += (float)tank.FilledRatio * capacity;
+                cur += (float)tank.FilledRatio;
+                max += 1;
             }
 
-            cur_stored_hydrogen = cur;
+            cur_stored_hydrogen = getHydrogenCapacity() * (cur / max);
 
             return cur_stored_hydrogen;
         }
@@ -5176,6 +5190,8 @@ namespace SpaceEngineers
             has_oxygen_tanks = getOxygenTanks(true).Count > 0;
             has_hydrogen_tanks = getHydrogenTanks(true).Count > 0;
             can_use_oxygen = has_oxygen_tanks && has_air_vents;
+            getOxygenCapacity(true);
+            getHydrogenCapacity(true);
             getStoredOxygen(true);
             getStoredHydrogen(true);
         }
