@@ -9,6 +9,8 @@ using VRageMath;
 using Sandbox.ModAPI.Ingame;
 using VRage.Game.ModAPI.Ingame;
 using SpaceEngineers.Game.ModAPI.Ingame;
+using VRage.Game;
+using Sandbox.Game.EntityComponents;
 
 namespace SpaceEngineers
 {
@@ -122,7 +124,7 @@ namespace SpaceEngineers
         float update_period = 1.0f; // default to 1 second
         int update_counter = 0;
         int update_counter_max;
-        
+
         // config options
         const string CS_OP_MODE = "mode";
         const string CS_POWER_WATERMARKS = "power watermarks";
@@ -335,6 +337,7 @@ namespace SpaceEngineers
         List<IMyTerminalBlock> local_oxygen_tanks = null;
         List<IMyTerminalBlock> local_hydrogen_tanks = null;
         List<IMyTerminalBlock> local_oxygen_generators = null;
+        List<IMyTerminalBlock> local_power_producers = null;
         List<IMyTerminalBlock> local_trash_connectors = null;
         List<IMyTerminalBlock> local_trash_sensors = null;
         List<IMyTerminalBlock> local_antennas = null;
@@ -904,6 +907,16 @@ namespace SpaceEngineers
             return local_blocks;
         }
 
+        List<IMyTerminalBlock> getPowerProducers(bool force_update = false)
+        {
+            if (local_power_producers != null && !force_update)
+            {
+                return removeNulls(local_power_producers);
+            }
+            filterLocalGrid<IMyReactor>(local_power_producers);
+            return local_power_producers;
+        }
+
         List<IMyTerminalBlock> getReactors(bool force_update = false)
         {
             if (local_reactors != null && !force_update)
@@ -1267,6 +1280,7 @@ namespace SpaceEngineers
             local_oxygen_tanks = new List<IMyTerminalBlock>();
             local_hydrogen_tanks = new List<IMyTerminalBlock>();
             local_oxygen_generators = new List<IMyTerminalBlock>();
+            local_power_producers = new List<IMyTerminalBlock>();
             // piston and rotor lists are local, we don't need them once we're done
             var pistons = new List<IMyTerminalBlock>();
             var rotors = new List<IMyTerminalBlock>();
@@ -1290,6 +1304,11 @@ namespace SpaceEngineers
                 {
                     data = new GridData();
                     tmp_grid_data.Add(b.CubeGrid, data);
+                }
+                // add all power producers to the list independently of what they are
+                if (b is IMyPowerProducer)
+                {
+                    local_power_producers.Add(b);
                 }
 
                 // fill all lists
