@@ -932,7 +932,7 @@ namespace SpaceEngineers
             {
                 return removeNulls(local_power_producers);
             }
-            filterLocalGrid<IMyReactor>(local_power_producers);
+            filterLocalGrid<IMyPowerProducer>(local_power_producers);
             return local_power_producers;
         }
 
@@ -2875,6 +2875,12 @@ namespace SpaceEngineers
 
             foreach (IMyPowerProducer p in getPowerProducers())
             {
+                // don't count batteries that are recharging
+                var b = p as IMyBatteryBlock;
+                if (b != null && b.ChargeMode == ChargeMode.Recharge)
+                {
+                    continue;
+                }
                 power_output += p.MaxOutput * 1000;
             }
 
@@ -5156,6 +5162,7 @@ namespace SpaceEngineers
         {
             has_reactors = getReactors(true).Count > 0;
             getBatteries(true);
+            getPowerProducers(true);
             getMaxPowerOutput(true);
             getCurPowerDraw(true);
             getMaxPowerDraw(true);
