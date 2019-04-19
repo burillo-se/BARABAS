@@ -96,6 +96,7 @@ namespace SpaceEngineers
         // this is a threshold that we'll use to decide when to exit low power crisis mode
         float stored_power_thresh = 0f;
         // multiplier for stored material watermarks
+        float material_threshold_multiplier = 1f;
         bool throw_out_gravel = false;
         bool sort_storage = true;
         bool hud_notifications = true;
@@ -142,6 +143,7 @@ namespace SpaceEngineers
         const string CS_PULL_COMPONENTS = "pull components from base";
         const string CS_KEEP_STONE = "keep stone";
         const string CS_KEEP_GRAVEL = "keep gravel";
+        const string CS_MATERIAL_THRESHOLD_MULT = "storage multiplier";
         const string CS_SORT_STORAGE = "sort storage";
         const string CS_HUD_NOTIFICATIONS = "HUD notifications";
         const string CS_OXYGEN_WATERMARKS = "oxygen watermarks";
@@ -2115,7 +2117,7 @@ namespace SpaceEngineers
             }
 
             // if this is a priority ore, accept it unconditionally
-            if (can_use_ingots && storage_ingot_status[name] < material_thresholds[name])
+            if (can_use_ingots && storage_ingot_status[name] < material_thresholds[name] * material_threshold_multiplier)
             {
                 return true;
             }
@@ -3471,8 +3473,8 @@ namespace SpaceEngineers
                     // ice is refined separately
                     continue;
                 }
-                bool isLoWm = storage_ingot_status[ore] < material_thresholds[ore] && ore_status[ore] > 0;
-                bool isHiWm = storage_ingot_status[ore] < (material_thresholds[ore] * 5) && ore_status[ore] > 0;
+                bool isLoWm = storage_ingot_status[ore] < (material_thresholds[ore] * material_threshold_multiplier) && ore_status[ore] > 0;
+                bool isHiWm = storage_ingot_status[ore] < (material_thresholds[ore] * 5 * material_threshold_multiplier) && ore_status[ore] > 0;
                 bool overrideLoWm = isLoWm && assembler_ingots.Contains(ore);
                 bool overrideHiWm = isHiWm && assembler_ingots.Contains(ore);
                 if (isLoWm || overrideLoWm)
@@ -4035,6 +4037,7 @@ namespace SpaceEngineers
             o2_lo_wm = 0;
             h2_hi_wm = 0;
             h2_lo_wm = 0;
+            material_threshold_multiplier = 1f;
         }
 
         // update defaults based on auto configured values
@@ -4304,6 +4307,7 @@ namespace SpaceEngineers
             config_options[CS_HYDROGEN_WATERMARKS] = String.Format("{0}", h2_hi_wm >= 0 ? getWatermarkStr(h2_lo_wm, h2_hi_wm) : "none");
             config_options[CS_GREEN_MODE] = green_mode.ToString();
             config_options[CS_UPDATE_PERIOD] = trigger_mode ? "trigger" : String.Format("{0:0.0}", update_period);
+            config_options[CS_MATERIAL_THRESHOLD_MULT] = material_threshold_multiplier.ToString();
 
             // currently selected operation mode
             sb.AppendLine("# Operation mode.");
@@ -4374,6 +4378,10 @@ namespace SpaceEngineers
             sb.AppendLine("# Can be True or False.");
             sb.AppendLine(key + " = " + config_options[key]);
             sb.AppendLine();
+            key = CS_MATERIAL_THRESHOLD_MULT;
+            sb.AppendLine("# Multiplier for material shortage thresholds.");
+            sb.AppendLine("# Can be used to raise or lower shortage alarm thresholds.");
+            sb.AppendLine(key + " = " + config_options[key]);
 
             // these values only apply to ships
             if (isShipMode())
@@ -4650,6 +4658,19 @@ namespace SpaceEngineers
                 {
                     trigger_mode = false;
                     update_period = fval;
+                } else
+                {
+                    fail = true;
+                }
+            }
+            else if (clStrCompare(str, CS_MATERIAL_THRESHOLD_MULT))
+            {
+                if (strval == "auto")
+                {
+                    material_threshold_multiplier = 1;
+                } else if (fval >= 0.1f)
+                {
+                    material_threshold_multiplier = fval;
                 } else
                 {
                     fail = true;
@@ -5394,7 +5415,7 @@ namespace SpaceEngineers
                 // check if we want to throw out extra gravel
                 if (storage_ingot_status[STONE] > 0)
                 {
-                    var excessGravel = storage_ingot_status[STONE] - material_thresholds[STONE] * 5;
+                    var excessGravel = storage_ingot_status[STONE] - material_thresholds[STONE] * 5 * material_threshold_multiplier;
                     if (excessGravel > 0)
                     {
                         throwOutIngots(STONE, excessGravel);
@@ -5639,7 +5660,7 @@ namespace SpaceEngineers
                     }
                 }
 
-                if (ore != ICE && can_use_ingots && total < material_thresholds[ore])
+                if (ore != ICE && can_use_ingots && total < (material_thresholds[ore] * material_threshold_multiplier))
                 {
                     alert = true;
                     if (has_status_panels)
