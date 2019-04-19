@@ -821,7 +821,8 @@ namespace SpaceEngineers
                 if (slimBlock(b) == null || !blockExists(b))
                 {
                     blocks_to_alerts.Remove(b);
-                    b.ShowOnHUD = false;
+                    if ((b as IMyRadioAntenna) == null)
+                        b.ShowOnHUD = false;
                     list.RemoveAt(i);
                 }
             }
@@ -4869,7 +4870,7 @@ namespace SpaceEngineers
             {
                 blocks_to_alerts.Add(b, id);
             }
-            if (hud_notifications)
+            if (hud_notifications && (b as IMyRadioAntenna) == null)
             {
                 b.ShowOnHUD = true;
             }
@@ -4892,7 +4893,8 @@ namespace SpaceEngineers
                 else
                 {
                     blocks_to_alerts.Remove(b);
-                    b.ShowOnHUD = false;
+                    if ((b as IMyRadioAntenna) == null)
+                        b.ShowOnHUD = false;
                 }
             }
         }
