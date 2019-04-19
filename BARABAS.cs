@@ -11,6 +11,7 @@ using VRage.Game.ModAPI.Ingame;
 using SpaceEngineers.Game.ModAPI.Ingame;
 using VRage.Game;
 using Sandbox.Game.EntityComponents;
+using SpaceEngineers.Game.Entities.Blocks;
 
 namespace SpaceEngineers
 {
@@ -428,9 +429,9 @@ namespace SpaceEngineers
         bool power_above_threshold = false;
         float cur_power_draw;
         float max_power_draw;
-        float max_battery_output;
-        float max_reactor_output;
-        float cur_reactor_output;
+        float max_power_output;
+        float cur_stored_power;
+        float cur_transient_power;
         float cur_oxygen_level;
         float cur_hydrogen_level;
         bool tried_throwing = false;
@@ -2794,88 +2795,76 @@ namespace SpaceEngineers
         /**
          * Uranium, reactors & batteries
          */
-        float getMaxReactorPowerOutput(bool force_update = false)
+        // get total amount of stored power
+        float getStoredPower(bool force_update = false)
         {
             if (!force_update)
             {
-                return max_reactor_output;
+                return cur_stored_power;
             }
-
-            max_reactor_output = 0;
-            var reactors = getReactors();
-            foreach (IMyReactor r in reactors)
-            {
-                max_reactor_output += r.MaxOutput * 1000;
-            }
-
-            return max_reactor_output;
-        }
-
-        float getCurReactorPowerOutput(bool force_update = false)
-        {
-            if (!force_update)
-            {
-                return cur_reactor_output;
-            }
-
-            cur_reactor_output = 0;
-            var reactors = getReactors();
-            foreach (IMyReactor r in reactors)
-            {
-                if (r.IsWorking)
-                {
-                    cur_reactor_output += r.MaxOutput * 1000;
-                }
-            }
-
-            return cur_reactor_output;
-        }
-
-        float getMaxBatteryPowerOutput(bool force_update = false)
-        {
-            if (!force_update)
-            {
-                return max_battery_output;
-            }
-
-            max_battery_output = 0;
-            var batteries = getBatteries();
-            foreach (IMyBatteryBlock b in batteries)
-            {
-                if (b.HasCapacityRemaining)
-                {
-                    // there's no API function to provide this information, and parsing
-                    // DetailedInfo is kinda overkill for this, so just hard-code the value
-                    max_battery_output += large_grid ? 12000 : 4320;
-                }
-            }
-
-            return max_battery_output;
-        }
-
-        float getBatteryStoredPower()
-        {
-            var batteries = getBatteries();
             float stored_power = 0;
-            foreach (IMyBatteryBlock b in batteries)
+
+            // go through batteries
+            foreach (IMyBatteryBlock b in getBatteries())
             {
                 // unlike reactors, batteries' kWh are _actual_ kWh, not kWm
                 stored_power += b.CurrentStoredPower * 1000 * 60;
             }
+
+            // reactors store power in uranium, but it's only stored
+            // power if you have a reactor in the first place
+            if (has_reactors)
+            {
+                stored_power += URANIUM_INGOT_POWER * ingot_status[U];
+            }
+
+            // hydrogen engines do have stored power, but the won't be
+            // included in this calculation for now
+            cur_stored_power = stored_power;
+
             return stored_power;
         }
 
-        float getReactorStoredPower()
+        float getTransientPower(bool force_update = false)
         {
-            if (has_reactors)
+            if (!force_update)
             {
-                return URANIUM_INGOT_POWER * ingot_status[U];
+                return cur_transient_power;
             }
-            return 0;
+            float cur_output = 0;
+
+            // go through power-producing blocks but exclude
+            // batteries and reactors
+            foreach (IMyPowerProducer p in getPowerProducers())
+            {
+                if (p is IMyBatteryBlock || p is IMyReactor)
+                    continue;
+                cur_output += p.CurrentOutput * 1000;
+            }
+            cur_transient_power = cur_output;
+
+            return cur_transient_power;
         }
 
-        // since blocks don't report their power draw, we look at what reactors/batteries
-        // are outputting instead. we don't count solar as those are transient power sources
+        float getMaxPowerOutput(bool force_update = false)
+        {
+            if (!force_update)
+            {
+                return max_power_output;
+            }
+
+            float power_output = 0;
+
+            foreach (IMyPowerProducer p in getPowerProducers())
+            {
+                power_output += p.MaxOutput * 1000;
+            }
+
+            max_power_output = power_output;
+
+            return max_power_output;
+        }
+        
         float getCurPowerDraw(bool force_update = false)
         {
             if (!force_update)
@@ -2885,22 +2874,22 @@ namespace SpaceEngineers
 
             float power_draw = 0;
 
-            // go through all reactors and batteries
-            foreach (IMyReactor b in getReactors())
-            {
-                power_draw += b.CurrentOutput * 1000;
-            }
-            foreach (IMyBatteryBlock b in getBatteries())
-            {
-                power_draw += (b.CurrentOutput - b.CurrentInput) * 1000;
-            }
+            // the API doesn't expose current power usage for
+            // all blocks, so instead we'll use current power output
+            // from all of the producers
 
+            foreach (IMyPowerProducer p in getPowerProducers())
+            {
+                power_draw += p.CurrentOutput * 1000;
+                // batteries are a special case because they have input as well
+                if (p is IMyBatteryBlock b)
+                    power_draw -= b.CurrentInput * 1000;
+            }
             cur_power_draw = power_draw;
 
             return cur_power_draw;
         }
 
-        // blocks don't report their max power draw, so we're forced to parse DetailedInfo
         float getMaxPowerDraw(bool force_update = false)
         {
             if (!force_update)
@@ -2915,53 +2904,14 @@ namespace SpaceEngineers
             {
                 if (b is IMyBatteryBlock)
                     continue;
-                // if this is a thruster
-                if (b is IMyThrust)
-                {
-                    var typename = b.BlockDefinition.SubtypeName;
-                    float thrust_draw;
-                    bool found = thrust_power.TryGetValue(typename, out thrust_draw);
-                    if (found)
-                    {
-                        power_draw += thrust_draw;
-                    }
-                    else
-                    {
-                        thrust_draw = getBlockPowerUse(b);
-                        if (thrust_draw == 0)
-                        {
-                            throw new BarabasException("Unknown thrust type", this);
-                        }
-                        else
-                        {
-                            power_draw += thrust_draw;
-                        }
-                    }
-                }
-                // it's a regular block
-                else
-                {
-                    power_draw += getBlockPowerUse(b);
-                }
+                power_draw += getBlockPowerUse(b);
             }
             // add 10% to account for various misc stuff like conveyors etc
-            power_draw *= 1.1F;
-
-            if (getMaxBatteryPowerOutput() + getCurReactorPowerOutput() == 0)
-            {
-                max_power_draw = power_draw;
-            }
-            else
-            {
-                // now, check if we're not overflowing the reactors and batteries
-                max_power_draw = (float)Math.Min(power_draw, getMaxBatteryPowerOutput() + getCurReactorPowerOutput());
-            }
+            max_power_draw = power_draw * 1.1F;
 
             return max_power_draw;
         }
 
-        // parse DetailedInfo for power use information - this shouldn't exist, but
-        // the API is deficient, sooo...
         float getBlockPowerUse(IMyTerminalBlock b)
         {
             if (b is IMyThrust)
@@ -2996,7 +2946,7 @@ namespace SpaceEngineers
 
         bool powerAboveHighWatermark()
         {
-            var stored_power = getBatteryStoredPower() + getReactorStoredPower();
+            var stored_power = getStoredPower();
 
             // check if we have enough uranium ingots to fill all local reactors and
             // have a few spare ones
@@ -3044,7 +2994,7 @@ namespace SpaceEngineers
             {
                 power_draw = getCurPowerDraw();
             }
-            return getBatteryStoredPower() + getReactorStoredPower() > getPowerLowWatermark(power_draw);
+            return getStoredPower() > getPowerLowWatermark(power_draw);
         }
 
         // push uranium into reactors, optionally push ALL uranium into reactors
@@ -3059,8 +3009,8 @@ namespace SpaceEngineers
             foreach (IMyReactor reactor in reactors)
             {
                 var rinv = reactor.GetInventory(0);
-                float r_proportion = reactor.MaxOutput * 1000 / getMaxReactorPowerOutput();
-                float r_power_draw = getMaxPowerDraw() * (r_proportion);
+                // always assume 100% power load for reactors
+                float r_power_draw = reactor.MaxOutput * 1000;
                 float ingots_per_reactor = getPowerHighWatermark(r_power_draw) / URANIUM_INGOT_POWER;
                 float ingots_in_reactor = getTotalIngots(reactor, 0, U);
                 if ((ingots_in_reactor < ingots_per_reactor) || force)
@@ -3100,15 +3050,10 @@ namespace SpaceEngineers
                             return false;
                         }
                     }
-                    float amount;
-                    float p_amount = (float)Math.Round(orig_amount * r_proportion, 4);
-                    if (force)
+                    float amount = orig_amount;
+                    if (!force)
                     {
-                        amount = p_amount;
-                    }
-                    else
-                    {
-                        amount = (float)Math.Min(p_amount, ingots_per_reactor - ingots_in_reactor);
+                        amount = (float)Math.Min(amount, ingots_per_reactor - ingots_in_reactor);
                     }
 
                     // don't leave change, we've expended this ingot
@@ -3149,9 +3094,8 @@ namespace SpaceEngineers
                     consolidate(inv);
                 }
                 float ingots = getTotalIngots(r, 0, U);
-                float r_power_draw = getMaxPowerDraw() *
-                    ((r.MaxOutput * 1000) / (getMaxReactorPowerOutput() + getMaxBatteryPowerOutput()));
-                float ingots_per_reactor = getPowerHighWatermark(r_power_draw);
+                float power_draw = r.MaxOutput * 1000;
+                float ingots_per_reactor = getPowerHighWatermark(power_draw) / URANIUM_INGOT_POWER;
                 if (ingots > ingots_per_reactor)
                 {
                     float amount = ingots - ingots_per_reactor;
@@ -5130,14 +5074,11 @@ namespace SpaceEngineers
         {
             has_reactors = getReactors(true).Count > 0;
             getBatteries(true);
-            if (has_reactors)
-            {
-                getMaxReactorPowerOutput(true);
-                getCurReactorPowerOutput(true);
-            }
-            getMaxBatteryPowerOutput(true);
+            getMaxPowerOutput(true);
             getCurPowerDraw(true);
             getMaxPowerDraw(true);
+            getTransientPower(true);
+            getStoredPower(true);
         }
 
         void s_refreshOxyHydro()
@@ -5226,7 +5167,7 @@ namespace SpaceEngineers
         {
             // determine if we need more uranium
             bool above_high_watermark = powerAboveHighWatermark();
-            var max_pwr_output = getCurReactorPowerOutput() + getMaxBatteryPowerOutput();
+            var max_pwr_output = getMaxPowerOutput();
 
             // if we have enough uranium ingots, business as usual
             if (!above_high_watermark)
@@ -5258,12 +5199,18 @@ namespace SpaceEngineers
             if (max_pwr_output != 0)
             {
                 // figure out how much time we have on batteries and reactors
-                float stored_power = getBatteryStoredPower() + getReactorStoredPower();
-                // prevent division by zero
-                var max_pwr_draw = (float)Math.Max(getMaxPowerDraw(), 0.001F);
-                var cur_pwr_draw = (float)Math.Max(getCurPowerDraw(), 0.001F);
+                float stored_power = getStoredPower();
+                // transient power will offset some of the power draw
+                var max_pwr_draw = getMaxPowerDraw() - getTransientPower();
+                var cur_pwr_draw = getCurPowerDraw() - getTransientPower();
+                // prevent division by zero or negatives
+                max_pwr_draw = (float)Math.Max(max_pwr_draw, 0.001F);
+                cur_pwr_draw = (float)Math.Max(cur_pwr_draw, 0.001F);
+
+                // we're averaging over current and previous value
                 var adjusted_pwr_draw = (cur_pwr_draw + prev_pwr_draw) / 2;
                 prev_pwr_draw = cur_pwr_draw;
+
                 float time;
                 string time_str;
                 if (isShipMode() && connected_to_base)
