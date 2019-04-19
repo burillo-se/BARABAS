@@ -197,6 +197,7 @@ namespace SpaceEngineers
             { CS_PULL_INGOTS, "" },
             { CS_PULL_COMPONENTS, "" },
             { CS_KEEP_GRAVEL, "" },
+            { CS_MATERIAL_THRESHOLD_MULT, "" },
             { CS_SORT_STORAGE, "" },
             { CS_UPDATE_PERIOD, "" },
             { CS_GREEN_MODE, "" },
