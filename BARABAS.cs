@@ -440,8 +440,10 @@ namespace SpaceEngineers
         float max_power_output;
         float cur_stored_power;
         float cur_transient_power;
-        float cur_oxygen_level;
-        float cur_hydrogen_level;
+        float cur_stored_oxygen;
+        float cur_stored_hydrogen;
+        float cur_oxygen_capacity;
+        float cur_hydrogen_capacity;
         bool tried_throwing = false;
         bool auto_refuel_ship;
         bool prioritize_uranium = false;
@@ -485,6 +487,13 @@ namespace SpaceEngineers
 
         // power constants - in kWatts
         const float URANIUM_INGOT_POWER = 68760;
+
+        // gas goes 10L per kg of ice
+        const float ICE_TO_GAS_RATIO = 10;
+        const float LARGE_H2_TANK_CAPACITY = 5000000;
+        const float LARGE_O2_TANK_CAPACITY = 100000;
+        const float SMALL_H2_TANK_CAPACITY = 160000;
+        const float SMALL_O2_TANK_CAPACITY = 50000;
 
         class ItemHelper
         {
@@ -3896,6 +3905,7 @@ namespace SpaceEngineers
 
         bool oxygenAboveHighWatermark()
         {
+            float cur_oxygen_level = getStoredOxygen() / getOxygenCapacity();
             if (has_oxygen_tanks && o2_hi_wm > 0 && cur_oxygen_level < o2_hi_wm)
             {
                 return false;
@@ -3905,6 +3915,7 @@ namespace SpaceEngineers
 
         bool hydrogenAboveHighWatermark()
         {
+            float cur_hydrogen_level = getStoredOxygen() / getHydrogenCapacity();
             if (has_hydrogen_tanks && h2_hi_wm > 0 && cur_hydrogen_level < h2_hi_wm)
             {
                 return false;
@@ -3917,32 +3928,72 @@ namespace SpaceEngineers
             return oxygenAboveHighWatermark() && hydrogenAboveHighWatermark();
         }
 
-        float getStoredOxygen()
+        float getOxygenCapacity()
         {
-            if (!can_refine_ice)
-            {
-                return 0;
-            }
             int n_oxygen_tanks = getOxygenTanks().Count;
-            float capacity = large_grid ? 100000 : 50000;
-            float total_capacity = n_oxygen_tanks * capacity;
-            float ice_to_oxygen_ratio = 9;
-            float stored_oxygen = ore_status[ICE] * ice_to_oxygen_ratio;
-            return stored_oxygen / total_capacity * 100;
+            float capacity = large_grid ? LARGE_O2_TANK_CAPACITY : SMALL_O2_TANK_CAPACITY;
+            return capacity * n_oxygen_tanks;
         }
 
-        float getStoredHydrogen()
+        float getHydrogenCapacity()
+        {
+            int n_hydrogen_tanks = getHydrogenTanks().Count;
+            float capacity = large_grid ? LARGE_H2_TANK_CAPACITY : SMALL_H2_TANK_CAPACITY;
+            return capacity * n_hydrogen_tanks;
+        }
+
+        float getStoredOxygen(bool forced_update = false)
+        {
+            if (!forced_update)
+            {
+                return cur_stored_oxygen;
+            }
+            float capacity = large_grid ? LARGE_O2_TANK_CAPACITY : SMALL_O2_TANK_CAPACITY;
+            float cur = 0;
+            foreach (IMyGasTank tank in getOxygenTanks())
+            {
+                cur += (float)tank.FilledRatio * capacity;
+            }
+
+            cur_stored_oxygen = cur;
+
+            return cur_stored_oxygen;
+        }
+
+        float getStoredHydrogen(bool forced_update = false)
+        {
+            if (!forced_update)
+            {
+                return cur_stored_hydrogen;
+            }
+            float capacity = large_grid ? LARGE_H2_TANK_CAPACITY : SMALL_H2_TANK_CAPACITY;
+            float cur = 0;
+            foreach (IMyGasTank tank in getHydrogenTanks())
+            {
+                cur += (float)tank.FilledRatio * capacity;
+            }
+
+            cur_stored_hydrogen = cur;
+
+            return cur_stored_hydrogen;
+        }
+
+        float getOxygenInIce()
         {
             if (!can_refine_ice)
             {
                 return 0;
             }
-            int n_hydrogen_tanks = getHydrogenTanks().Count;
-            float capacity = large_grid ? 2500000 : 40000;
-            float total_capacity = n_hydrogen_tanks * capacity;
-            float ice_to_hydrogen_ratio = large_grid ? 9 : 4;
-            float stored_hydrogen = ore_status[ICE] * ice_to_hydrogen_ratio;
-            return stored_hydrogen / total_capacity * 100;
+            return ingot_status[ICE] * ICE_TO_GAS_RATIO;
+        }
+
+        float getHydrogenInIce()
+        {
+            if (!can_refine_ice)
+            {
+                return 0;
+            }
+            return ingot_status[ICE] * ICE_TO_GAS_RATIO;
         }
         #endregion
 
@@ -5118,6 +5169,8 @@ namespace SpaceEngineers
             has_oxygen_tanks = getOxygenTanks(true).Count > 0;
             has_hydrogen_tanks = getHydrogenTanks(true).Count > 0;
             can_use_oxygen = has_oxygen_tanks && has_air_vents;
+            getStoredOxygen(true);
+            getStoredHydrogen(true);
         }
 
         void s_refreshTools()
@@ -5685,26 +5738,18 @@ namespace SpaceEngineers
             // display oxygen and hydrogen stats
             if (has_oxygen_tanks || has_hydrogen_tanks)
             {
-                float oxy_cur = 0, oxy_total = 0;
-                float hydro_cur = 0, hydro_total = 0;
-                var tanks = getOxygenTanks();
-                foreach (IMyGasTank tank in tanks)
-                {
-                    oxy_cur += (float) tank.FilledRatio;
-                    oxy_total += 1;
-                }
-                tanks = getHydrogenTanks();
-                foreach (IMyGasTank tank in tanks)
-                {
-                    hydro_cur += (float) tank.FilledRatio;
-                    hydro_total += 1;
-                }
-                cur_oxygen_level = has_oxygen_tanks ? (oxy_cur / oxy_total) * 100 : 0;
-                cur_hydrogen_level = has_hydrogen_tanks ? (hydro_cur / hydro_total) * 100 : 0;
-                string oxy_str = !has_oxygen_tanks ? "N/A" : String.Format("{0:0.0}%",
-                    cur_oxygen_level);
-                string hydro_str = !has_hydrogen_tanks ? "N/A" : String.Format("{0:0.0}%",
-                    cur_hydrogen_level);
+                float oxy_cur = getStoredOxygen(), oxy_total = getOxygenCapacity();
+                float hydro_cur = getStoredHydrogen(), hydro_total = getHydrogenCapacity();
+                
+                float cur_oxygen_level = has_oxygen_tanks ? (oxy_cur / oxy_total) * 100 : 0;
+                float cur_hydrogen_level = has_hydrogen_tanks ? (hydro_cur / hydro_total) * 100 : 0;
+
+                string oxy_str = !has_oxygen_tanks ?
+                    "N/A" :
+                    String.Format("{0:0.0}% ({1})", cur_oxygen_level, getMagnitudeStr(oxy_cur));
+                string hydro_str = !has_hydrogen_tanks ?
+                    "N/A" :
+                    String.Format("{0:0.0}% ({1})", cur_hydrogen_level, getMagnitudeStr(hydro_cur));
 
                 if (has_oxygen_tanks && o2_lo_wm > 0 && cur_oxygen_level + getStoredOxygen() < o2_lo_wm)
                 {
