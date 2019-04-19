@@ -2964,35 +2964,24 @@ namespace SpaceEngineers
         // the API is deficient, sooo...
         float getBlockPowerUse(IMyTerminalBlock b)
         {
-            var power_regex = new System.Text.RegularExpressions.Regex("Max Required Input: ([\\d\\.]+)( \\w?)W");
-            var cur_regex = new System.Text.RegularExpressions.Regex("Current Input: ([\\d\\.]+)( \\w?)W");
-            var power_match = power_regex.Match(b.DetailedInfo);
-            var cur_match = cur_regex.Match(b.DetailedInfo);
-            if (!power_match.Success && !cur_match.Success)
+            if (b is IMyThrust)
             {
-                return 0;
+                var typename = b.BlockDefinition.SubtypeName;
+                float thrust_draw;
+                if (thrust_power.TryGetValue(typename, out thrust_draw))
+                {
+                    return thrust_draw;
+                }
             }
+            MyDefinitionId ElectricityId = MyDefinitionId.Parse("MyObjectBuilder_GasProperties/Electricity");
 
-            float cur = 0, max = 0;
-            if (power_match.Groups[1].Success && power_match.Groups[2].Success)
+            var sink = b.Components.Get<MyResourceSinkComponent>();
+            if (sink != null && sink.AcceptedResources.Contains(ElectricityId))
             {
-                bool result = float.TryParse(power_match.Groups[1].Value, out max);
-                if (!result)
-                {
-                    throw new BarabasException("Invalid detailed info format!", this);
-                }
-                max *= (float)getMagnitude(power_match.Groups[2].Value.Last());
+                return sink.MaxRequiredInputByType(ElectricityId) * 1000F;
             }
-            if (cur_match.Groups[1].Success && cur_match.Groups[2].Success)
-            {
-                bool result = float.TryParse(cur_match.Groups[1].Value, out cur);
-                if (!result)
-                {
-                    throw new BarabasException("Invalid detailed info format!", this);
-                }
-                cur *= (float)getMagnitude(cur_match.Groups[2].Value.Last());
-            }
-            return Math.Max(cur, max) / 1000f; // power is in kiloWatts
+            // we couldn't get block's power use
+            return 0;
         }
 
         float getPowerHighWatermark(float power_use)
