@@ -5438,16 +5438,19 @@ namespace SpaceEngineers
                 string cur_str = String.Format("{0:0.0}%", adjusted_pwr_draw / max_pwr_output * 100);
                 status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
 
-                if (stored_power_thresh == 0 && time < 5)
+                // we don't want to enter crisis mode on a ship
+                bool can_crisis = !isShipMode();
+
+                if (can_crisis && stored_power_thresh == 0 && time < 5)
                 {
                     // we're in a crisis - we have no power left, so shut everything down
                     crisis_mode = CrisisMode.CRISIS_MODE_NO_POWER;
-                    // remember the amount of power we had when we had to shut everything down,
                     addAlert(AlertLevel.ALERT_BLUE);
+                    // remember the amount of power we had when we had to shut everything down,
                     // and wait until we get 3 times that much power before we exit crisis mode
                     stored_power_thresh = stored_power * 3;
                 }
-                else if (stored_power < stored_power_thresh)
+                else if (can_crisis && stored_power < stored_power_thresh)
                 {
                     // we still don't have enough stored power to exit crisis mode
                     crisis_mode = CrisisMode.CRISIS_MODE_NO_POWER;
