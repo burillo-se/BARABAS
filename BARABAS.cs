@@ -16,6 +16,7 @@ using VRage.Game.ModAPI.Ingame;
 using SpaceEngineers.Game.ModAPI.Ingame;
 using VRage.Game;
 using Sandbox.Game.EntityComponents;
+using System.Text.RegularExpressions;
 
 namespace SpaceEngineers
 {
@@ -2232,8 +2233,8 @@ namespace SpaceEngineers
                 removeAlert(AlertLevel.ALERT_RED);
                 return;
             }
-            float storageLoad = getTotalStorageLoad();
-            if (storageLoad >= 0.98F)
+            float load = getTotalStorageLoad();
+            if (load >= 0.98F)
             {
                 addAlert(AlertLevel.ALERT_RED);
                 removeAlert(AlertLevel.ALERT_YELLOW);
@@ -2271,7 +2272,7 @@ namespace SpaceEngineers
                 removeAlert(AlertLevel.ALERT_RED);
             }
 
-            if (crisis_mode == CrisisMode.CRISIS_MODE_THROW_ORE && storageLoad < 0.98F)
+            if (crisis_mode == CrisisMode.CRISIS_MODE_THROW_ORE && load < 0.98F)
             {
                 // exit crisis mode, but "tried_throwing" still reminds us that we
                 // have just thrown out ore - if we end up in a crisis again, we'll
@@ -2280,23 +2281,23 @@ namespace SpaceEngineers
                 tried_throwing = true;
                 storeTrash(true);
             }
-            if (storageLoad >= 0.75F && storageLoad < 0.98F)
+            if (load >= 0.75F && load < 0.98F)
             {
                 storeTrash();
                 addAlert(AlertLevel.ALERT_YELLOW);
             }
-            else if (storageLoad < 0.75F)
+            else if (load < 0.75F)
             {
                 removeAlert(AlertLevel.ALERT_YELLOW);
                 storeTrash();
-                if (storageLoad < 0.98F && isBaseMode())
+                if (load < 0.98F && isBaseMode())
                 {
                     tried_throwing = false;
                 }
             }
             float mass = getTotalStorageMass();
 
-            status_report[STATUS_STORAGE_LOAD] = String.Format("{0}% / {1}", (float)Math.Round(storageLoad * 100, 0), getMagnitudeStr(mass));
+            status_report[STATUS_STORAGE_LOAD] = String.Format("{0}% / {1}", (float)Math.Round(load * 100, 0), getMagnitudeStr(mass));
         }
 
         void turnOffConveyors()
@@ -3434,17 +3435,17 @@ namespace SpaceEngineers
                 float orig_amount = (float)Math.Round((float)item.Item.Amount / rs.Count, 4);
                 float amount = (float)Math.Min(CHUNK_SIZE, orig_amount);
                 // now, go through every refinery and do the transfer
-                for (int r = 0; r < rs.Count; r++)
+                for (int ri = 0; ri < rs.Count; ri++)
                 {
                     // if we're last in the list, send it all
-                    if (r == rs.Count - 1 && amount < CHUNK_SIZE)
+                    if (ri == rs.Count - 1 && amount < CHUNK_SIZE)
                     {
                         amount = 0;
                     }
-                    var refinery = rs[r];
-                    removeBlockAlert(refinery, ALERT_CLOGGED);
-                    var in_inv = refinery.GetInventory(0);
-                    var out_inv = refinery.GetInventory(1);
+                    var r = rs[ri];
+                    removeBlockAlert(r, ALERT_CLOGGED);
+                    var in_inv = r.GetInventory(0);
+                    var out_inv = r.GetInventory(1);
                     float input_load = (float)in_inv.CurrentVolume / (float)in_inv.MaxVolume;
                     if (canAcceptOre(in_inv, ore) || ore == ICE)
                     {
@@ -3454,7 +3455,7 @@ namespace SpaceEngineers
                         {
                             var i = new List<MyInventoryItem>();
                             in_inv.GetItems(i);
-                            if (Transfer(item.Owner, item.InvIdx, refinery, 0, item.Index, i.Count, true, null))
+                            if (Transfer(item.Owner, item.InvIdx, r, 0, item.Index, i.Count, true, null))
                             {
                                 break;
                             }
@@ -4587,17 +4588,20 @@ namespace SpaceEngineers
             // backwards compatibility
             if (str == CS_KEEP_STONE)
                 str = CS_KEEP_GRAVEL;
-            var strval = strs[1].ToLower().Trim();
             if (!config_options.ContainsKey(str))
             {
                 throw new BarabasException("Invalid config option: " + str, this);
             }
+            var strval = strs[1].ToLower().Trim();
+            // remove non-printable characters
+            strval = System.Text.RegularExpressions.Regex.Replace(strval, @"[^\u0020-\u007E]", string.Empty);
             // now, try to parse it
             bool fail = false;
             bool bval, bparse, fparse;
             float fval;
             bparse = Boolean.TryParse(strval, out bval);
             fparse = float.TryParse(strval, out fval);
+
             // op mode
             if (clStrCompare(str, CS_OP_MODE))
             {
@@ -4798,7 +4802,7 @@ namespace SpaceEngineers
                 if (strval == "trigger")
                 {
                     trigger_mode = true;
-                } else if (fval >= 0.1f)
+                } else if (fparse && fval >= 0.1f)
                 {
                     trigger_mode = false;
                     update_period = fval;
@@ -4812,7 +4816,7 @@ namespace SpaceEngineers
                 if (strval == "auto")
                 {
                     material_threshold_multiplier = 1;
-                } else if (fval >= 0.1f)
+                } else if (fparse && fval >= 0.1f)
                 {
                     material_threshold_multiplier = fval;
                 } else
@@ -5163,9 +5167,9 @@ namespace SpaceEngineers
 
         void displayStatusReport()
         {
-            var panels = getTextPanels();
+            var ps = getTextPanels();
 
-            if (panels.Count == 0)
+            if (ps.Count == 0)
             {
                 return;
             }
@@ -5211,7 +5215,7 @@ namespace SpaceEngineers
                 }
                 sb.AppendLine(String.Format("{0}: {1}", pair.Key, pair.Value));
             }
-            foreach (IMyTextPanel panel in panels)
+            foreach (IMyTextPanel panel in ps)
             {
                 panel.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
                 panel.WriteText(sb);
@@ -5917,32 +5921,32 @@ namespace SpaceEngineers
             state_cycle_counts[current_state] = cur_i - cur_cycle_count;
 
             // how many cycles did the next state take when it was last executed?
-            var last_cycle_count = state_cycle_counts[next_state];
+            var last = state_cycle_counts[next_state];
 
             // estimate cycle count after executing the next state
-            int projected_cycle_count = cur_i + last_cycle_count;
+            int projected = cur_i + last;
 
             // given our estimate, how are we doing with regards to IL count limits?
-            float cycle_p = projected_cycle_count / Runtime.MaxInstructionCount;
+            float cycle_p = projected / Runtime.MaxInstructionCount;
 
             // if we never executed the next state, we leave 60% headroom for our next
             // state (for all we know it could be a big state), otherwise leave at 20%
             // because we already know how much it usually takes and it's unlikely to
             // suddenly become much bigger than what we've seen before
-            var cycle_thresh = canEstimate ? 0.8F : 0.4F;
+            var thresh = canEstimate ? 0.8F : 0.4F;
 
             // if we're in green mode, set our threshold to 10%
-            cycle_thresh = green_mode ? 0.1F : cycle_thresh;
+            thresh = green_mode ? 0.1F : thresh;
 
             // check if we are exceeding our stated thresholds (projected 80% cycle
             // count for known states, or 40% up to this point for unknown states)
-            bool haveEnoughHeadroom = cycle_p <= cycle_thresh;
+            bool haveHeadroom = cycle_p <= thresh;
 
             // advance current state and store IL count values
             current_state = next_state;
             cur_cycle_count = cur_i;
 
-            return haveEnoughHeadroom && next_state != 0;
+            return haveHeadroom && next_state != 0;
         }
 
         // check if we are disabled or if we should disable other BARABAS instances
