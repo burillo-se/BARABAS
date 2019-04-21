@@ -220,7 +220,7 @@ namespace SpaceEngineers
         // map block definition to list of ores it can refine
         readonly Dictionary<string, HashSet<string>> block_refine_map = new Dictionary<string, HashSet<string>> {
             { "MyObjectBuilder_Refinery/LargeRefinery", new HashSet<string> {CO, AU, FE, MG, NI, PT, SI, AG, U, STONE, ICE, SCRAP} },
-            { "MyObjectBuilder_Refinery/Blast Furnace", new HashSet<string> {CO, FE, NI, SCRAP} },
+            { "MyObjectBuilder_Refinery/Blast Furnace", new HashSet<string> {CO, FE, NI, SCRAP, STONE} },
             { "MyObjectBuilder_OxygenGenerator/", new HashSet<string> {ICE} },
         };
 
