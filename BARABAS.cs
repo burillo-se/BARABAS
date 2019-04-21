@@ -16,7 +16,6 @@ using VRage.Game.ModAPI.Ingame;
 using SpaceEngineers.Game.ModAPI.Ingame;
 using VRage.Game;
 using Sandbox.Game.EntityComponents;
-using SpaceEngineers.Game.Entities.Blocks;
 
 namespace SpaceEngineers
 {
