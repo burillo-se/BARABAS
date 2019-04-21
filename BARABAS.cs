@@ -430,7 +430,7 @@ namespace SpaceEngineers
             { ALERT_CRISIS_THROW_OUT, "Crisis: throwing out ore" },
             { ALERT_CRISIS_LOCKUP, "Crisis: locked up" },
             { ALERT_CRISIS_STANDBY, "Crisis: standing by" },
-            { ALERT_CRISIS_CRITICAL_POWER, "Crisis: critical power" },
+            { ALERT_CRISIS_CRITICAL_POWER, "Crisis: power level critical" },
             { ALERT_DISCONNECTED, "Block not connected" },
         };
 
@@ -5434,7 +5434,7 @@ namespace SpaceEngineers
                 string cur_str = String.Format("{0:0.0}%", adjusted_pwr_draw / max_pwr_output * 100);
                 status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
 
-                if (time < 5)
+                if (stored_power_thresh == 0 && time < 5)
                 {
                     // we're in a crisis - we have no power left, so shut everything down
                     crisis_mode = CrisisMode.CRISIS_MODE_NO_POWER;
