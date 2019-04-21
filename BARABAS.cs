@@ -4706,7 +4706,6 @@ namespace SpaceEngineers
                 else if (strval == "all")
                 {
                     throw_out_gravel = false;
-                    material_thresholds[STONE] = 5000;
                 }
                 else if (strval == "none")
                 {
@@ -5400,7 +5399,7 @@ namespace SpaceEngineers
                 var adjusted_pwr_draw = (cur_pwr_draw + prev_pwr_draw) / 2;
                 prev_pwr_draw = cur_pwr_draw;
 
-                float time;
+                float time, orig_time;
                 string time_str;
                 if (isShipMode() && connected_to_base)
                 {
@@ -5410,6 +5409,8 @@ namespace SpaceEngineers
                 {
                     time = (float)Math.Round(stored_power / adjusted_pwr_draw, 0);
                 }
+                // calculate minutes remaining
+                orig_time = time;
                 if (time > 300)
                 {
                     time = (float)Math.Floor(time / 60);
@@ -5438,26 +5439,24 @@ namespace SpaceEngineers
                 string cur_str = String.Format("{0:0.0}%", adjusted_pwr_draw / max_pwr_output * 100);
                 status_report[STATUS_POWER_STATS] = String.Format("{0}/{1}/{2}", max_str, cur_str, time_str);
 
-                // we don't want to enter crisis mode on a ship
-                bool can_crisis = !isShipMode();
-
-                if (can_crisis && stored_power_thresh == 0 && time < 5)
+                if (!isShipMode() && stored_power_thresh == 0 && orig_time < 5)
                 {
                     // we're in a crisis - we have no power left, so shut everything down
                     crisis_mode = CrisisMode.CRISIS_MODE_NO_POWER;
                     addAlert(AlertLevel.ALERT_BLUE);
                     // remember the amount of power we had when we had to shut everything down,
-                    // and wait until we get 3 times that much power before we exit crisis mode
+                    // and wait until we get 3 more power before we exit crisis mode
                     stored_power_thresh = stored_power * 3;
                 }
-                else if (can_crisis && stored_power < stored_power_thresh)
+                else if (stored_power < stored_power_thresh)
                 {
                     // we still don't have enough stored power to exit crisis mode
                     crisis_mode = CrisisMode.CRISIS_MODE_NO_POWER;
                     addAlert(AlertLevel.ALERT_BLUE);
                 }
-                else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER)
+                else if (crisis_mode == CrisisMode.CRISIS_MODE_NO_POWER || connected_to_base)
                 {
+                    // if we're connected to base, assume crisis is averted
                     crisis_mode = CrisisMode.CRISIS_MODE_NONE;
                     stored_power_thresh = 0;
                 }
@@ -5473,7 +5472,6 @@ namespace SpaceEngineers
 
             if (crisis_mode == CrisisMode.CRISIS_MODE_NONE)
             {
-                bool can_refuel = isShipMode() && connected_to_base;
                 if (refillReactors())
                 {
                     pushSpareUraniumToStorage();
@@ -5594,8 +5592,8 @@ namespace SpaceEngineers
             else if (crisis_mode == CrisisMode.CRISIS_MODE_THROW_ORE)
             {
                 // if we can't even throw out ore, well, all bets are off
-                string ore = getBiggestOre();
-                if ((ore != null && !throwOutOre(ore, 0, true)) || ore == null)
+                string o = getBiggestOre();
+                if ((o != null && !throwOutOre(o, 0, true)) || o == null)
                 {
                     storeTrash(true);
                     crisis_mode = CrisisMode.CRISIS_MODE_LOCKUP;
@@ -5707,8 +5705,6 @@ namespace SpaceEngineers
             var blocks = getBlocks();
             foreach (var b in blocks)
             {
-                bool isAssembler = b is IMyAssembler;
-
                 for (int j = 0; j < b.InventoryCount; j++)
                 {
                     var items = new List<MyInventoryItem>();
@@ -5747,7 +5743,7 @@ namespace SpaceEngineers
                         }
                     }
                 }
-                if (isAssembler)
+                if (b is IMyAssembler)
                 {
                     // add all ore that's needed in assembler to the list
                     var a = b as IMyAssembler;
@@ -5776,25 +5772,25 @@ namespace SpaceEngineers
             }
             bool alert = false;
             var sb = new StringBuilder();
-            foreach (var ore in ore_types)
+            foreach (var o in ore_types)
             {
                 float total_ingots = 0;
-                float total_ore = ore_status[ore];
+                float total_ore = ore_status[o];
                 float total = 0;
                 bool has_stone = false;
-                if (ore != ICE)
+                if (o != ICE)
                 {
-                    total_ingots = ingot_status[ore];
+                    total_ingots = ingot_status[o];
                     // check if ore is produced by stone, but exclude stone itself to avoid counting twice
-                    bool is_stone_ore = (ore != STONE) && ore_to_ingot_ratios[STONE].ContainsKey(ore);
-                    if (ore == U)
+                    bool is_stone_ore = (o != STONE) && ore_to_ingot_ratios[STONE].ContainsKey(o);
+                    if (o == U)
                     {
                         total_ingots -= uranium_in_reactors;
                     }
-                    total = (total_ore * ore_to_ingot_ratios[ore][ore]) + total_ingots;
+                    total = (total_ore * ore_to_ingot_ratios[o][o]) + total_ingots;
                     if (is_stone_ore)
                     {
-                        total += (ore_status[STONE] * ore_to_ingot_ratios[STONE][ore]);
+                        total += (ore_status[STONE] * ore_to_ingot_ratios[STONE][o]);
                         has_stone = true;
                     }
                 }
@@ -5810,11 +5806,11 @@ namespace SpaceEngineers
                         continue;
                     }
                     sb.Append("\n  ");
-                    sb.Append(ore);
+                    sb.Append(o);
                     sb.Append(": ");
                     sb.Append(roundStr(total_ore));
 
-                    if (ore != ICE)
+                    if (o != ICE)
                     {
                         sb.Append(" / ");
                         sb.Append(roundStr(total_ingots));
@@ -5829,7 +5825,7 @@ namespace SpaceEngineers
                     }
                 }
 
-                if (ore != ICE && can_use_ingots && total < (material_thresholds[ore] * material_threshold_multiplier))
+                if (o != ICE && can_use_ingots && total < (material_thresholds[o] * material_threshold_multiplier))
                 {
                     alert = true;
                     if (has_status_panels)
