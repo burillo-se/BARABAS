@@ -4715,7 +4715,7 @@ namespace SpaceEngineers
                 else if (strval == "auto")
                 {
                     throw_out_gravel = true;
-                    material_thresholds[STONE] = 5000;
+                    material_thresholds[STONE] = 400;
                 }
                 else
                 {
