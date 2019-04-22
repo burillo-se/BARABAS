@@ -226,16 +226,16 @@ namespace SpaceEngineers
 
         // ballpark values of "just enough" for each material
         readonly Dictionary<string, float> material_thresholds = new Dictionary<string, float> {
-            { CO, 500 },
-            { AU, 100 },
-            { FE, 5000 },
+            { CO, 1000 },
+            { AU, 150 },
+            { FE, 15000 },
             { MG, 100 },
             { NI, 1000 },
-            { PT, 10 },
-            { SI, 1000 },
-            { AG, 1000 },
-            { U, 10 },
-            { STONE, 5000 },
+            { PT, 20 },
+            { SI, 1500 },
+            { AG, 200 },
+            { U, 0 },
+            { STONE, 400 },
         };
 
         readonly Dictionary<string, Dictionary<string, float>> ore_to_ingot_ratios = new Dictionary<string, Dictionary<string, float>> {
